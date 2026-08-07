@@ -1,213 +1,577 @@
 // services/examService.js
 
-const STORAGE_KEY = "app_exams";
+import { db } from "../firebase.js";
 
-export function getExams() {
-  try {
-    const exams = JSON.parse(
-      localStorage.getItem(STORAGE_KEY) ||
-      localStorage.getItem("exams") ||
-      "[]"
+import {
+  collection,
+  getDocs,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+  getDoc
+} from "firebase/firestore";
+
+
+const EXAMS_COLLECTION = "exams";
+
+
+
+function normalizeQuestion(q = {}) {
+
+  const correct =
+    q.correctAnswerIndex ??
+    q.correctIndex ??
+    q.rightIndex ??
+    q.correctAnswer ??
+    q.answer ??
+    0;
+
+
+  return {
+
+    question:
+      q.question ||
+      q.text ||
+      "",
+
+
+    text:
+      q.text ||
+      q.question ||
+      "",
+
+
+    image:
+      q.image ||
+      q.questionImage ||
+      "",
+
+
+    questionImage:
+      q.questionImage ||
+      q.image ||
+      "",
+
+
+
+    options:
+      Array.isArray(q.options)
+        ? q.options
+        : [],
+
+
+
+    correctIndex:
+      Number(correct),
+
+
+    correctAnswerIndex:
+      Number(correct),
+
+
+    answer:
+      Number(correct),
+
+
+
+    type:
+      q.type ||
+      "mcq",
+
+
+
+    score:
+      Number(q.score) ||
+      1,
+
+
+
+    maxScore:
+      Number(q.maxScore) ||
+      Number(q.points) ||
+      Number(q.grade) ||
+      Number(q.score) ||
+      1,
+
+
+    studentAnswer:
+      q.studentAnswer ||
+      ""
+
+  };
+
+}
+
+
+
+
+
+export async function getExams() {
+
+  const snapshot =
+    await getDocs(
+      collection(
+        db,
+        EXAMS_COLLECTION
+      )
     );
 
-    return Array.isArray(exams) ? exams : [];
-  } catch {
-    return [];
-  }
+
+  return snapshot.docs.map(item => ({
+
+    firestoreId:
+      item.id,
+
+
+    ...item.data()
+
+  }));
+
 }
 
-export function saveExams(examsArray = []) {
-  const exams = Array.isArray(examsArray) ? examsArray : [];
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(exams));
-  localStorage.setItem("exams", JSON.stringify(exams));
+
+
+
+export async function getExamByFirestoreId(id){
+
+  if(!id)
+    return null;
+
+
+  const snap =
+    await getDoc(
+
+      doc(
+        db,
+        EXAMS_COLLECTION,
+        id
+      )
+
+    );
+
+
+  if(!snap.exists())
+    return null;
+
+
+  return {
+
+    firestoreId:
+      snap.id,
+
+    ...snap.data()
+
+  };
+
 }
 
-export function addExam(newExam) {
-  const exams = getExams();
+
+
+
+
+export async function saveExams() {
+
+  return true;
+
+}
+
+
+
+
+
+export async function addExam(newExam = {}) {
+
 
   const exam = {
+
+
     ...newExam,
-    id: newExam.id || Date.now(),
 
-    title: newExam.title || "",
 
-    subject: newExam.subject || "physics",
+
+    id:
+      newExam.id ||
+      Date.now(),
+
+
+
+    title:
+      newExam.title ||
+      "",
+
+
+
+    subject:
+      newExam.subject ||
+      "physics",
+
+
 
     className:
       newExam.className ||
       newExam.grade ||
       "الصف الأول الثانوي",
 
+
+
     grade:
       newExam.grade ||
       newExam.className ||
       "الصف الأول الثانوي",
 
-    examTime:
-      Number(newExam.examTime) ||
-      Number(newExam.duration) ||
-      30,
+
 
     duration:
       Number(newExam.duration) ||
       Number(newExam.examTime) ||
       30,
 
-    questions: Array.isArray(newExam.questions)
-      ? newExam.questions.map((q) => ({
-          question:
-            q.question ||
-            q.text ||
-            "",
 
-          text:
-            q.text ||
-            q.question ||
-            "",
 
-          image:
-            q.image ||
-            q.questionImage ||
-            "",
+    examTime:
+      Number(newExam.examTime) ||
+      Number(newExam.duration) ||
+      30,
 
-          questionImage:
-            q.questionImage ||
-            q.image ||
-            "",
 
-          options: Array.isArray(q.options)
-            ? q.options
-            : [],
 
-          correctIndex:
-            q.correctIndex ??
-            q.correctAnswerIndex ??
-            q.rightIndex ??
-            q.correctAnswer ??
-            0,
+    passingScore:
+      Number(newExam.passingScore) ||
+      50,
 
-          correctAnswerIndex:
-            q.correctAnswerIndex ??
-            q.correctIndex ??
-            q.rightIndex ??
-            q.correctAnswer ??
-            0,
 
-          type: q.type || "mcq",
 
-          score:
-            Number(q.score) ||
-            1,
+    startDate:
+      newExam.startDate ||
+      "",
 
-          maxScore:
-            Number(q.maxScore) ||
-            Number(q.points) ||
-            Number(q.grade) ||
-            1
-        }))
-      : [],
+
+
+    endDate:
+      newExam.endDate ||
+      "",
+
+
 
     manualClose:
-      newExam.manualClose || false
+      Boolean(
+        newExam.manualClose
+      ),
+
+
+
+    isPublished:
+      newExam.isPublished !== false,
+
+
+
+    questions:
+      Array.isArray(newExam.questions)
+
+        ? newExam.questions.map(
+            normalizeQuestion
+          )
+
+        : []
+
   };
 
-  const oldIndex = exams.findIndex(
-    (e) => e.id == exam.id
-  );
 
-  if (oldIndex === -1) {
-    exams.push(exam);
-  } else {
-    exams[oldIndex] = exam;
+
+  const ref =
+    await addDoc(
+
+      collection(
+        db,
+        EXAMS_COLLECTION
+      ),
+
+      exam
+
+    );
+
+
+
+  return {
+
+    firestoreId:
+      ref.id,
+
+    ...exam
+
+  };
+
+}
+
+
+
+
+
+export async function saveExam(exam){
+
+  return addExam(exam);
+
+}
+
+
+
+
+
+export async function createExamFromExcel(excelData){
+
+
+  const imported =
+    Array.isArray(excelData)
+
+      ? excelData
+
+      : [excelData];
+
+
+
+  for(
+    const exam of imported
+  ){
+
+    await addExam(exam);
+
   }
 
-  saveExams(exams);
 
-  return exam;
-}
-
-export function saveExam(exam) {
-  return addExam(exam);
-}
-
-export function createExamFromExcel(excelData) {
-  const exams = getExams();
-
-  const imported = Array.isArray(excelData)
-    ? excelData
-    : [excelData];
-
-  imported.forEach((exam) => {
-    addExam(exam);
-  });
 
   return getExams();
+
 }
 
-export function getExamById(idOrTitle) {
+
+
+
+
+export async function getExamById(idOrTitle){
+
+
+  const exams =
+    await getExams();
+
+
+
   return (
-    getExams().find(
-      (e) =>
+
+    exams.find(
+
+      e =>
+
         e.id == idOrTitle ||
-        e.title === idOrTitle
-    ) || null
+
+        e.title === idOrTitle ||
+
+        e.firestoreId === idOrTitle
+
+    )
+
+    ||
+
+    null
+
   );
+
 }
 
-export function updateExam(
+
+
+
+
+export async function updateExam(
   idOrTitle,
-  updatedExamData
-) {
-  const exams = getExams();
+  updatedExamData = {}
+){
 
-  const index = exams.findIndex(
-    (e) =>
-      e.id == idOrTitle ||
-      e.title === idOrTitle
-  );
 
-  if (index === -1) return null;
+  const exams =
+    await getExams();
 
-  const oldExam = exams[index];
 
-  exams[index] = {
+
+  const oldExam =
+    exams.find(
+
+      e =>
+
+        e.id == idOrTitle ||
+
+        e.title === idOrTitle ||
+
+        e.firestoreId === idOrTitle
+
+    );
+
+
+
+  if(!oldExam)
+    return null;
+
+
+
+
+  const updatedExam = {
+
+
     ...oldExam,
+
+
     ...updatedExamData,
-    id: oldExam.id,
+
+
+
+    id:
+      oldExam.id,
+
+
+
+    questions:
+
+      Array.isArray(
+        updatedExamData.questions
+      )
+
+      ?
+
+      updatedExamData.questions.map(
+        normalizeQuestion
+      )
+
+      :
+
+      oldExam.questions,
+
+
 
     className:
+
       updatedExamData.className ||
+
       updatedExamData.grade ||
+
       oldExam.className,
 
+
+
     grade:
+
       updatedExamData.grade ||
+
       updatedExamData.className ||
+
       oldExam.grade,
 
+
+
     duration:
-      Number(updatedExamData.duration) ||
-      Number(updatedExamData.examTime) ||
+
+      Number(
+        updatedExamData.duration
+      )
+
+      ||
+
+      Number(
+        updatedExamData.examTime
+      )
+
+      ||
+
       oldExam.duration,
 
+
+
     examTime:
-      Number(updatedExamData.examTime) ||
-      Number(updatedExamData.duration) ||
+
+      Number(
+        updatedExamData.examTime
+      )
+
+      ||
+
+      Number(
+        updatedExamData.duration
+      )
+
+      ||
+
       oldExam.examTime
+
   };
 
-  saveExams(exams);
 
-  return exams[index];
-}
 
-export function deleteExam(idOrTitle) {
-  const exams = getExams().filter(
-    (e) =>
-      e.id != idOrTitle &&
-      e.title !== idOrTitle
+  await updateDoc(
+
+    doc(
+
+      db,
+
+      EXAMS_COLLECTION,
+
+      oldExam.firestoreId
+
+    ),
+
+    updatedExam
+
   );
 
-  saveExams(exams);
+
+
+  return updatedExam;
+
+}
+
+
+
+
+
+export async function deleteExam(idOrTitle){
+
+
+  const exams =
+    await getExams();
+
+
+
+  const exam =
+    exams.find(
+
+      e =>
+
+        e.id == idOrTitle ||
+
+        e.title === idOrTitle ||
+
+        e.firestoreId === idOrTitle
+
+    );
+
+
+
+  if(!exam)
+    return;
+
+
+
+  await deleteDoc(
+
+    doc(
+
+      db,
+
+      EXAMS_COLLECTION,
+
+      exam.firestoreId
+
+    )
+
+  );
+
 }

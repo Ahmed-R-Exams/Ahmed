@@ -1,4 +1,6 @@
 import { examsListPage } from "./examsList.js";
+import { collection, addDoc, doc, setDoc } from "firebase/firestore";
+import { db } from "../firebase.js";
 
 let editingExamData = null;
 
@@ -385,7 +387,7 @@ document.addEventListener("change", (e) => {
   }
 });
 
-document.addEventListener("click", (e) => {
+document.addEventListener("click", async (e) => {
   const app = document.querySelector("#app");
   if (!app) return;
 
@@ -472,15 +474,7 @@ document.addEventListener("click", (e) => {
       };
     });
 
-    let exams = [];
-    try {
-      exams = JSON.parse(localStorage.getItem("app_exams")) || [];
-    } catch {
-      exams = [];
-    }
-
     const newExam = {
-      id: editingExamData?.id || Date.now(),
       title,
       subject,
       className,
@@ -494,14 +488,24 @@ document.addEventListener("click", (e) => {
       questions
     };
 
-    if (editingExamData) {
-      exams = exams.map(e => e.id === editingExamData.id ? newExam : e);
-    } else {
-      exams.unshift(newExam);
-    }
+    const saveBtn = e.target.closest("#btnSaveExam");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "جاري الحفظ...";
 
-    localStorage.setItem("app_exams", JSON.stringify(exams));
-    alert("✅ تم حفظ الامتحان بنجاح ومساحات الأسئلة المقالية");
-    app.innerHTML = examsListPage();
+    try {
+      if (editingExamData && editingExamData.id) {
+        await setDoc(doc(db, "exams", editingExamData.id), newExam);
+      } else {
+        await addDoc(collection(db, "exams"), newExam);
+      }
+      alert("✅ تم حفظ الامتحان بنجاح");
+      editingExamData = null;
+      app.innerHTML = examsListPage();
+    } catch (err) {
+      console.error(err);
+      alert("❌ حصل خطأ أثناء الحفظ، حاول تاني");
+      saveBtn.disabled = false;
+      saveBtn.textContent = "💾 حفظ الامتحان";
+    }
   }
 });

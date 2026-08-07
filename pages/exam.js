@@ -1,8 +1,9 @@
-import { resultsPage } from "./results.js";
+// pages/exam.js
+
+import { saveResult } from "../services/resultService.js";
 
 
 export function examPage() {
-
 
   const studentName =
     localStorage.getItem("studentName") || "طالب";
@@ -21,12 +22,12 @@ export function examPage() {
 
 
   const questions =
-    exam.questions || [];
-
+    Array.isArray(exam.questions)
+      ? exam.questions
+      : [];
 
 
   setTimeout(() => {
-
 
     const form =
       document.getElementById("examSubmitForm");
@@ -35,270 +36,226 @@ export function examPage() {
     if (!form) return;
 
 
+    form.addEventListener(
+      "submit",
+      async (e) => {
 
-    form.addEventListener("submit", (e) => {
-
-
-      e.preventDefault();
-
-
-
-      const formData =
-        new FormData(form);
+        e.preventDefault();
 
 
-
-      let answers = [];
-
-      let score = 0;
-
-      let total = 0;
+        const formData =
+          new FormData(form);
 
 
+        let answers = [];
 
-      questions.forEach((q, index) => {
+        let score = 0;
 
-
-
-        const qType =
-          String(q.type || "")
-            .toLowerCase()
-            .trim();
+        let total = 0;
 
 
-
-        const hasOptions =
-          Array.isArray(q.options) &&
-          q.options.some(
-            x => x && String(x).trim() !== ""
-          );
+        questions.forEach((q,index)=>{
 
 
-
-        const isEssay =
-          qType.includes("essay") ||
-          qType.includes("مقال") ||
-          !hasOptions;
+          const isEssay =
+            isEssayQuestion(q);
 
 
-
-        if (isEssay) {
-
-
-
-          const essayAnswer =
-            formData.get(
-              `question_${index}`
-            ) || "";
+          const qScore =
+            getQuestionScore(q);
 
 
-
-          answers[index] =
-            essayAnswer;
+          total += qScore;
 
 
-
-          total += Number(
-            q.maxScore ||
-            q.grade ||
-            q.points ||
-            1
-          );
+          if(isEssay){
 
 
-
-        } else {
-
-
-
-          const selected =
-            formData.get(
-              `question_${index}`
-            );
+            answers[index] =
+              formData.get(
+                `question_${index}`
+              ) || "";
 
 
-
-          const answer =
-            selected !== null
-              ? Number(selected)
-              : -1;
+          }else{
 
 
-
-          answers[index] =
-            answer;
-
-
-
-          const questionScore =
-            Number(q.score || 1);
-
-
-
-          total += questionScore;
-
-
-
-          const correct =
-            q.correctAnswerIndex !== undefined
-              ? Number(q.correctAnswerIndex)
-              :
-              (
-                q.correctAnswer !== undefined
-                  ? Number(q.correctAnswer)
-                  :
-                  Number(q.rightIndex)
+            const selected =
+              formData.get(
+                `question_${index}`
               );
 
 
+            const answer =
+              selected === null
+                ? -1
+                : Number(selected);
 
-          if (answer === correct) {
+
+            answers[index] = answer;
 
 
-            score += questionScore;
+            if(
+              answer ===
+              getQuestionCorrectAnswer(q)
+            ){
 
+              score += qScore;
+
+            }
 
           }
 
 
-
-        }
-
-
-
-      });
+        });
 
 
 
-      const result = {
+        await saveResult({
+
+          studentName,
+
+          examTitle,
+
+          examId:
+            exam.id || "",
+
+          score,
+
+          total,
+
+          answers,
+
+          questions,
+
+          percentage:
+            calculatePercentage(
+              score,
+              total
+            ),
+
+          date:
+            new Date()
+              .toLocaleString(),
+
+          createdAt:
+            Date.now()
+
+        });
 
 
-        studentName,
 
-
-        examTitle,
-
-
-        score,
-
-
-        total,
-
-
-        answers,
-
-
-        questions,
-
-
-        date:
-          new Date()
-            .toLocaleString(),
-
-
-        timeSpent: 0
-
-
-      };
-
-
-
-      let oldResults =
-        JSON.parse(
-          localStorage.getItem("examResults") || "[]"
+        alert(
+          "✅ تم تسليم الامتحان بنجاح"
         );
 
 
 
-      oldResults.push(result);
+        const app =
+          document.querySelector("#app");
+
+
+        if(app){
+
+          app.innerHTML = `
+
+          <div style="
+          text-align:center;
+          padding:40px;
+          ">
+
+          <h2>
+          تم حفظ النتيجة
+          </h2>
+
+
+          <button
+          onclick="location.reload()"
+          style="
+          padding:12px 25px;
+          background:#16a34a;
+          color:white;
+          border:none;
+          border-radius:10px;
+          cursor:pointer;
+          "
+          >
+
+          العودة
+
+          </button>
+
+
+          </div>
+
+          `;
+
+        }
+
+
+      }
+
+    );
+
+
+  },50);
 
 
 
-      localStorage.setItem(
-        "examResults",
-        JSON.stringify(oldResults)
-      );
+  return `
+
+  <form id="examSubmitForm">
 
 
-
-      alert(
-        "✅ تم تسليم الامتحان بنجاح"
-      );
-
+  <h2>
+  ${examTitle}
+  </h2>
 
 
-      const app =
-        document.querySelector("#app");
+  ${
+    questions.map(
+      (q,index)=>{
 
 
-
-      if (app) {
-
-
-        app.innerHTML = `
+        return `
 
         <div style="
-        max-width:600px;
-        margin:50px auto;
-        padding:30px;
-        text-align:center;
-        direction:rtl;
-        font-family:Cairo;
-        background:#0f172a;
-        color:white;
-        border-radius:20px;
+        background:#fff;
+        padding:20px;
+        margin:20px 0;
+        border-radius:15px;
         ">
 
 
-        <h2>
-        📊 نتيجة الامتحان
-        </h2>
-
-
         <h3>
-        ${studentName}
+        ${index + 1})
+        ${q.question || q.text || ""}
         </h3>
 
 
-        <p>
-        الدرجة:
-        <b>${score}</b>
-        /
-        <b>${total}</b>
-        </p>
-
-
-        <p>
-        النسبة:
-        <b>
         ${
-          total
+          q.image || q.questionImage
           ?
-          Math.round(
-            (score / total) * 100
-          )
+
+          `
+          <img
+          src="${q.image || q.questionImage}"
+          style="
+          max-width:100%;
+          border-radius:10px;
+          margin:15px 0;
+          "
+          >
+          `
+
           :
-          0
-        }%
-        </b>
-        </p>
+
+          ""
+
+        }
 
 
-        <button
-        onclick="location.reload()"
-        style="
-        padding:12px 25px;
-        border:none;
-        border-radius:10px;
-        background:#16a34a;
-        color:white;
-        cursor:pointer;
-        "
-        >
-
-        العودة
-
-        </button>
+        ${renderAnswers(q,index)}
 
 
         </div>
@@ -307,424 +264,117 @@ export function examPage() {
 
 
       }
+    ).join("")
+  }
 
 
-    });
+  <button
+  type="submit"
+  style="
+  width:100%;
+  padding:15px;
+  background:#16a34a;
+  color:white;
+  border:none;
+  border-radius:12px;
+  font-size:18px;
+  cursor:pointer;
+  "
+  >
 
+  تسليم الامتحان
 
-  },50);
+  </button>
 
 
+  </form>
 
-
-return `
-<div id="examSecureContainer"
-
-style="
-max-width:900px;
-margin:auto;
-padding:30px;
-direction:rtl;
-font-family:Cairo,sans-serif;
-user-select:none;
-">
-
-
-<div style="
-background:#0f172a;
-color:white;
-padding:25px;
-border-radius:18px;
-margin-bottom:25px;
-">
-
-
-<h2>
-📝 ${examTitle}
-</h2>
-
-
-
-<div>
-الطالب :
-<b>${studentName}</b>
-</div>
-
-
-
-</div>
-
-
-
-
-
-<form id="examSubmitForm">
-
-
-
-${
-questions.length
-
-?
-
-questions.map((q,index)=>{
-
-
-const qType =
-String(q.type || "")
-.toLowerCase()
-.trim();
-
-
-
-const hasOptions =
-Array.isArray(q.options)
-&&
-q.options.some(
-x=>x && String(x).trim() !== ""
-);
-
-
-
-const isEssay =
-qType.includes("essay")
-||
-qType.includes("مقال")
-||
-!hasOptions;
-
-
-
-return `
-
-
-<div style="
-background:white;
-padding:20px;
-border-radius:15px;
-margin-bottom:20px;
-border:1px solid #ddd;
-color:#1e293b;
-">
-
-
-
-<h3>
-السؤال ${index+1}
-</h3>
-
-
-
-
-<p style="
-font-weight:700;
-font-size:16px;
-">
-
-${q.text || q.question || ""}
-
-</p>
-
-
-
-
-
-${
-q.questionImage || q.image
-
-?
-
-`
-
-<img
-
-src="${
-q.questionImage ||
-q.image
-}"
-
-style="
-max-width:100%;
-border-radius:10px;
-margin:15px 0;
-"
-
->
-
-`
-
-:
-
-""
+  `;
 
 }
 
+function renderAnswers(q,index){
 
+  if(isEssayQuestion(q)){
 
+    return `
 
+    <textarea
 
+    name="question_${index}"
 
-${
-isEssay
+    placeholder="اكتب إجابتك هنا"
 
-?
+    style="
+    width:100%;
+    min-height:120px;
+    padding:15px;
+    border-radius:10px;
+    border:1px solid #ddd;
+    font-size:16px;
+    "
 
-`
+    ></textarea>
 
-<textarea
-
-name="question_${index}"
-
-placeholder="اكتب إجابتك هنا"
-
-style="
-width:100%;
-height:150px;
-padding:15px;
-border-radius:10px;
-border:1px solid #ccc;
-font-family:inherit;
-box-sizing:border-box;
-resize:vertical;
-"
-
-></textarea>
-
-
-`
-
-:
-
-(q.options || [])
-
-.filter(
-op=>op && String(op).trim() !== ""
-)
-
-.map((op,i)=>`
-
-
-<label style="
-display:flex;
-gap:10px;
-padding:12px;
-margin:8px 0;
-background:#f8fafc;
-border-radius:10px;
-cursor:pointer;
-align-items:center;
-">
-
-
-
-<input
-
-type="radio"
-
-name="question_${index}"
-
-value="${i}"
-
-style="
-width:18px;
-height:18px;
-cursor:pointer;
-"
-
->
-
-
-
-<span>
-
-${op}
-
-</span>
-
-
-
-</label>
-
-
-`)
-
-.join("")
-
-
-}
-
-
-
-</div>
-
-
-`;
-
-})
-
-.join("")
-
-
-:
-
-`
-
-<div style="
-color:white;
-text-align:center;
-padding:50px;
-">
-
-لا توجد أسئلة
-
-</div>
-
-
-`
-
-}
-
-
-
-
-<button
-
-type="submit"
-
-style="
-width:100%;
-padding:15px;
-background:#16a34a;
-color:white;
-border:none;
-border-radius:12px;
-font-size:18px;
-cursor:pointer;
-font-weight:bold;
-"
-
->
-
-
-تسليم الامتحان
-
-
-</button>
-
-
-
-</form>
-
-</div>
-
-`;
-
-}
-
-export { examPage as showExam };
-
-
-
-function saveExamResult(result) {
-
-  let oldResults =
-    JSON.parse(
-      localStorage.getItem("examResults") || "[]"
-    );
-
-
-  oldResults.push(result);
-
-
-  localStorage.setItem(
-    "examResults",
-    JSON.stringify(oldResults)
-  );
-
-}
-
-
-
-
-function calculatePercentage(score,total){
-
-  if(!total) return 0;
-
-  return Math.round(
-    (score / total) * 100
-  );
-
-}
-
-
-
-
-function getQuestionCorrectAnswer(q){
-
-
-  if(
-    q.correctAnswerIndex !== undefined
-  ){
-
-    return Number(
-      q.correctAnswerIndex
-    );
+    `;
 
   }
 
 
 
-  if(
-    q.correctAnswer !== undefined
-  ){
+  return (q.options || [])
 
-    return Number(
-      q.correctAnswer
-    );
+  .filter(
+    op =>
+      op &&
+      String(op).trim() !== ""
+  )
 
-  }
-
-
-
-  if(
-    q.rightIndex !== undefined
-  ){
-
-    return Number(
-      q.rightIndex
-    );
-
-  }
+  .map(
+    (op,i)=>{
 
 
+      return `
 
-  return -1;
+      <label style="
+      display:block;
+      padding:12px;
+      margin:8px 0;
+      background:#f8fafc;
+      border-radius:10px;
+      cursor:pointer;
+      ">
+
+
+      <input
+
+      type="radio"
+
+      name="question_${index}"
+
+      value="${i}"
+
+      style="
+      margin-left:10px;
+      "
+
+      >
+
+      ${op}
+
+
+      </label>
+
+
+      `;
+
+
+    }
+
+  ).join("");
+
 
 }
-
-
-
-
-function getQuestionScore(q){
-
-
-  return Number(
-
-    q.score ||
-
-    q.points ||
-
-    q.grade ||
-
-    q.maxScore ||
-
-    1
-
-  );
-
-
-}
-
 
 
 
@@ -765,142 +415,105 @@ function isEssayQuestion(q){
 
 
 }
-function finishExam(){
-
-  const app =
-    document.querySelector("#app");
 
 
-  if(app){
 
-    app.innerHTML = `
-
-    <div style="
-    max-width:600px;
-    margin:50px auto;
-    padding:30px;
-    background:#0f172a;
-    color:white;
-    text-align:center;
-    border-radius:20px;
-    direction:rtl;
-    font-family:Cairo;
-    ">
-
-    <h2>
-    ✅ تم إنهاء الامتحان
-    </h2>
+function getQuestionCorrectAnswer(q){
 
 
-    <p>
-    تم حفظ إجاباتك بنجاح
-    </p>
+  if(q.correctAnswerIndex !== undefined){
 
-
-    <button
-    onclick="location.reload()"
-    style="
-    padding:12px 25px;
-    background:#16a34a;
-    color:white;
-    border:none;
-    border-radius:10px;
-    cursor:pointer;
-    "
-    >
-
-    العودة
-
-    </button>
-
-
-    </div>
-
-    `;
+    return Number(
+      q.correctAnswerIndex
+    );
 
   }
 
-}
 
 
+  if(q.correctIndex !== undefined){
 
+    return Number(
+      q.correctIndex
+    );
 
-
-function showReview(result){
-
-
-  const app =
-    document.querySelector("#app");
-
-
-  if(!app) return;
-
-
-
-  app.innerHTML = `
-
-  <div style="
-  max-width:900px;
-  margin:auto;
-  padding:30px;
-  direction:rtl;
-  font-family:Cairo;
-  ">
-
-
-  <h2>
-  مراجعة الإجابات
-  </h2>
-
-
-
-  ${
-    result.questions.map((q,i)=>`
-
-    <div style="
-    background:white;
-    padding:20px;
-    margin:15px 0;
-    border-radius:12px;
-    border:1px solid #ddd;
-    ">
-
-
-    <h3>
-    السؤال ${i+1}
-    </h3>
-
-
-    <p>
-    ${q.text || q.question || ""}
-    </p>
-
-
-    <p>
-    إجابتك:
-    <b>
-    ${
-      result.answers[i] ?? "-"
-    }
-    </b>
-    </p>
-
-
-    </div>
-
-
-    `).join("")
   }
 
 
 
-  </div>
+  if(q.rightIndex !== undefined){
 
-  `;
+    return Number(
+      q.rightIndex
+    );
+
+  }
+
+
+
+  if(q.correctAnswer !== undefined){
+
+    return Number(
+      q.correctAnswer
+    );
+
+  }
+
+
+
+  if(q.answer !== undefined){
+
+    return Number(
+      q.answer
+    );
+
+  }
+
+
+
+  return -1;
 
 
 }
 
 
 
+function getQuestionScore(q){
 
+  return Number(
+
+    q.score ||
+
+    q.maxScore ||
+
+    q.points ||
+
+    q.grade ||
+
+    1
+
+  );
+
+}
+
+
+
+function calculatePercentage(score,total){
+
+
+  if(!total)
+    return 0;
+
+
+  return Math.round(
+    (score / total) * 100
+  );
+
+
+}
+
+
+
+export {
+  examPage as showExam
+};

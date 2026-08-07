@@ -761,3 +761,151 @@ button[id*="back"] {
     opacity: 1 !important;
     visibility: visible !important;
 }
+/* ===========================
+   AHMED.R MODERN THEME
+=========================== */
+
+:root{
+
+  --arp-bg:#080B14;
+  --arp-card:#111A2C;
+  --arp-card2:#131E33;
+
+  --arp-blue:#79B8FF;
+  --arp-orange:#FF8F54;
+
+  --arp-text:#ffffff;
+  --arp-muted:#A9B4C8;
+
+  --arp-border:rgba(94,164,255,.25);
+
+}
+
+
+/* خلفية المنصة */
+
+.arp-page{
+
+  min-height:100vh;
+
+  background:
+  linear-gradient(
+    rgba(8,11,20,.95),
+    rgba(8,11,20,.95)
+  ),
+
+  repeating-linear-gradient(
+    0deg,
+    rgba(94,164,255,.06) 0px,
+    transparent 1px,
+    transparent 38px
+  ),
+
+  repeating-linear-gradient(
+    90deg,
+    rgba(94,164,255,.06) 0px,
+    transparent 1px,
+    transparent 38px
+  ),
+
+  var(--arp-bg);
+
+  font-family:'Tajawal','Cairo',sans-serif;
+
+  direction:rtl;
+
+}
+
+
+/* الكروت الحديثة */
+
+.arp-box{
+
+ background:var(--arp-card);
+
+ border:1px solid var(--arp-border);
+
+ border-radius:24px;
+
+ padding:30px;
+
+ color:white;
+
+ box-shadow:
+ 0 20px 40px rgba(0,0,0,.35);
+
+ transition:.3s;
+
+}
+
+
+.arp-box:hover{
+
+ transform:translateY(-5px);
+
+ border-color:var(--arp-blue);
+
+}
+
+
+
+/* العناوين */
+
+.arp-title{
+
+ color:white;
+
+ font-size:32px;
+
+ font-weight:900;
+
+}
+
+
+.arp-text{
+
+ color:var(--arp-muted);
+
+ font-size:16px;
+
+}
+
+
+
+/* أزرار */
+
+.arp-button{
+
+ background:#131E33;
+
+ color:white;
+
+ border:1px solid rgba(121,184,255,.4);
+
+ border-radius:16px;
+
+ padding:18px 25px;
+
+ cursor:pointer;
+
+ font-family:inherit;
+
+ font-weight:800;
+
+ transition:.25s;
+
+}
+
+
+.arp-button:hover{
+
+ background:#182645;
+
+ border-color:var(--arp-blue);
+
+ transform:translateY(-3px);
+
+ box-shadow:
+ 0 15px 35px rgba(94,164,255,.25);
+
+}

@@ -1,941 +1,806 @@
+// pages/results.js
+
+import { getResults, deleteResult, deleteAllResults } from "../services/resultService.js";
 import { getExams } from "../services/examService.js";
 import { adminPage } from "./admin.js";
 import { reviewResultPage } from "./reviewResult.js";
 
 
-export function resultsPage() {
+export async function resultsPage() {
 
 
-  const results =
-    JSON.parse(
-      localStorage.getItem("examResults") || "[]"
-    );
+const results =
+await getResults();
 
 
-  const exams =
-    getExams() || [];
+const exams =
+getExams() || [];
 
 
 
-  const students =
-    [
-      ...new Set(
-        results.map(
-          r => r.studentName || "Unknown"
-        )
-      )
-    ];
+const students =
+[
+...new Set(
+results.map(
+r => r.studentName || "Unknown"
+)
+)
+];
 
 
 
-  let totalSubmissions =
-    results.length;
+let totalSubmissions =
+results.length;
 
 
 
-  let passedCount =
-    results.filter(r=>{
+let passedCount =
+results.filter(r=>{
 
 
-      const total =
-        Number(r.total) || 100;
+const total =
+Number(r.total) || 100;
 
 
-      const score =
-        Number(r.score) || 0;
+const score =
+Number(r.score) || 0;
 
 
-      return (
-        (score / total) * 100
-      ) >= 50;
 
+return (
+(score / total) * 100
+) >= 50;
 
-    }).length;
 
 
+}).length;
 
-  let successRate =
-    totalSubmissions
-    ?
-    Math.round(
-      (passedCount / totalSubmissions) * 100
-    )
-    :
-    0;
 
 
+let successRate =
+totalSubmissions
+?
+Math.round(
+(passedCount / totalSubmissions) * 100
+)
+:
+0;
 
 
-  setTimeout(()=>{
 
+setTimeout(()=>{
 
-    const app =
-      document.querySelector("#app");
 
+const app =
+document.querySelector("#app");
 
 
-    const search =
-      document.getElementById("searchStudent");
 
+const search =
+document.getElementById("searchStudent");
 
 
-    const studentFilter =
-      document.getElementById("filterStudent");
 
+const studentFilter =
+document.getElementById("filterStudent");
 
 
-    const examFilter =
-      document.getElementById("filterExam");
 
+const examFilter =
+document.getElementById("filterExam");
 
 
-    const reportBtn =
-      document.getElementById("studentReport");
 
+const reportBtn =
+document.getElementById("studentReport");
 
 
-    const subCountEl =
-      document.getElementById("statSubmissions");
 
+const subCountEl =
+document.getElementById("statSubmissions");
 
 
-    const successRateEl =
-      document.getElementById("statSuccessRate");
 
+const successRateEl =
+document.getElementById("statSuccessRate");
 
 
 
 
-    function update(){
+function update(){
 
 
-      const cards =
-      [
-        ...document.querySelectorAll(
-          "#resultsTable .menu-card"
-        )
-      ];
+const cards =
+[
+...document.querySelectorAll(
+"#resultsTable .menu-card"
+)
+];
 
 
 
-      const searchText =
-      (
-        search?.value || ""
-      )
-      .toLowerCase()
-      .trim();
+const searchText =
+(
+search?.value || ""
+)
+.toLowerCase()
+.trim();
 
 
 
-      const selectedStudent =
-        studentFilter?.value || "";
+const selectedStudent =
+studentFilter?.value || "";
 
 
 
-      const selectedExam =
-        examFilter?.value || "";
+const selectedExam =
+examFilter?.value || "";
 
 
 
-      let visibleCount = 0;
+let visibleCount = 0;
 
-      let visiblePassed = 0;
+let visiblePassed = 0;
 
 
 
-      cards.forEach(card=>{
+cards.forEach(card=>{
 
 
-        const student =
-        (
-          card.dataset.student || ""
-        )
-        .toLowerCase();
+const student =
+(
+card.dataset.student || ""
+)
+.toLowerCase();
 
 
 
-        const exam =
-        (
-          card.dataset.exam || ""
-        )
-        .toLowerCase();
+const exam =
+(
+card.dataset.exam || ""
+)
+.toLowerCase();
 
 
 
-        const score =
-          Number(card.dataset.score) || 0;
+const score =
+Number(card.dataset.score) || 0;
 
 
 
-        const total =
-          Number(card.dataset.total) || 100;
+const total =
+Number(card.dataset.total) || 100;
 
 
 
-        const percent =
-          (score / total) * 100;
+const percent =
+(score / total) * 100;
 
 
 
-        const searchOK =
-          !searchText ||
-          student.includes(searchText) ||
-          exam.includes(searchText);
+const searchOK =
+!searchText ||
+student.includes(searchText) ||
+exam.includes(searchText);
 
 
 
-        const studentOK =
-          !selectedStudent ||
-          card.dataset.student === selectedStudent;
+const studentOK =
+!selectedStudent ||
+card.dataset.student === selectedStudent;
 
 
 
-        const examOK =
-          !selectedExam ||
-          card.dataset.exam === selectedExam;
+const examOK =
+!selectedExam ||
+card.dataset.exam === selectedExam;
 
 
 
-        if(
-          searchOK &&
-          studentOK &&
-          examOK
-        ){
+if(
+searchOK &&
+studentOK &&
+examOK
+){
 
-          card.style.display =
-            "flex";
 
-          visibleCount++;
+card.style.display =
+"flex";
 
 
-          if(percent >= 50)
-            visiblePassed++;
+visibleCount++;
 
 
-        }else{
+if(percent >= 50)
+visiblePassed++;
 
 
-          card.style.display =
-            "none";
+}else{
 
 
-        }
+card.style.display =
+"none";
 
 
-      });
+}
 
 
 
-      if(subCountEl)
-        subCountEl.textContent =
-          visibleCount;
+});
 
 
 
-      if(successRateEl)
-        successRateEl.textContent =
-          (
-            visibleCount
-            ?
-            Math.round(
-              (visiblePassed / visibleCount) * 100
-            )
-            :
-            0
-          )
-          +
-          "%";
+if(subCountEl)
+subCountEl.textContent =
+visibleCount;
 
 
-    }
 
-    if(search)
-      search.oninput = update;
+if(successRateEl)
+successRateEl.textContent =
+(
+visibleCount
+?
+Math.round(
+(visiblePassed / visibleCount) * 100
+)
+:
+0
+)
++
+"%";
 
 
-    if(studentFilter)
-      studentFilter.onchange = update;
+}
+if(search)
+search.oninput = update;
 
 
-    if(examFilter)
-      examFilter.onchange = update;
+if(studentFilter)
+studentFilter.onchange = update;
 
 
+if(examFilter)
+examFilter.onchange = update;
 
 
-    if(reportBtn){
 
-      reportBtn.onclick = ()=>{
 
+if(reportBtn){
 
-        const selectedStudent =
-          studentFilter?.value || "";
 
+reportBtn.onclick = ()=>{
 
 
-        if(!selectedStudent){
+const selectedStudent =
+studentFilter?.value || "";
 
-          alert(
-            "اختر اسم الطالب أولاً"
-          );
 
-          return;
 
-        }
+if(!selectedStudent){
 
 
+alert(
+"اختر اسم الطالب أولاً"
+);
 
-        const studentResults =
-          results.filter(
-            r =>
-            (r.studentName || "") === selectedStudent
-          );
 
+return;
 
 
-        printStudentReport(
-          selectedStudent,
-          studentResults
-        );
+}
 
 
-      };
 
-    }
+const studentResults =
+results.filter(
+r =>
+(r.studentName || "") === selectedStudent
+);
 
 
 
+printStudentReport(
+selectedStudent,
+studentResults
+);
 
 
-    const deleteAll =
-      document.getElementById(
-        "deleteAllResults"
-      );
 
+};
 
 
-    if(deleteAll){
+}
 
 
-      deleteAll.onclick = ()=>{
 
 
-        if(
-          !confirm(
-            "Are you sure you want to delete all results?"
-          )
-        )
-          return;
 
 
+const deleteAll =
+document.getElementById(
+"deleteAllResults"
+);
 
-        localStorage.removeItem(
-          "examResults"
-        );
 
 
+if(deleteAll){
 
-        app.innerHTML =
-          resultsPage();
 
+deleteAll.onclick = async ()=>{
 
-      };
 
+if(
+!confirm(
+"Are you sure you want to delete all results?"
+)
+)
+return;
 
-    }
 
 
+await deleteAllResults();
 
 
 
-    const refresh =
-      document.getElementById(
-        "refreshResults"
-      );
+app.innerHTML =
+await resultsPage();
 
 
 
-    if(refresh){
+};
 
 
-      refresh.onclick = ()=>{
+}
 
 
-        app.innerHTML =
-          resultsPage();
 
 
-      };
 
+const refresh =
+document.getElementById(
+"refreshResults"
+);
 
-    }
 
 
+if(refresh){
 
 
+refresh.onclick = async ()=>{
 
-    const backAdmin =
-      document.getElementById(
-        "backAdmin"
-      );
 
+app.innerHTML =
+await resultsPage();
 
 
-    if(backAdmin){
 
+};
 
-      backAdmin.onclick = ()=>{
 
+}
 
-        app.innerHTML =
-          adminPage();
 
 
-      };
 
 
-    }
+const backAdmin =
+document.getElementById(
+"backAdmin"
+);
 
 
 
+if(backAdmin){
 
 
+backAdmin.onclick = ()=>{
 
-    const tableContainer =
-      document.getElementById(
-        "resultsTable"
-      );
 
+app.innerHTML =
+adminPage();
 
 
-    if(tableContainer){
 
+};
 
-      tableContainer.onclick =
-      (e)=>{
 
+}
 
 
-        const delBtn =
-          e.target.closest(
-            ".deleteResult"
-          );
 
 
 
-        if(delBtn){
 
+const tableContainer =
+document.getElementById(
+"resultsTable"
+);
 
-          e.stopPropagation();
 
 
+if(tableContainer){
 
-          const id =
-            Number(
-              delBtn.dataset.result
-            );
 
+tableContainer.onclick =
+async (e)=>{
 
 
-          if(
-            !confirm(
-              "Delete this result?"
-            )
-          )
-            return;
 
+const delBtn =
+e.target.closest(
+".deleteResult"
+);
 
 
-          let currentResults =
-            JSON.parse(
-              localStorage.getItem(
-                "examResults"
-              )
-              ||
-              "[]"
-            );
 
+if(delBtn){
 
 
-          currentResults.splice(
-            id,
-            1
-          );
+e.stopPropagation();
 
 
 
-          localStorage.setItem(
-            "examResults",
-            JSON.stringify(
-              currentResults
-            )
-          );
+const id =
+delBtn.dataset.result;
 
 
 
-          app.innerHTML =
-            resultsPage();
+if(
+!confirm(
+"Delete this result?"
+)
+)
+return;
 
 
 
-          return;
+await deleteResult(id);
 
 
-        }
 
+app.innerHTML =
+await resultsPage();
 
 
 
+return;
 
-        const pdfBtn =
-          e.target.closest(
-            ".downloadResultPdf"
-          );
 
+}
 
 
-        if(pdfBtn){
 
 
-          e.stopPropagation();
 
 
+const pdfBtn =
+e.target.closest(
+".downloadResultPdf"
+);
 
-          const id =
-            Number(
-              pdfBtn.dataset.result
-            );
 
 
+if(pdfBtn){
 
-          const currentResults =
-            JSON.parse(
-              localStorage.getItem(
-                "examResults"
-              )
-              ||
-              "[]"
-            );
 
+e.stopPropagation();
 
 
-          if(currentResults[id]){
 
-            printResultsTable(
-              [
-                currentResults[id]
-              ],
-              "Student Result"
-            );
+const id =
+pdfBtn.dataset.result;
 
-          }
 
 
+const result =
+results.find(
+r =>
+r.id === id
+);
 
-          return;
 
 
-        }
+if(result){
 
 
+printResultsTable(
+[result],
+"Student Result"
+);
 
 
 
-        const card =
-          e.target.closest(
-            ".menu-card"
-          );
+}
 
 
 
-        if(card){
+return;
 
 
-          const id =
-            Number(
-              card.dataset.resultId
-            );
+}
 
 
 
-          const currentResults =
-            JSON.parse(
-              localStorage.getItem(
-                "examResults"
-              )
-              ||
-              "[]"
-            );
 
 
 
-          const resultItem =
-            currentResults[id];
+const card =
+e.target.closest(
+".menu-card"
+);
 
 
 
-          if(
-            resultItem &&
-            typeof reviewResultPage === "function"
-          ){
+if(card){
 
-            app.innerHTML =
-              reviewResultPage(
-                resultItem
-              );
 
-          }
+const id =
+card.dataset.resultId;
 
 
-        }
 
+const resultItem =
+results.find(
+r =>
+r.id === id
+);
 
-      };
 
 
-    }
+if(
+resultItem &&
+typeof reviewResultPage === "function"
+){
 
 
-  },50);
+app.innerHTML =
+reviewResultPage(
+resultItem
+);
 
 
-  return `
 
-  <div class="container"
-  
-  style="
-  max-width:1200px;
-  margin:0 auto;
-  padding:35px;
-  font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
-  background:#0f172a;
-  min-height:100vh;
-  direction:ltr;
-  text-align:left;
-  color:#f8fafc;
-  ">
-  
-  
-  <!-- Back Button -->
-  
-  <div style="margin-bottom:20px;">
-  
-  <button id="backAdmin"
-  
-  style="
-  background:rgba(255,255,255,0.08);
-  color:#e2e8f0;
-  border:1px solid rgba(255,255,255,0.12);
-  padding:9px 16px;
-  font-size:13px;
-  font-weight:700;
-  border-radius:12px;
-  cursor:pointer;
-  ">
-  
-  ⬅ Back to Dashboard
-  
-  </button>
-  
-  </div>
-  
-  
-  
-  
-  
-  <!-- Header -->
-  
-  <div style="
-  background:linear-gradient(135deg,#1e293b 0%,#090d16 100%);
-  padding:40px;
-  border-radius:28px;
-  margin-bottom:30px;
-  box-shadow:0 20px 40px -15px rgba(0,0,0,.5);
-  border:1px solid rgba(255,255,255,.08);
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  flex-wrap:wrap;
-  gap:25px;
-  ">
-  
-  
-  <div>
-  
-  <div style="
-  display:inline-flex;
-  background:rgba(59,130,246,.2);
-  color:#60a5fa;
-  padding:7px 16px;
-  border-radius:30px;
-  font-size:13px;
-  font-weight:700;
-  ">
-  
-  🛡️ Admin Control Center
-  
-  </div>
-  
-  
-  <h1 style="
-  font-size:36px;
-  margin:12px 0;
-  ">
-  
-  📊 Exam Results Dashboard
-  
-  </h1>
-  
-  
-  <p style="
-  color:#94a3b8;
-  ">
-  
-  Monitor performance metrics and student reports.
-  
-  </p>
-  
-  
-  </div>
-  
-  
-  
-  
-  
-  <div style="
-  display:flex;
-  gap:15px;
-  ">
-  
-  
-  <div style="
-  background:rgba(255,255,255,.06);
-  padding:16px 22px;
-  border-radius:16px;
-  text-align:center;
-  ">
-  
-  
-  <div id="statSubmissions"
-  
-  style="
-  font-size:24px;
-  font-weight:800;
-  color:#38bdf8;
-  ">
-  
-  ${totalSubmissions}
-  
-  </div>
-  
-  
-  <div>
-  Submissions
-  </div>
-  
-  
-  </div>
-  
-  
-  
-  
-  
-  <div style="
-  background:rgba(255,255,255,.06);
-  padding:16px 22px;
-  border-radius:16px;
-  text-align:center;
-  ">
-  
-  
-  <div id="statSuccessRate"
-  
-  style="
-  font-size:24px;
-  font-weight:800;
-  color:#4ade80;
-  ">
-  
-  ${successRate}%
-  
-  </div>
-  
-  
-  <div>
-  Success Rate
-  </div>
-  
-  
-  </div>
-  
-  
-  </div>
-  
-  
-  </div>
-  
-  
-  
-  
-  
-  
-  <!-- Filters -->
-  
-  <div style="
-  background:#1e293b;
-  padding:28px;
-  border-radius:24px;
-  margin-bottom:30px;
-  ">
-  
-  
-  <div style="
-  display:flex;
-  gap:15px;
-  flex-wrap:wrap;
-  ">
-  
-  
-  <input
-  
-  id="searchStudent"
-  
-  placeholder="🔍 Search student or exam"
-  
-  style="
-  flex:1;
-  min-width:250px;
-  padding:14px;
-  border-radius:14px;
-  border:1px solid rgba(255,255,255,.12);
-  background:#0f172a;
-  color:white;
-  ">
-  
-  
-  
-  
-  
-  
-  <select
-  
-  id="filterStudent"
-  
-  style="
-  padding:14px;
-  border-radius:14px;
-  background:#0f172a;
-  color:white;
-  min-width:220px;
-  ">
-  
-  
-  <option value="">
-  
-  👨‍🎓 All Students
-  
-  </option>
-  
-  
-  ${
-  students.map(
-  s=>
-  `
-  
-  <option value="${s}">
-  ${s}
-  </option>
-  
-  `
-  ).join("")
-  }
-  
-  
-  </select>
-  
-  
-  
-  
-  
-  <select
-  
-  id="filterExam"
-  
-  style="
-  padding:14px;
-  border-radius:14px;
-  background:#0f172a;
-  color:white;
-  min-width:220px;
-  ">
-  
-  
-  <option value="">
-  
-  📂 All Exams
-  
-  </option>
-  
-  
-  ${
-  exams.map(
-  e=>
-  `
-  
-  <option value="${e.title}">
-  ${e.title}
-  </option>
-  
-  `
-  ).join("")
-  }
-  
-  
-  </select>
-  
-  
-  
-  
-  
-  <button
-  
-  id="studentReport"
-  
-  style="
-  padding:14px 22px;
-  border:none;
-  border-radius:14px;
-  background:#2563eb;
-  color:white;
-  font-weight:700;
-  cursor:pointer;
-  ">
-  
-  📄 Student Report
-  
-  </button>
-  
-  
-  </div>
-  
-  
-  </div>
+}
 
-  <!-- Results Cards -->
+
+
+}
+
+
+};
+
+
+}
+
+
+},50);
+return `
 
 <div style="
-background:#1e293b;
-padding:30px;
-border-radius:24px;
+max-width:1200px;
+margin:0 auto;
+padding:35px;
+font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+background:#0f172a;
+min-height:100vh;
+direction:ltr;
+text-align:left;
+color:#f8fafc;
 ">
 
 
-<div id="resultsTable"
+<button id="backAdmin"
+
+style="
+background:rgba(255,255,255,0.08);
+color:#e2e8f0;
+border:1px solid rgba(255,255,255,0.12);
+padding:9px 16px;
+font-size:13px;
+font-weight:700;
+border-radius:12px;
+cursor:pointer;
+">
+
+⬅ Back to Dashboard
+
+</button>
+
+
+
+<h1>
+🛡️ Admin Control Center
+</h1>
+
+
+<h2>
+📊 Exam Results Dashboard
+</h2>
+
+
+<p>
+Monitor performance metrics and student reports.
+</p>
+
+
+
+<div style="
+display:flex;
+gap:20px;
+margin:25px 0;
+">
+
+
+<div>
+Total Submissions
+
+<h2 id="statSubmissions">
+${totalSubmissions}
+</h2>
+
+</div>
+
+
+
+<div>
+
+Success Rate
+
+<h2 id="statSuccessRate">
+
+${successRate}%
+
+</h2>
+
+</div>
+
+
+</div>
+
+
+
+
+
+<div style="
+display:flex;
+gap:15px;
+flex-wrap:wrap;
+">
+
+
+<input
+
+id="searchStudent"
+
+placeholder="🔍 Search student or exam"
+
+style="
+flex:1;
+min-width:250px;
+padding:14px;
+border-radius:14px;
+border:1px solid rgba(255,255,255,.12);
+background:#0f172a;
+color:white;
+">
+
+
+
+<select
+
+id="filterStudent"
+
+style="
+padding:14px;
+border-radius:14px;
+background:#0f172a;
+color:white;
+min-width:220px;
+">
+
+
+<option value="">
+
+👨‍🎓 All Students
+
+</option>
+
+
+
+${
+students.map(
+s =>
+`
+
+<option value="${s}">
+${s}
+</option>
+
+`
+).join("")
+}
+
+
+</select>
+
+
+
+
+
+<select
+
+id="filterExam"
+
+style="
+padding:14px;
+border-radius:14px;
+background:#0f172a;
+color:white;
+min-width:220px;
+">
+
+
+<option value="">
+
+📂 All Exams
+
+</option>
+
+
+
+${
+exams.map(
+e =>
+`
+
+<option value="${e.title}">
+${e.title}
+</option>
+
+`
+).join("")
+}
+
+
+
+</select>
+
+
+
+<button
+
+id="studentReport"
+
+style="
+padding:14px 22px;
+border:none;
+border-radius:14px;
+background:#2563eb;
+color:white;
+font-weight:700;
+cursor:pointer;
+">
+
+📄 Student Report
+
+</button>
+
+
+</div>
+
+
+
+
+<div
+
+id="resultsTable"
 
 style="
 display:grid;
 grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
 gap:22px;
+margin-top:30px;
 ">
 
 
@@ -943,6 +808,7 @@ ${
 results.length
 
 ?
+
 
 results.map((r,index)=>{
 
@@ -955,14 +821,11 @@ const score =
 Number(r.score)||0;
 
 
+
 const percent =
 Math.round(
 (score / total) * 100
 );
-
-
-const passed =
-percent >= 50;
 
 
 
@@ -973,26 +836,20 @@ return `
 
 class="menu-card"
 
-
-data-result-id="${index}"
-
+data-result-id="${r.id}"
 
 data-student="${r.studentName || ""}"
 
-
 data-exam="${r.examTitle || ""}"
 
-
 data-score="${score}"
-
 
 data-total="${total}"
 
 
-
 style="
 padding:25px;
-background:#0f172a;
+background:#111827;
 border-radius:20px;
 cursor:pointer;
 display:flex;
@@ -1002,105 +859,37 @@ border:1px solid rgba(255,255,255,.08);
 ">
 
 
-
-<h3 style="
-margin:0;
-color:white;
-">
-
+<h3>
 👨‍🎓 ${r.studentName || "Unknown"}
-
 </h3>
 
 
-
-<div style="
-color:#60a5fa;
-font-weight:bold;
-">
-
+<p>
 📝 ${r.examTitle || "N/A"}
-
-</div>
-
+</p>
 
 
-<div style="
-background:rgba(255,255,255,.05);
-padding:12px;
-border-radius:12px;
-text-align:center;
-display:flex;
-justify-content:center;
-align-items:center;
-gap:15px;
-flex-wrap:wrap;
-">
-
-
-<div style="
-font-size:25px;
-font-weight:800;
-color:white;
-">
-
+<p>
 Score:
-<b>
 ${score}/${total}
-</b>
-
-</div>
+</p>
 
 
-
-<div style="
-font-size:18px;
-font-weight:800;
-color:${passed ? "#4ade80":"#f87171"};
-">
-
-
-</div>
-
-
-
-<div style="
-font-size:25px;
-font-weight:bold;
-color:#60a5fa;
-background:rgba(59,130,246,.15);
-padding:6px 12px;
-border-radius:10px;
-">
-
+<p>
 ${percent}%
-
-</div>
-
-
-</div>
+</p>
 
 
-
-
-<div style="
-display:flex;
-gap:8px;
-">
+<div>
 
 
 <button
 
 class="downloadResultPdf"
 
-data-result="${index}"
+data-result="${r.id}"
 
-style="
-flex:1;
-padding:9px;
-border-radius:10px;
-cursor:pointer;
-">
+>
 
 📄 PDF
 
@@ -1108,19 +897,13 @@ cursor:pointer;
 
 
 
-
 <button
 
 class="deleteResult"
 
-data-result="${index}"
+data-result="${r.id}"
 
-style="
-flex:1;
-padding:9px;
-border-radius:10px;
-cursor:pointer;
-">
+>
 
 🗑 Delete
 
@@ -1130,14 +913,13 @@ cursor:pointer;
 </div>
 
 
-
 </div>
 
 
 `;
 
-}).join("")
 
+}).join("")
 
 
 :
@@ -1145,22 +927,14 @@ cursor:pointer;
 
 `
 
-<div style="
-padding:70px;
-text-align:center;
-color:#94a3b8;
-">
-
+<h3>
 📂 No Results Available
-
-</div>
+</h3>
 
 `
 
 }
 
-
-</div>
 
 
 </div>
@@ -1171,8 +945,6 @@ color:#94a3b8;
 `;
 
 }
-
-
 
 
 
@@ -1191,7 +963,8 @@ window.open(
 
 const total =
 studentResults.reduce(
-(a,r)=>a+(Number(r.total)||100),
+(a,r)=>
+a+(Number(r.total)||100),
 0
 );
 
@@ -1199,7 +972,8 @@ studentResults.reduce(
 
 const score =
 studentResults.reduce(
-(a,r)=>a+(Number(r.score)||0),
+(a,r)=>
+a+(Number(r.score)||0),
 0
 );
 
@@ -1209,7 +983,7 @@ const avg =
 total
 ?
 Math.round(
-(score/total)*100
+(score / total) * 100
 )
 :
 0;
@@ -1218,61 +992,9 @@ Math.round(
 
 win.document.write(`
 
-<html>
-
-<head>
-
-<meta charset="UTF-8">
-
-<title>
-Student Report
-</title>
-
-<style>
-
-body{
-font-family:Arial;
-direction:rtl;
-padding:30px;
-}
-
-
-table{
-
-width:100%;
-border-collapse:collapse;
-
-}
-
-
-td,th{
-
-border:1px solid #ccc;
-padding:10px;
-text-align:center;
-
-}
-
-
-th{
-
-background:#0f172a;
-color:white;
-
-}
-
-</style>
-
-</head>
-
-
-<body>
-
-
 <h2>
-📊 تقرير الطالب
+Ahmed.R Physics Report
 </h2>
-
 
 <h3>
 ${studentName}
@@ -1280,74 +1002,9 @@ ${studentName}
 
 
 <p>
-عدد الامتحانات:
-${studentResults.length}
-</p>
-
-
-<p>
-المتوسط:
+Average:
 ${avg}%
 </p>
-
-
-
-<table>
-
-<tr>
-
-<th>
-الامتحان
-</th>
-
-<th>
-الدرجة
-</th>
-
-<th>
-التاريخ
-</th>
-
-</tr>
-
-
-${
-studentResults.map(r=>`
-
-<tr>
-
-<td>
-${r.examTitle||""}
-</td>
-
-
-<td>
-${r.score||0}/${r.total||100}
-</td>
-
-
-<td>
-${r.date||""}
-</td>
-
-
-</tr>
-
-`).join("")
-}
-
-
-</table>
-
-
-
-<script>
-
-window.onload=function(){
-window.print();
-}
-
-</script>
 
 
 </body>
@@ -1357,12 +1014,11 @@ window.print();
 `);
 
 
+
 win.document.close();
 
 
 }
-
-
 
 
 

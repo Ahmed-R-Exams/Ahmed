@@ -1,301 +1,305 @@
 import {
-    getExamById
-  } from "../services/examService.js";
-  
-  
-  
-  export function editExamPage(id){
-  
-  
+  getExamById
+} from "../services/examService.js";
+
+
+
+export function editExamPage(id){
+
+
   const exam =
-  getExamById(id);
-  
-  
-  
+    getExamById(id);
+
+
+
   if(!exam){
-  
-  
+
+    return `
+
+      <div style="
+      padding:30px;
+      text-align:center;
+      direction:rtl;
+      ">
+
+      ⬅ Back
+
+      </div>
+
+    `;
+
+  }
+
+
+
   return `
+
+
+<div style="
+direction:rtl;
+padding:30px;
+font-family:Cairo,sans-serif;
+">
+
+
+
+<div style="
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:25px;
+">
+
+
+<h2 style="
+color:white;
+">
+
+تعديل الامتحان
+
+</h2>
+
+
+
+<button
+id="backToManageExams"
+style="
+padding:10px 20px;
+border:none;
+border-radius:10px;
+cursor:pointer;
+">
+
+⬅ رجوع
+
+</button>
+
+
+</div>
+
+
+
+
+
+<div style="
+background:#1e293b;
+padding:20px;
+border-radius:15px;
+margin-bottom:20px;
+">
+
+
+<label>
+عنوان الامتحان
+</label>
+
+
+
+<input
+
+id="editExamTitle"
+
+value="${exam.title || ""}"
+
+style="
+width:100%;
+padding:12px;
+border-radius:10px;
+margin-top:10px;
+"
+
+>
+
+
+</div>
+
+
+
+
+
+<div id="editQuestionsList">
+
+
+${
+
+exam.questions.map(
+(q,index)=>`
+
+<div
+class="edit-question-card"
+
+data-index="${index}"
+
+style="
+background:#1e293b;
+padding:20px;
+border-radius:15px;
+margin-bottom:20px;
+">
+
+
+<h3 style="
+color:#818cf8;
+">
+
+السؤال ${index+1}
+
+</h3>
+
+
+
+
+<textarea
+
+class="editQText"
+
+style="
+width:100%;
+height:90px;
+padding:10px;
+border-radius:10px;
+"
+
+>${q.text || q.question || ""}</textarea>
+
+
+
+
+
+<input
+
+type="file"
+
+class="editImageFile"
+
+data-index="${index}"
+
+accept="image/*"
+
+>
+
+
+<input
+
+type="hidden"
+
+class="editImage"
+
+data-index="${index}"
+
+value="${q.image || q.questionImage || ""}"
+
+>
+
+
+${
+q.image || q.questionImage
+
+?
+
+`
+
+<img
+
+src="${
+(q.image || q.questionImage).startsWith("data:")
+
+?
+
+(q.image || q.questionImage)
+
+:
+
+"/images/" +
+(q.image || q.questionImage)
+
+}"
+
+class="question-image"
+
+style="
+max-width:250px;
+margin-top:15px;
+border-radius:10px;
+"
+
+>
+
+`
+
+:
+
+""
+
+}
+
+${
+
+  (q.options || ["","","",""])
+  .map(
+  (opt,i)=>`
   
-  <div class="container">
+  <input
   
-  <div class="card">
+  class="editOptText"
   
+  data-index="${index}"
   
-  <h2>
-  Exam Not Found
-  </h2>
+  data-option="${i}"
   
+  value="${opt || ""}"
   
-  <button id="backAdmin">
+  placeholder="الإجابة ${String.fromCharCode(65+i)}"
   
-  ⬅ Back
+  style="
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+  border-radius:8px;
+  "
   
-  </button>
+  >
   
+  `
   
-  </div>
-  
-  </div>
-  
-  `;
+  )
+  .join("")
   
   }
   
   
   
-  return `
   
   
-  <div class="container">
-  
-  
-  <h1>
-  ✏ Edit Exam
-  </h1>
-  
-  
-  <p class="subtitle">
-  ${exam.title}
-  </p>
-  
-  
-  
-  
-  <div class="card">
-  
-  
-  <div class="exam-info">
-  
-  
-  <p>
-  <b>ID:</b> ${exam.id}
-  </p>
-  
-  
-  <p>
-  <b>Questions:</b> ${exam.questions.length}
-  </p>
-  
-  
-  <p>
-  <b>Time:</b> ${exam.examTime || 30} min
-  </p>
-  
-  
-  </div>
-  
-  
-  
-  
-  <div id="editQuestionsContainer">
-  
-  
-  ${
-  
-  exam.questions.map((q,index)=>`
-  
-  
-  <div class="question-box">
-  
-  
-  <div class="question-head">
-  
-  
-  <h3>
-  Question ${index+1}
-  </h3>
-  
-  
-  <div>
-  
-  
-  <button
-  
-  class="duplicateQuestion"
-  
-  data-index="${index}">
-  
-  📄 Duplicate
-  
-  </button>
-  
-  
-  
-  <button
-  
-  class="deleteQuestion"
-  
-  data-index="${index}">
-  
-  🗑 Delete
-  
-  </button>
-  
-  
-  </div>
-  
-  
-  </div>
-  
-  
-  
-  
-  <textarea
-  
-  class="editQuestion"
-  
-  data-index="${index}"
-  
-  rows="4"
-  
-  >${q.question || ""}</textarea>
-  
-  
-  
+  <div style="
+  margin-top:15px;
+  ">
   
   
   <label>
-  📷 Question Image
+  الإجابة الصحيحة
   </label>
-  
-  
-  <input
-  
-  type="file"
-  
-  class="editImageFile"
-  
-  data-index="${index}"
-  
-  accept="image/*"
-  
-  >
-  
-  
-  <input
-  
-  type="hidden"
-  
-  class="editImage"
-  
-  data-index="${index}"
-  
-  value="${q.image || ""}"
-  
-  >
-  
-  
-  
-  
-  ${
-  q.image
-  
-  ?
-  
-  `
-  
-  <img
-  
-  src="${
-  q.image.startsWith("data:")
-  
-  ?
-  
-  q.image
-  
-  :
-  
-  "/images/"+q.image
-  
-  }"
-  
-  class="question-image"
-  
-  >
-  
-  `
-  
-  :
-  
-  ""
-  
-  }
-  
-  
-  
-  
-  <div class="options-grid">
-  
-  
-  <input
-  
-  class="editOptionA"
-  
-  data-index="${index}"
-  
-  value="${q.options?.[0] || ""}"
-  
-  placeholder="Option A"
-  
-  >
-  
-  
-  <input
-  
-  class="editOptionB"
-  
-  data-index="${index}"
-  
-  value="${q.options?.[1] || ""}"
-  
-  placeholder="Option B"
-  
-  >
-  
-  
-  <input
-  
-  class="editOptionC"
-  
-  data-index="${index}"
-  
-  value="${q.options?.[2] || ""}"
-  
-  placeholder="Option C"
-  
-  >
-  
-  
-  <input
-  
-  class="editOptionD"
-  
-  data-index="${index}"
-  
-  value="${q.options?.[3] || ""}"
-  
-  placeholder="Option D"
-  
-  >
-  
-  
-  </div>
-  
   
   
   
   <select
   
-  class="editAnswer"
+  class="editCorrectSelect"
   
   data-index="${index}"
+  
+  style="
+  padding:10px;
+  border-radius:8px;
+  margin-top:10px;
+  "
   
   >
   
   
   <option value="0"
-  ${q.correctIndex===0?"selected":""}>
+  ${Number(q.correctIndex ?? q.correctAnswerIndex)===0?"selected":""}
+  >
   
   Option A
   
@@ -303,7 +307,8 @@ import {
   
   
   <option value="1"
-  ${q.correctIndex===1?"selected":""}>
+  ${Number(q.correctIndex ?? q.correctAnswerIndex)===1?"selected":""}
+  >
   
   Option B
   
@@ -311,7 +316,8 @@ import {
   
   
   <option value="2"
-  ${q.correctIndex===2?"selected":""}>
+  ${Number(q.correctIndex ?? q.correctAnswerIndex)===2?"selected":""}
+  >
   
   Option C
   
@@ -319,14 +325,74 @@ import {
   
   
   <option value="3"
-  ${q.correctIndex===3?"selected":""}>
+  ${Number(q.correctIndex ?? q.correctAnswerIndex)===3?"selected":""}
+  >
   
   Option D
   
   </option>
   
   
+  
   </select>
+  
+  
+  </div>
+  
+  
+  
+  
+  
+  
+  <button
+  
+  class="deleteQuestion"
+  
+  data-index="${index}"
+  
+  style="
+  background:#ef4444;
+  color:white;
+  border:none;
+  padding:10px 15px;
+  border-radius:8px;
+  cursor:pointer;
+  margin-top:15px;
+  "
+  
+  >
+  
+  🗑 حذف السؤال
+  
+  </button>
+  
+  
+  
+  
+  
+  <button
+  
+  class="duplicateQuestion"
+  
+  data-index="${index}"
+  
+  style="
+  background:#6366f1;
+  color:white;
+  border:none;
+  padding:10px 15px;
+  border-radius:8px;
+  cursor:pointer;
+  margin-top:15px;
+  margin-right:10px;
+  "
+  
+  >
+  
+  📄 نسخ السؤال
+  
+  </button>
+  
   
   
   
@@ -334,25 +400,43 @@ import {
   </div>
   
   
-  `).join("")
+  `
+  )
+  .join("")
   
   }
   
   
+  
   </div>
   
   
   
   
   
-  <div class="page-buttons">
+  <button
   
+  id="addEditQuestion"
   
-  <button id="addQuestion">
+  style="
+  width:100%;
+  padding:15px;
+  background:#0ea5e9;
+  color:white;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  font-size:16px;
+  font-weight:bold;
+  "
   
-  ➕ Add Question
+  >
+  
+  ➕ إضافة سؤال
   
   </button>
+  
+  
   
   
   
@@ -360,26 +444,26 @@ import {
   
   id="saveExamEdit"
   
-  data-exam="${exam.id}">
+  data-exam="${exam.id}"
   
-  💾 Save Changes
+  style="
+  width:100%;
+  padding:15px;
+  background:#10b981;
+  color:white;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  font-size:18px;
+  font-weight:bold;
+  margin-top:20px;
+  "
+  
+  >
+  
+  💾 حفظ التعديلات
   
   </button>
-  
-  
-  
-  <button id="backAdmin">
-  
-  ⬅ Back
-  
-  </button>
-  
-  
-  </div>
-  
-  
-  
-  </div>
   
   
   
@@ -389,3 +473,4 @@ import {
   `;
   
   }
+  // نهاية الملف
