@@ -1,58 +1,71 @@
-// ================= FILE SERVICE =================
+// services/fileService.js
+
+import { db, storage } from "../firebase.js";
+
+import {
+  collection,
+  getDocs,
+  addDoc,
+  deleteDoc,
+  doc
+} from "firebase/firestore";
+
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
+} from "firebase/storage";
 
 
-const STORAGE_KEY = "ahmedR_files";
-
+const FILES_COLLECTION = "files";
 
 
 
 // ================= GET FILES =================
 
-export function getFiles(){
+export async function getFiles(){
+
+try{
 
 
-const data =
-localStorage.getItem(
-STORAGE_KEY
+const snapshot =
+await getDocs(
+collection(
+db,
+FILES_COLLECTION
+)
 );
 
 
 
-if(!data){
+return snapshot.docs.map(item=>({
+
+firestoreId:item.id,
+
+id:item.id,
+
+...item.data()
+
+}));
+
+
+
+}
+catch(error){
+
+console.error(
+"GET FILES ERROR",
+error
+);
+
 
 return [];
 
 }
 
 
-
-return JSON.parse(data);
-
-
 }
-
-
-
-
-
-
-// ================= SAVE FILES =================
-
-export function saveFiles(files){
-
-
-localStorage.setItem(
-
-STORAGE_KEY,
-
-JSON.stringify(files)
-
-);
-
-
-}
-
-
 
 
 
@@ -60,45 +73,78 @@ JSON.stringify(files)
 
 // ================= ADD FILE =================
 
-export function addFile(file){
+export async function addFile(
+fileData,
+file
+){
 
 
-const files =
-getFiles();
+const storageRef =
+ref(
+storage,
+`files/${Date.now()}_${file.name}`
+);
 
 
 
-files.push({
+await uploadBytes(
+storageRef,
+file
+);
 
-id:
-Date.now(),
+
+
+const url =
+await getDownloadURL(
+storageRef
+);
+
+
+
+
+const docRef =
+await addDoc(
+collection(
+db,
+FILES_COLLECTION
+),
+{
+
+
+...fileData,
 
 
 name:
-file.name,
+fileData.name || file.name,
 
 
-class:
-file.class,
+url,
 
 
-type:
-file.type || "file",
+fileUrl:url,
 
 
-url:
-file.url,
+storagePath:
+storageRef.fullPath,
 
 
 created:
 new Date().toISOString()
 
 
-});
+}
+
+);
 
 
 
-saveFiles(files);
+return {
+
+id:docRef.id,
+
+url
+
+};
 
 
 }
@@ -111,19 +157,56 @@ saveFiles(files);
 
 // ================= DELETE FILE =================
 
-export function deleteFile(id){
+export async function deleteFile(file){
 
 
-const files =
-getFiles()
-.filter(
-file =>
-file.id !== id
+try{
+
+
+if(file.storagePath){
+
+
+const storageRef =
+ref(
+storage,
+file.storagePath
 );
 
 
 
-saveFiles(files);
+await deleteObject(
+storageRef
+)
+.catch(()=>{});
+
+
+}
+
+
+
+await deleteDoc(
+doc(
+db,
+FILES_COLLECTION,
+file.firestoreId || file.id
+)
+);
+
+
+
+}
+catch(error){
+
+console.error(
+"DELETE FILE ERROR",
+error
+);
+
+
+throw error;
+
+
+}
 
 
 }
@@ -136,36 +219,22 @@ saveFiles(files);
 
 // ================= GET BY CLASS =================
 
-export function getFilesByClass(className){
+export async function getFilesByClass(
+className
+){
 
 
-return getFiles()
-.filter(
+const files =
+await getFiles();
 
+
+
+return files.filter(
 file =>
+
 file.class === className
-
-);
-
-
-}
-
-
-
-
-
-
-
-// ================= SORT =================
-
-export function sortFilesByName(){
-
-
-return getFiles()
-.sort(
-
-(a,b)=>
-a.name.localeCompare(b.name)
+||
+file.className === className
 
 );
 

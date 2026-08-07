@@ -1,461 +1,421 @@
 // pages/results.js
 
-import { getResults, deleteResult, deleteAllResults } from "../services/resultService.js";
-import { getExams } from "../services/examService.js";
-import { adminPage } from "./admin.js";
-import { reviewResultPage } from "./reviewResult.js";
-
-
-export async function resultsPage() {
-
-
-const results =
-await getResults();
-
-
-const exams =
-getExams() || [];
-
-
-
-const students =
-[
-...new Set(
-results.map(
-r => r.studentName || "Unknown"
-)
-)
-];
-
-
-
-let totalSubmissions =
-results.length;
-
-
-
-let passedCount =
-results.filter(r=>{
-
-
-const total =
-Number(r.total) || 100;
-
-
-const score =
-Number(r.score) || 0;
-
-
-
-return (
-(score / total) * 100
-) >= 50;
-
-
-
-}).length;
-
-
-
-let successRate =
-totalSubmissions
-?
-Math.round(
-(passedCount / totalSubmissions) * 100
-)
-:
-0;
-
-
-
-setTimeout(()=>{
-
-
-const app =
-document.querySelector("#app");
-
-
-
-const search =
-document.getElementById("searchStudent");
-
-
-
-const studentFilter =
-document.getElementById("filterStudent");
-
-
-
-const examFilter =
-document.getElementById("filterExam");
-
-
-
-const reportBtn =
-document.getElementById("studentReport");
-
-
-
-const subCountEl =
-document.getElementById("statSubmissions");
-
-
-
-const successRateEl =
-document.getElementById("statSuccessRate");
-
-
-
-
-function update(){
-
-
-const cards =
-[
-...document.querySelectorAll(
-"#resultsTable .menu-card"
-)
-];
-
-
-
-const searchText =
-(
-search?.value || ""
-)
-.toLowerCase()
-.trim();
-
-
-
-const selectedStudent =
-studentFilter?.value || "";
-
-
-
-const selectedExam =
-examFilter?.value || "";
-
-
-
-let visibleCount = 0;
-
-let visiblePassed = 0;
-
-
-
-cards.forEach(card=>{
-
-
-const student =
-(
-card.dataset.student || ""
-)
-.toLowerCase();
-
-
-
-const exam =
-(
-card.dataset.exam || ""
-)
-.toLowerCase();
-
-
-
-const score =
-Number(card.dataset.score) || 0;
-
-
-
-const total =
-Number(card.dataset.total) || 100;
-
-
-
-const percent =
-(score / total) * 100;
-
-
-
-const searchOK =
-!searchText ||
-student.includes(searchText) ||
-exam.includes(searchText);
-
-
-
-const studentOK =
-!selectedStudent ||
-card.dataset.student === selectedStudent;
-
-
-
-const examOK =
-!selectedExam ||
-card.dataset.exam === selectedExam;
-
-
-
-if(
-searchOK &&
-studentOK &&
-examOK
-){
-
-
-card.style.display =
-"flex";
-
-
-visibleCount++;
-
-
-if(percent >= 50)
-visiblePassed++;
-
-
-}else{
-
-
-card.style.display =
-"none";
-
-
-}
-
-
-
-});
-
-
-
-if(subCountEl)
-subCountEl.textContent =
-visibleCount;
-
-
-
-if(successRateEl)
-successRateEl.textContent =
-(
-visibleCount
-?
-Math.round(
-(visiblePassed / visibleCount) * 100
-)
-:
-0
-)
-+
-"%";
-
-
-}
-if(search)
-search.oninput = update;
-
-
-if(studentFilter)
-studentFilter.onchange = update;
-
-
-if(examFilter)
-examFilter.onchange = update;
-
-
-
-
-if(reportBtn){
-
-
-reportBtn.onclick = ()=>{
-
-
-const selectedStudent =
-studentFilter?.value || "";
-
-
-
-if(!selectedStudent){
-
-
-alert(
-"اختر اسم الطالب أولاً"
-);
-
-
-return;
-
-
-}
-
-
-
-const studentResults =
-results.filter(
-r =>
-(r.studentName || "") === selectedStudent
-);
-
-
-
-printStudentReport(
-selectedStudent,
-studentResults
-);
-
-
-
-};
-
-
-}
-
-
-
-
-
-
-const deleteAll =
-document.getElementById(
-"deleteAllResults"
-);
-
-
-
-if(deleteAll){
-
-
-deleteAll.onclick = async ()=>{
-
-
-if(
-!confirm(
-"Are you sure you want to delete all results?"
-)
-)
-return;
-
-
-
-await deleteAllResults();
-
-
-
-app.innerHTML =
-await resultsPage();
-
-
-
-};
-
-
-}
-
-
-
-
-
-const refresh =
-document.getElementById(
-"refreshResults"
-);
-
-
-
-if(refresh){
-
-
-refresh.onclick = async ()=>{
-
-
-app.innerHTML =
-await resultsPage();
-
-
-
-};
-
-
-}
-
-
-
-
-
-const backAdmin =
-document.getElementById(
-"backAdmin"
-);
-
-
-
-if(backAdmin){
-
-
-backAdmin.onclick = ()=>{
-
-
-app.innerHTML =
-adminPage();
-
-
-
-};
-
-
-}
-
-
-
-
-
-
-const tableContainer =
+import {
+  getResults,
+  deleteResult,
+  deleteAllResults
+  } from "../services/resultService.js";
+  
+  import {
+  getExams
+  } from "../services/examService.js";
+  
+  import {
+  adminPage
+  } from "./admin.js";
+  
+  import {
+  reviewResultPage
+  } from "./reviewResult.js";
+  
+  
+  export async function resultsPage(){
+  
+  
+  const resultsData =
+  await getResults();
+  
+  
+  const results =
+  Array.isArray(resultsData)
+  ?
+  resultsData
+  :
+  [];
+  
+  
+  
+  const examsData =
+  await getExams();
+  
+  
+  const exams =
+  Array.isArray(examsData)
+  ?
+  examsData
+  :
+  [];
+  
+  
+  
+  const students =
+  [
+  ...new Set(
+  results.map(
+  r=>r.studentName || "Unknown"
+  )
+  )
+  ];
+  
+  
+  
+  const totalSubmissions =
+  results.length;
+  
+  
+  
+  const passedCount =
+  results.filter(r=>{
+  
+  
+  const total =
+  Number(r.total)||100;
+  
+  
+  const score =
+  Number(r.score)||0;
+  
+  
+  return (
+  (score/total)*100
+  )>=50;
+  
+  
+  }).length;
+  
+  
+  
+  const successRate =
+  totalSubmissions
+  ?
+  Math.round(
+  (passedCount/totalSubmissions)*100
+  )
+  :
+  0;
+  
+  
+  
+  setTimeout(()=>{
+  
+  
+  const app =
+  document.querySelector("#app");
+  
+  
+  
+  const back =
+  document.getElementById(
+  "backAdmin"
+  );
+  
+  
+  
+  if(back){
+  
+  back.onclick=()=>{
+  
+  app.innerHTML =
+  adminPage();
+  
+  };
+  
+  }
+  
+  
+  
+  
+  const refresh =
+  document.getElementById(
+  "refreshResults"
+  );
+  
+  
+  
+  if(refresh){
+  
+  refresh.onclick=
+  async()=>{
+  
+  app.innerHTML =
+  await resultsPage();
+  
+  };
+  
+  }
+  
+  
+  
+  
+  const deleteAll =
+  document.getElementById(
+  "deleteAllResults"
+  );
+  
+  
+  
+  if(deleteAll){
+  
+  deleteAll.onclick=
+  async()=>{
+  
+  
+  if(
+  !confirm(
+  "حذف كل النتائج؟"
+  )
+  )
+  return;
+  
+  
+  
+  await deleteAllResults();
+  
+  
+  app.innerHTML =
+  await resultsPage();
+  
+  
+  };
+  
+  
+  }
+  
+  
+  
+  
+  // ✅ زر طباعة الكشف
+  
+  const reportBtn =
+  document.getElementById(
+  "studentReport"
+  );
+  
+  
+  
+  if(reportBtn){
+  
+  reportBtn.onclick = ()=>{
+  
+  
+  const visibleCards =
+  [
+  ...document.querySelectorAll(
+  "#resultsTable .menu-card"
+  )
+  ]
+  .filter(
+  card =>
+  card.style.display !== "none"
+  );
+  
+  
+  
+  const selectedResults =
+  visibleCards.map(card=>{
+  
+  
+  return results.find(
+  r =>
+  String(r.id) ===
+  String(card.dataset.resultId)
+  );
+  
+  
+  })
+  .filter(Boolean);
+  
+  
+  
+  if(!selectedResults.length){
+  
+  alert(
+  "لا توجد نتائج للطباعة"
+  );
+  
+  return;
+  
+  }
+  
+  
+  
+  printStudentReport(
+  "كشف نتائج الطلاب",
+  selectedResults
+  );
+  
+  
+  
+  };
+  
+  
+  }
+  
+  
+  
+  
+  
+  
+  const search =
+  document.getElementById(
+  "searchStudent"
+  );
+  
+  
+  
+  const studentFilter =
+  document.getElementById(
+  "filterStudent"
+  );
+  
+  
+  
+  const examFilter =
+  document.getElementById(
+  "filterExam"
+  );
+  
+  
+  
+  function updateFilter(){
+  
+  
+  const text =
+  (
+  search?.value || ""
+  )
+  .toLowerCase()
+  .trim();
+  
+  
+  
+  const student =
+  studentFilter?.value || "";
+  
+  
+  
+  const exam =
+  examFilter?.value || "";
+  
+  
+  
+  const cards =
+  [
+  ...document.querySelectorAll(
+  "#resultsTable .menu-card"
+  )
+  ];
+  
+  
+  
+  cards.forEach(card=>{
+  
+  
+  const studentName =
+  (
+  card.dataset.student || ""
+  )
+  .toLowerCase();
+  
+  
+  
+  const examName =
+  (
+  card.dataset.exam || ""
+  )
+  .toLowerCase();
+  
+  
+  
+  const okSearch =
+  !text ||
+  studentName.includes(text) ||
+  examName.includes(text);
+  
+  
+  
+  const okStudent =
+  !student ||
+  card.dataset.student === student;
+  
+  
+  
+  const okExam =
+  !exam ||
+  card.dataset.exam === exam;
+  
+  
+  
+  card.style.display =
+  (
+  okSearch &&
+  okStudent &&
+  okExam
+  )
+  
+  ?
+  
+  "block"
+  
+  :
+  
+  "none";
+  
+  
+  });
+  
+  
+  }
+  
+  
+  
+  search?.addEventListener(
+  "input",
+  updateFilter
+  );
+  
+  
+  studentFilter?.addEventListener(
+  "change",
+  updateFilter
+  );
+  
+  
+  examFilter?.addEventListener(
+  "change",
+  updateFilter
+  );
+  
+  
+
+  const table =
 document.getElementById(
 "resultsTable"
 );
 
 
 
-if(tableContainer){
+if(table){
+
+table.onclick =
+async(e)=>{
 
 
-tableContainer.onclick =
-async (e)=>{
-
-
-
-const delBtn =
+const del =
 e.target.closest(
 ".deleteResult"
 );
 
 
 
-if(delBtn){
-
+if(del){
 
 e.stopPropagation();
 
 
-
-const id =
-delBtn.dataset.result;
-
-
-
-if(
-!confirm(
-"Delete this result?"
-)
-)
-return;
-
-
-
-await deleteResult(id);
+await deleteResult(
+del.dataset.result
+);
 
 
 
@@ -463,64 +423,9 @@ app.innerHTML =
 await resultsPage();
 
 
-
 return;
 
-
 }
-
-
-
-
-
-
-const pdfBtn =
-e.target.closest(
-".downloadResultPdf"
-);
-
-
-
-if(pdfBtn){
-
-
-e.stopPropagation();
-
-
-
-const id =
-pdfBtn.dataset.result;
-
-
-
-const result =
-results.find(
-r =>
-r.id === id
-);
-
-
-
-if(result){
-
-
-printResultsTable(
-[result],
-"Student Result"
-);
-
-
-
-}
-
-
-
-return;
-
-
-}
-
-
 
 
 
@@ -535,37 +440,28 @@ e.target.closest(
 if(card){
 
 
-const id =
-card.dataset.resultId;
-
-
-
-const resultItem =
+const result =
 results.find(
 r =>
-r.id === id
+String(r.id)
+===
+String(card.dataset.resultId)
 );
 
 
 
-if(
-resultItem &&
-typeof reviewResultPage === "function"
-){
-
+if(result){
 
 app.innerHTML =
 reviewResultPage(
-resultItem
+result
 );
 
+}
 
 
 }
 
-
-
-}
 
 
 };
@@ -574,86 +470,56 @@ resultItem
 }
 
 
+
 },50);
+
+
+
 return `
 
+
 <div style="
-max-width:1200px;
-margin:0 auto;
+background:linear-gradient(135deg,#090d16,#1e293b);
 padding:35px;
-font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
-background:#0f172a;
-min-height:100vh;
-direction:ltr;
-text-align:left;
-color:#f8fafc;
+border-radius:25px;
+color:white;
+margin-bottom:30px;
 ">
 
 
 <button id="backAdmin"
 
 style="
-background:rgba(255,255,255,0.08);
-color:#e2e8f0;
-border:1px solid rgba(255,255,255,0.12);
-padding:9px 16px;
-font-size:13px;
-font-weight:700;
+padding:10px 18px;
 border-radius:12px;
+border:none;
 cursor:pointer;
+margin-bottom:20px;
 ">
 
-⬅ Back to Dashboard
+⬅ العودة للوحة التحكم
 
 </button>
 
 
 
 <h1>
-🛡️ Admin Control Center
+📊 نتائج الطلاب
 </h1>
 
 
-<h2>
-📊 Exam Results Dashboard
-</h2>
-
 
 <p>
-Monitor performance metrics and student reports.
+عدد التسليمات:
+<b>${totalSubmissions}</b>
 </p>
 
 
 
-<div style="
-display:flex;
-gap:20px;
-margin:25px 0;
-">
-
-
-<div>
-Total Submissions
-
-<h2 id="statSubmissions">
-${totalSubmissions}
-</h2>
-
-</div>
-
-
-
-<div>
-
-Success Rate
-
-<h2 id="statSuccessRate">
-
-${successRate}%
-
-</h2>
-
-</div>
+<p>
+نسبة النجاح:
+<b>${successRate}%</b>
+</p>
 
 
 </div>
@@ -666,24 +532,27 @@ ${successRate}%
 display:flex;
 gap:15px;
 flex-wrap:wrap;
+margin-bottom:30px;
 ">
+
 
 
 <input
 
 id="searchStudent"
 
-placeholder="🔍 Search student or exam"
+placeholder="🔍 بحث عن طالب أو امتحان"
 
 style="
+padding:14px;
+border-radius:12px;
+border:none;
 flex:1;
 min-width:250px;
-padding:14px;
-border-radius:14px;
-border:1px solid rgba(255,255,255,.12);
-background:#0f172a;
-color:white;
-">
+"
+
+>
+
 
 
 
@@ -693,25 +562,20 @@ id="filterStudent"
 
 style="
 padding:14px;
-border-radius:14px;
-background:#0f172a;
-color:white;
-min-width:220px;
-">
+border-radius:12px;
+"
+
+>
 
 
 <option value="">
-
-👨‍🎓 All Students
-
+👨‍🎓 كل الطلاب
 </option>
-
 
 
 ${
 students.map(
-s =>
-`
+s=>`
 
 <option value="${s}">
 ${s}
@@ -728,34 +592,31 @@ ${s}
 
 
 
+
 <select
 
 id="filterExam"
 
 style="
 padding:14px;
-border-radius:14px;
-background:#0f172a;
-color:white;
-min-width:220px;
-">
+border-radius:12px;
+"
+
+>
 
 
 <option value="">
-
-📂 All Exams
-
+📚 كل الامتحانات
 </option>
 
 
 
 ${
 exams.map(
-e =>
-`
+e=>`
 
-<option value="${e.title}">
-${e.title}
+<option value="${e.title || ""}">
+${e.title || "امتحان"}
 </option>
 
 `
@@ -763,31 +624,67 @@ ${e.title}
 }
 
 
-
 </select>
 
 
 
-<button
 
-id="studentReport"
+
+<button id="refreshResults"
 
 style="
-padding:14px 22px;
+padding:14px 20px;
 border:none;
-border-radius:14px;
-background:#2563eb;
-color:white;
-font-weight:700;
+border-radius:12px;
 cursor:pointer;
 ">
 
-📄 Student Report
+🔄 تحديث
 
 </button>
 
 
+
+
+
+<button id="studentReport"
+
+style="
+padding:14px 20px;
+border:none;
+border-radius:12px;
+cursor:pointer;
+background:#2563eb;
+color:white;
+">
+
+📄 طباعة كشف
+
+</button>
+
+
+
+
+
+<button id="deleteAllResults"
+
+style="
+padding:14px 20px;
+border:none;
+border-radius:12px;
+cursor:pointer;
+background:#dc2626;
+color:white;
+">
+
+🗑 حذف الكل
+
+</button>
+
+
+
 </div>
+
 
 
 
@@ -798,10 +695,14 @@ id="resultsTable"
 
 style="
 display:grid;
-grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
-gap:22px;
-margin-top:30px;
-">
+grid-template-columns:
+repeat(auto-fit,minmax(300px,1fr));
+gap:20px;
+"
+
+
+
+>
 
 
 ${
@@ -809,12 +710,7 @@ results.length
 
 ?
 
-
-results.map((r,index)=>{
-
-
-const total =
-Number(r.total)||100;
+results.map(r=>{
 
 
 const score =
@@ -822,9 +718,14 @@ Number(r.score)||0;
 
 
 
+const total =
+Number(r.total)||100;
+
+
+
 const percent =
 Math.round(
-(score / total) * 100
+(score/total)*100
 );
 
 
@@ -842,58 +743,59 @@ data-student="${r.studentName || ""}"
 
 data-exam="${r.examTitle || ""}"
 
-data-score="${score}"
-
-data-total="${total}"
-
 
 style="
 padding:25px;
 background:#111827;
+color:white;
 border-radius:20px;
 cursor:pointer;
-display:flex;
-flex-direction:column;
-gap:15px;
-border:1px solid rgba(255,255,255,.08);
-">
+"
 
-
-<h3>
-👨‍🎓 ${r.studentName || "Unknown"}
-</h3>
-
-
-<p>
-📝 ${r.examTitle || "N/A"}
-</p>
-
-
-<p>
-Score:
-${score}/${total}
-</p>
-
-
-<p>
-${percent}%
-</p>
-
-
-<div>
-
-
-<button
-
-class="downloadResultPdf"
-
-data-result="${r.id}"
 
 >
 
-📄 PDF
 
-</button>
+
+<h3 style="
+color:#ffffff;
+font-size:20px;
+font-weight:700;
+">
+
+👨‍🎓 ${
+r.studentName || "طالب"
+}
+
+</h3>
+
+
+
+<p>
+
+📚 ${
+r.examTitle || "امتحان"
+}
+
+</p>
+
+
+
+<p>
+
+الدرجة:
+${score}/${total}
+
+</p>
+
+
+
+<p>
+
+النسبة:
+${percent}%
+
+</p>
 
 
 
@@ -903,17 +805,26 @@ class="deleteResult"
 
 data-result="${r.id}"
 
+
+style="
+padding:8px 15px;
+background:#dc2626;
+color:white;
+border:none;
+border-radius:10px;
+cursor:pointer;
+"
+
 >
 
-🗑 Delete
+حذف
 
 </button>
 
 
-</div>
-
 
 </div>
+
 
 
 `;
@@ -924,112 +835,256 @@ data-result="${r.id}"
 
 :
 
-
 `
 
-<h3>
-📂 No Results Available
-</h3>
+<h2>
+لا توجد نتائج حتى الآن
+</h2>
 
 `
 
 }
 
 
-
 </div>
 
-
-</div>
 
 `;
 
 }
 
-
-
-
-function printStudentReport(studentName, studentResults){
-
-
-const win =
-window.open(
-"",
-"",
-"width=900,height=700"
-);
-
-
-
-const total =
-studentResults.reduce(
-(a,r)=>
-a+(Number(r.total)||100),
-0
-);
-
-
-
-const score =
-studentResults.reduce(
-(a,r)=>
-a+(Number(r.score)||0),
-0
-);
-
-
-
-const avg =
-total
-?
-Math.round(
-(score / total) * 100
-)
-:
-0;
-
-
-
-win.document.write(`
-
-<h2>
-Ahmed.R Physics Report
-</h2>
-
-<h3>
-${studentName}
-</h3>
-
-
-<p>
-Average:
-${avg}%
-</p>
-
-
-</body>
-
-</html>
-
-`);
-
-
-
-win.document.close();
-
-
-}
-
-
-
-
-function printResultsTable(results,title){
-
-
-printStudentReport(
-title,
-results
-);
-
-
-}
+function printStudentReport(
+  title,
+  studentResults
+  ){
+  
+  
+  const win =
+  window.open(
+  "",
+  "",
+  "width=900,height=700"
+  );
+  
+  
+  
+  const total =
+  studentResults.reduce(
+  (a,r)=>
+  a + (Number(r.total)||100),
+  0
+  );
+  
+  
+  
+  const score =
+  studentResults.reduce(
+  (a,r)=>
+  a + (Number(r.score)||0),
+  0
+  );
+  
+  
+  
+  const avg =
+  total
+  ?
+  Math.round(
+  (score/total)*100
+  )
+  :
+  0;
+  
+  
+  
+  win.document.write(`
+  
+  <html>
+  
+  <head>
+  
+  <title>
+  ${title}
+  </title>
+  
+  
+  <style>
+  
+  body{
+  
+  font-family:Arial;
+  direction:rtl;
+  padding:30px;
+  
+  }
+  
+  
+  
+  h2{
+  
+  text-align:center;
+  
+  }
+  
+  
+  
+  table{
+  
+  width:100%;
+  border-collapse:collapse;
+  margin-top:25px;
+  
+  }
+  
+  
+  
+  th,td{
+  
+  border:1px solid #333;
+  padding:10px;
+  text-align:center;
+  
+  }
+  
+  
+  
+  th{
+  
+  background:#eee;
+  
+  }
+  
+  
+  
+  </style>
+  
+  
+  </head>
+  
+  
+  
+  <body>
+  
+  
+  
+  <h2>
+  ${title}
+  </h2>
+  
+  
+  
+  <p>
+  النسبة العامة:
+  ${avg}%
+  </p>
+  
+  
+  
+  <table>
+  
+  
+  <tr>
+  
+  <th>
+  الطالب
+  </th>
+  
+  
+  <th>
+  الامتحان
+  </th>
+  
+  
+  <th>
+  الدرجة
+  </th>
+  
+  
+  <th>
+  النسبة
+  </th>
+  
+  
+  </tr>
+  
+  
+  
+  ${
+  studentResults.map(r=>{
+  
+  
+  const percent =
+  Math.round(
+  (
+  Number(r.score||0)
+  /
+  Number(r.total||100)
+  )
+  *100
+  );
+  
+  
+  
+  return `
+  
+  
+  <tr>
+  
+  
+  <td>
+  ${r.studentName || ""}
+  </td>
+  
+  
+  
+  <td>
+  ${r.examTitle || "امتحان"}
+  </td>
+  
+  
+  
+  <td>
+  ${r.score || 0}/${r.total || 0}
+  </td>
+  
+  
+  
+  <td>
+  ${percent}%
+  </td>
+  
+  
+  
+  </tr>
+  
+  
+  `;
+  
+  
+  }).join("")
+  }
+  
+  
+  
+  </table>
+  
+  
+  
+  </body>
+  
+  
+  </html>
+  
+  
+  `);
+  
+  
+  
+  win.document.close();
+  
+  
+  
+  win.print();
+  
+  
+  }

@@ -1,4 +1,5 @@
 // pages/exams.js
+import { showExam } from "./exam.js";
 
 import { getExams } from "../services/examService.js";
 
@@ -924,143 +925,29 @@ document.addEventListener(
 // LAUNCH EXAM
 // ======================================================
 
-function launchExamView(
-  exam
-) {
+// ======================================================
+// LAUNCH EXAM
+// ======================================================
+
+function launchExamView(exam) {
+
+
+  localStorage.setItem(
+    "currentActiveExam",
+    JSON.stringify(exam)
+  );
+
 
   const app =
-    document.querySelector(
-      "#app"
-    );
+    document.querySelector("#app");
 
 
-  const studentName =
-    localStorage.getItem(
-      "studentName"
-    )
-    ||
-    "طالب";
+  if(!app)
+    return;
 
 
-  app.innerHTML = `
+  app.innerHTML =
+    showExam();
 
-  <div style="
-  min-height:100vh;
-  background:#0f172a;
-  color:white;
-  padding:30px;
-  direction:rtl;
-  font-family:Cairo;
-  ">
-
-
-    <h2>
-
-      ${exam.title || "اختبار"}
-
-    </h2>
-
-
-    <p>
-
-      الطالب:
-      ${studentName}
-
-    </p>
-
-
-    ${
-      exam.questions.map(
-        (q, i) => `
-
-        <div style="
-        background:#1e293b;
-        padding:20px;
-        margin-bottom:20px;
-        border-radius:15px;
-        ">
-
-
-          <h3>
-
-            س${i + 1}:
-            ${q.text || ""}
-
-          </h3>
-
-
-          <div class="options-container">
-
-
-            ${
-              q.options
-                .map(
-                  (op, j) => `
-
-                  <label
-                  class="option-label"
-                  style="
-                  display:block;
-                  padding:12px;
-                  margin:8px 0;
-                  background:#334155;
-                  border-radius:10px;
-                  cursor:pointer;
-                  transition:.2s;
-                  ">
-
-
-                    <input
-                    type="radio"
-                    name="question_${i}"
-                    value="${j}"
-                    style="
-                    margin-left:8px;
-                    ">
-
-
-                    ${op}
-
-
-                  </label>
-
-                  `
-                )
-                .join("")
-            }
-
-
-          </div>
-
-
-        </div>
-
-        `
-      ).join("")
-    }
-
-
-    <button
-    id="submitExamBtn"
-    style="
-    width:100%;
-    padding:15px;
-    background:#10b981;
-    color:white;
-    border:none;
-    border-radius:12px;
-    font-weight:bold;
-    cursor:pointer;
-    font-family:Cairo;
-    ">
-
-      إرسال وإنهاء الاختبار
-
-    </button>
-
-
-  </div>
-
-  `;
 
 }

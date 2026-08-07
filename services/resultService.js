@@ -1,3 +1,5 @@
+// services/resultService.js
+
 import { db } from "../firebase.js";
 
 import {
@@ -16,7 +18,10 @@ const RESULTS_COLLECTION = "results";
 
 
 
+// ================= SAVE RESULT =================
+
 export async function saveResult(result = {}) {
+
 
   const data = {
 
@@ -28,60 +33,140 @@ export async function saveResult(result = {}) {
   };
 
 
-  const ref =
-    await addDoc(
-      collection(
-        db,
-        RESULTS_COLLECTION
-      ),
-      data
+
+  console.log(
+    "TRY SAVE RESULT",
+    data
+  );
+
+
+
+  try {
+
+
+    const ref =
+      await addDoc(
+
+        collection(
+          db,
+          RESULTS_COLLECTION
+        ),
+
+        data
+
+      );
+
+
+
+    console.log(
+      "RESULT SAVED ID:",
+      ref.id
     );
 
 
-  return {
 
-    id: ref.id,
+    return {
 
-    ...data
+      id: ref.id,
 
-  };
+      ...data
+
+    };
+
+
+
+  } catch(error) {
+
+
+    console.error(
+      "SAVE RESULT ERROR:",
+      error
+    );
+
+
+    throw error;
+
+
+  }
 
 }
 
 
 
+
+
+// ================= GET RESULTS =================
 
 export async function getResults(){
 
-  const q =
-    query(
 
-      collection(
-        db,
-        RESULTS_COLLECTION
-      ),
+  try {
 
-      orderBy(
-        "createdAt",
-        "desc"
-      )
 
+
+    const q =
+      query(
+
+        collection(
+          db,
+          RESULTS_COLLECTION
+        ),
+
+
+        orderBy(
+          "createdAt",
+          "desc"
+        )
+
+      );
+
+
+
+    const snapshot =
+      await getDocs(q);
+
+
+
+    const results =
+      snapshot.docs.map(
+
+        item => ({
+
+          id:item.id,
+
+          ...item.data()
+
+        })
+
+      );
+
+
+
+    console.log(
+      "RESULTS FROM FIREBASE:",
+      results
     );
 
 
 
-  const snapshot =
-    await getDocs(q);
+    return results;
 
 
 
-  return snapshot.docs.map(item => ({
+  } catch(error) {
 
-    id: item.id,
 
-    ...item.data()
+    console.error(
+      "GET RESULTS ERROR:",
+      error
+    );
 
-  }));
+
+    return [];
+
+
+  }
+
 
 }
 
@@ -89,10 +174,13 @@ export async function getResults(){
 
 
 
+// ================= GET ONE RESULT =================
+
 export async function getResultById(id){
 
+
   if(!id)
-    return null;
+  return null;
 
 
 
@@ -108,26 +196,29 @@ export async function getResultById(id){
 
 
 
-  const result =
+  const item =
     snapshot.docs.find(
-      item =>
-        item.id === id
+
+      d =>
+      d.id === id
+
     );
 
 
 
-  if(!result)
-    return null;
+  if(!item)
+  return null;
 
 
 
   return {
 
-    id: result.id,
+    id:item.id,
 
-    ...result.data()
+    ...item.data()
 
   };
+
 
 }
 
@@ -135,22 +226,29 @@ export async function getResultById(id){
 
 
 
+// ================= UPDATE RESULT =================
+
 export async function updateResult(
-  id,
-  data = {}
+id,
+data = {}
 ){
 
+
   if(!id)
-    return null;
+  return;
 
 
 
   await updateDoc(
 
     doc(
+
       db,
+
       RESULTS_COLLECTION,
+
       id
+
     ),
 
     data
@@ -167,28 +265,37 @@ export async function updateResult(
 
   };
 
+
 }
 
 
 
 
 
+// ================= DELETE RESULT =================
+
 export async function deleteResult(id){
 
+
   if(!id)
-    return;
+  return;
 
 
 
   await deleteDoc(
 
     doc(
+
       db,
+
       RESULTS_COLLECTION,
+
       id
+
     )
 
   );
+
 
 }
 
@@ -196,14 +303,20 @@ export async function deleteResult(id){
 
 
 
+// ================= DELETE ALL RESULTS =================
+
 export async function deleteAllResults(){
+
 
   const snapshot =
     await getDocs(
 
       collection(
+
         db,
+
         RESULTS_COLLECTION
+
       )
 
     );
@@ -211,14 +324,20 @@ export async function deleteAllResults(){
 
 
   const deletes =
-    snapshot.docs.map(item =>
+    snapshot.docs.map(
+
+      item =>
 
       deleteDoc(
 
         doc(
+
           db,
+
           RESULTS_COLLECTION,
+
           item.id
+
         )
 
       )
@@ -230,5 +349,6 @@ export async function deleteAllResults(){
   await Promise.all(
     deletes
   );
+
 
 }

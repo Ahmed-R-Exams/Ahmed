@@ -4,125 +4,422 @@ import {
   deleteFile
 } from "../services/fileService.js";
 
-export function manageFilesPage() {
-  const files = getFiles();
-
-  return `
-  <div class="container" style="direction: rtl; text-align: right;">
-    <h1>📚 إدارة السبورات والملفات</h1>
-    <p class="subtitle">رفع السبورات، ملفات الـ PDF، والمستندات الدراسية</p>
-
-    <div class="card">
-      <label>اسم المحتوى</label>
-      <input id="fileName" placeholder="مثال: الوحدة الأولى - الحركة">
-
-      <label>المادة الدراسية</label>
-      <select id="fileSubject">
-        <option value="physics">فيزياء (Physics)</option>
-        <option value="chemistry">كيمياء (Chemistry)</option>
-      </select>
-
-      <label>الصف الدراسي</label>
-      <select id="fileClass">
-        <option value="grade2">الثاني الثانوي (Second Secondary)</option>
-        <option value="grade3">الثالث الثانوي (Third Secondary)</option>
-      </select>
-
-      <label>نوع المحتوى</label>
-      <select id="fileType">
-        <option value="board">📚 سبورة دراسية (Board Image)</option>
-        <option value="file">📂 ملف / ملزمة PDF (File / PDF)</option>
-      </select>
-
-      <label>إرفاق الملف</label>
-      <input type="file" id="uploadFile">
-
-      <button id="saveFile">💾 حفظ ونشر</button>
-    </div>
-
-    <h2>المحتويات المضافة مسبقاً</h2>
-
-    <div class="cards">
-      ${
-        files.length
-          ? files
-              .map(
-                (file) => `
-          <div class="menu-card">
-            <h3>${file.name || file.contentName}</h3>
-            <p>المادة: ${file.subjectName === "chemistry" || file.subject === "chemistry" ? "كيمياء" : "فيزياء"}</p>
-            <p>الصف: ${file.class || file.className}</p>
-            <p>النوع: ${file.type === "board" || file.contentType === "board" ? "📚 سبورة" : "📂 ملف"}</p>
-            <a href="${file.url || file.fileUrl}" download="${file.name || file.contentName}">⬇ تحميل</a>
-            <button class="deleteFile" data-id="${file.id}">🗑 حذف</button>
-          </div>
-        `
-              )
-              .join("")
-          : `
-          <div class="menu-card">
-            <h3>لا توجد محتويات حتى الآن</h3>
-            <p>قم برفع أول سبورة أو ملف دراسي</p>
-          </div>
-        `
-      }
-    </div>
-
-    <button id="backAdmin">⬅ رجوع</button>
-  </div>
-  `;
-}
 
 let filesEventsInitialized = false;
 
-export function manageFilesEvents() {
-  if (filesEventsInitialized) return;
-  filesEventsInitialized = true;
 
-  document.addEventListener("click", (e) => {
-    if (e.target.closest("#saveFile")) {
-      const input = document.getElementById("uploadFile");
-      const name = document.getElementById("fileName")?.value.trim();
-      const subjectName = document.getElementById("fileSubject")?.value;
-      const className = document.getElementById("fileClass")?.value;
-      const type = document.getElementById("fileType")?.value;
 
-      if (!input || !input.files[0]) {
-        alert("الرجاء اختيار ملف أولاً");
-        return;
-      }
+export async function manageFilesPage() {
 
-      const file = input.files[0];
-      const reader = new FileReader();
 
-      reader.onload = function (ev) {
-        addFile({
-          id: Date.now(),
-          name: name || file.name,
-          contentName: name || file.name,
-          subject: subjectName,
-          subjectName: subjectName,
-          class: className,
-          className: className,
-          type: type,
-          contentType: type,
-          url: ev.target.result,
-          fileUrl: ev.target.result
-        });
+const files =
+await getFiles();
 
-        document.querySelector("#app").innerHTML = manageFilesPage();
-      };
 
-      reader.readAsDataURL(file);
-      return;
-    }
 
-    const delBtn = e.target.closest(".deleteFile");
-    if (delBtn) {
-      const id = Number(delBtn.dataset.id);
-      deleteFile(id);
-      document.querySelector("#app").innerHTML = manageFilesPage();
-      return;
-    }
-  });
+return `
+
+
+<div class="card">
+
+<label>
+اسم المحتوى
+</label>
+
+<input
+id="fileName"
+placeholder="مثال: الوحدة الأولى - الحركة"
+/>
+
+
+
+<label>
+المادة
+</label>
+
+<select id="fileSubject">
+
+<option value="physics">
+فيزياء
+</option>
+
+<option value="chemistry">
+كيمياء
+</option>
+
+</select>
+
+
+
+<label>
+الصف
+</label>
+
+<select id="fileClass">
+
+<option value="grade2">
+الثاني الثانوي
+</option>
+
+<option value="grade3">
+الثالث الثانوي
+</option>
+
+</select>
+
+
+
+<label>
+نوع المحتوى
+</label>
+
+<select id="fileType">
+
+<option value="board">
+📚 سبورة
+</option>
+
+<option value="file">
+📂 ملف PDF
+</option>
+
+</select>
+
+
+
+<label>
+اختيار الملف
+</label>
+
+<input
+type="file"
+id="uploadFile"
+/>
+
+
+
+<button id="saveFile">
+
+💾 حفظ ونشر
+
+</button>
+
+
+</div>
+
+
+
+<h2>
+المحتويات المضافة
+</h2>
+
+
+
+<div class="cards">
+
+
+${
+files.length
+
+?
+
+files.map(file=>`
+
+<div class="menu-card">
+
+
+<h3>
+${file.name || "ملف"}
+</h3>
+
+
+<p>
+المادة:
+${file.subject==="chemistry" ? "كيمياء" : "فيزياء"}
+</p>
+
+
+<p>
+الصف:
+${file.className || ""}
+</p>
+
+
+<p>
+النوع:
+${file.type==="board" ? "📚 سبورة" : "📂 ملف"}
+</p>
+
+
+
+<a
+href="${file.url}"
+target="_blank"
+>
+
+⬇ فتح الملف
+
+</a>
+
+
+
+<br>
+
+
+<button
+class="deleteFile"
+data-id="${file.firestoreId || file.id}"
+>
+
+🗑 حذف
+
+</button>
+
+
+</div>
+
+`).join("")
+
+:
+
+`
+
+<div class="menu-card">
+
+<h3>
+لا توجد ملفات
+</h3>
+
+</div>
+
+`
+
+}
+
+
+</div>
+
+
+
+<button id="backAdmin">
+
+⬅ رجوع
+
+</button>
+
+
+`;
+
+}
+
+
+
+
+
+
+
+
+export function manageFilesEvents(){
+
+
+if(filesEventsInitialized)
+return;
+
+
+filesEventsInitialized = true;
+
+
+
+document.addEventListener(
+"click",
+async(e)=>{
+
+
+
+const save =
+e.target.closest("#saveFile");
+
+
+
+if(save){
+
+
+
+const input =
+document.getElementById("uploadFile");
+
+
+
+if(
+!input ||
+!input.files[0]
+){
+
+alert(
+"الرجاء اختيار ملف أولاً"
+);
+
+return;
+
+}
+
+
+
+const file =
+input.files[0];
+
+
+
+const data = {
+
+
+name:
+
+document.getElementById(
+"fileName"
+)
+.value
+.trim()
+||
+file.name,
+
+
+subject:
+
+document.getElementById(
+"fileSubject"
+)
+.value,
+
+
+className:
+
+document.getElementById(
+"fileClass"
+)
+.value,
+
+
+type:
+
+document.getElementById(
+"fileType"
+)
+.value
+
+
+};
+
+
+
+
+try{
+
+
+save.disabled = true;
+
+
+save.innerHTML =
+"⏳ جاري الرفع...";
+
+
+
+await addFile(
+data,
+file
+);
+
+
+
+alert(
+"✅ تم رفع الملف بنجاح"
+);
+
+
+
+document.querySelector("#app")
+.innerHTML =
+await manageFilesPage();
+
+
+
+}
+
+catch(err){
+
+
+console.error(
+"UPLOAD ERROR:",
+err
+);
+
+
+
+alert(
+err.message
+);
+
+
+}
+
+
+
+return;
+
+
+}
+
+
+
+
+
+
+const del =
+e.target.closest(".deleteFile");
+
+
+
+if(del){
+
+
+try{
+
+
+await deleteFile({
+
+id:
+del.dataset.id
+
+});
+
+
+
+document.querySelector("#app")
+.innerHTML =
+await manageFilesPage();
+
+
+
+}
+
+catch(err){
+
+
+console.error(
+"DELETE ERROR:",
+err
+);
+
+
+}
+
+
+
+}
+
+
+
+});
+
+
 }

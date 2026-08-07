@@ -1,4 +1,4 @@
-// pages/resultpages.js
+// pages/resultsEvents.js
 
 import { reviewResultPage } from "./reviewResult.js";
 import { resultsPage } from "./results.js";
@@ -16,611 +16,550 @@ let resultsEventsInitialized = false;
 
 export async function resultsEvents() {
 
+  const search =
+    document.getElementById("searchStudent");
 
-const search =
-document.getElementById("searchStudent");
+  const filter =
+    document.getElementById("filterExam");
 
+  const sort =
+    document.getElementById("sortResults");
 
-const filter =
-document.getElementById("filterExam");
+  const app =
+    document.querySelector("#app");
 
 
-const sort =
-document.getElementById("sortResults");
+  async function update() {
 
+    const cards = [
+      ...document.querySelectorAll(
+        "#resultsTable .menu-card"
+      )
+    ];
 
-const app =
-document.querySelector("#app");
 
+    const searchText =
+      (
+        search?.value || ""
+      )
+      .toLowerCase()
+      .trim();
 
 
-async function update(){
+    const examValue =
+      filter?.value || "";
 
 
-const results =
-await getResults();
+    cards.forEach(card => {
 
+      const student =
+        (
+          card.dataset.student || ""
+        )
+        .toLowerCase();
 
 
-const cards =
-[
-...document.querySelectorAll(
-"#resultsTable .menu-card"
-)
-];
+      const exam =
+        (
+          card.dataset.exam || ""
+        )
+        .toLowerCase();
 
 
+      const searchOK =
+        student.includes(searchText) ||
+        exam.includes(searchText);
 
-const searchText =
-(
-search?.value ||
-""
-)
-.toLowerCase()
-.trim();
 
+      const filterOK =
+        !examValue ||
+        card.dataset.exam === examValue;
 
 
-const examValue =
-filter?.value ||
-"";
+      card.style.display =
+        searchOK && filterOK
+          ? "flex"
+          : "none";
 
+    });
 
 
-cards.forEach(card=>{
 
+    const table =
+      document.getElementById(
+        "resultsTable"
+      );
 
-const student =
-(
-card.dataset.student ||
-""
-)
-.toLowerCase();
 
+    if(!table)
+      return;
 
 
-const exam =
-(
-card.dataset.exam ||
-""
-)
-.toLowerCase();
 
+    const visible =
+      cards.filter(
+        card =>
+          card.style.display !== "none"
+      );
 
 
-const searchOK =
-student.includes(searchText)
-||
-exam.includes(searchText);
 
+    visible.sort((a,b)=>{
 
+      const scoreA =
+        Number(a.dataset.score) || 0;
 
-const filterOK =
-!examValue
-||
-card.dataset.exam === examValue;
+      const scoreB =
+        Number(b.dataset.score) || 0;
 
 
+      const idA =
+        Number(a.dataset.resultId) || 0;
 
-card.style.display =
-searchOK && filterOK
-?
-"flex"
-:
-"none";
+      const idB =
+        Number(b.dataset.resultId) || 0;
 
 
-});
 
+      switch(sort?.value){
 
+        case "highest":
+          return scoreB - scoreA;
 
-const table =
-document.getElementById(
-"resultsTable"
-);
 
+        case "lowest":
+          return scoreA - scoreB;
 
 
-if(!table)
-return;
+        case "oldest":
+          return idA - idB;
 
 
+        default:
+          return idB - idA;
 
-const visible =
-cards.filter(
-card =>
-card.style.display !== "none"
-);
+      }
 
+    });
 
 
-visible.sort((a,b)=>{
 
+    visible.forEach(card =>
+      table.appendChild(card)
+    );
 
-const scoreA =
-Number(a.dataset.score)
-||
-0;
+  }
 
 
-const scoreB =
-Number(b.dataset.score)
-||
-0;
 
+  if(search)
+    search.oninput = update;
 
-const idA =
-Number(a.dataset.resultId)
-||
-0;
 
+  if(filter)
+    filter.onchange = update;
 
-const idB =
-Number(b.dataset.resultId)
-||
-0;
 
+  if(sort)
+    sort.onchange = update;
 
 
-switch(sort?.value){
 
+  const deleteAll =
+    document.getElementById(
+      "deleteAllResults"
+    );
 
-case "highest":
-return scoreB-scoreA;
 
 
-case "lowest":
-return scoreA-scoreB;
+  if(deleteAll){
 
+    deleteAll.onclick =
+      async ()=>{
 
-case "oldest":
-return idA-idB;
+        if(
+          !confirm(
+            "Delete all results?"
+          )
+        )
+          return;
 
 
-default:
-return idB-idA;
+        await deleteAllResults();
 
 
-}
+        app.innerHTML =
+          await resultsPage();
 
 
-});
+        await resultsEvents();
 
+      };
 
+  }
 
-visible.forEach(card=>
 
-table.appendChild(card)
 
-);
 
+  const refresh =
+    document.getElementById(
+      "refreshResults"
+    );
 
-}
-if (search)
-search.oninput = update;
 
 
-if (filter)
-filter.onchange = update;
+  if(refresh){
 
+    refresh.onclick =
+      async ()=>{
 
-if (sort)
-sort.onchange = update;
+        app.innerHTML =
+          await resultsPage();
 
 
+        await resultsEvents();
 
-const deleteAll =
-document.getElementById(
-"deleteAllResults"
-);
+      };
 
+  }
 
 
-if(deleteAll){
 
-deleteAll.onclick = async ()=>{
 
 
-if(
-!confirm(
-"Delete all results?"
-)
-)
-return;
+  const backAdmin =
+    document.getElementById(
+      "backAdmin"
+    );
 
 
+  if(backAdmin){
 
-await deleteAllResults();
+    backAdmin.onclick =
+      ()=>{
 
+        app.innerHTML =
+          adminPage();
 
+      };
 
-app.innerHTML =
-resultsPage();
+  }
 
 
 
-resultsEvents();
 
+  const allPDF =
+    document.getElementById(
+      "downloadAllResultsPdf"
+    );
 
 
-};
 
-}
+  if(allPDF){
 
+    allPDF.onclick =
+      async ()=>{
 
+        const results =
+          await getResults();
 
 
+        if(!results.length){
 
-const refresh =
-document.getElementById(
-"refreshResults"
-);
+          alert(
+            "No Results available to export."
+          );
 
+          return;
 
+        }
 
-if(refresh){
 
+        await createPDF(
+          results,
+          "All_Results"
+        );
 
-refresh.onclick = async ()=>{
+      };
 
+  }
 
-app.innerHTML =
-resultsPage();
 
 
 
-resultsEvents();
 
+  if(resultsEventsInitialized)
+    return;
 
-};
 
+  resultsEventsInitialized = true;
 
-}
 
 
+  document.addEventListener(
+    "click",
+    async(e)=>{
 
 
 
-const backAdmin =
-document.getElementById(
-"backAdmin"
-);
+      const reviewBtn =
+        e.target.closest(
+          ".reviewResult"
+        );
 
 
 
-if(backAdmin){
+      if(reviewBtn){
 
+        const id =
+          reviewBtn.dataset.result;
 
-backAdmin.onclick = ()=>{
 
 
-app.innerHTML =
-adminPage();
+        const results =
+          await getResults();
 
 
-};
 
+        const result =
+          results.find(
+            r =>
+              r.id === id
+          );
 
-}
 
 
+        if(result){
 
+          app.innerHTML =
+            reviewResultPage(
+              result
+            );
 
+        }
 
-const allPDF =
-document.getElementById(
-"downloadAllResultsPdf"
-);
 
+        return;
 
+      }
 
-if(allPDF){
 
 
-allPDF.onclick = async ()=>{
 
 
-const results =
-await getResults();
 
+      const delBtn =
+        e.target.closest(
+          ".deleteResult"
+        );
 
 
-if(!results.length){
 
+      if(delBtn){
 
-alert(
-"No Results available to export."
-);
+        const id =
+          delBtn.dataset.result;
 
 
-return;
 
+        if(
+          !confirm(
+            "Delete this result?"
+          )
+        )
+          return;
 
-}
 
 
+        await deleteResult(id);
 
-await createPDF(
-results,
-"All_Results"
-);
 
 
+        app.innerHTML =
+          await resultsPage();
 
-};
 
 
-}
+        await resultsEvents();
 
 
 
+        return;
 
+      }
 
-if(resultsEventsInitialized)
-return;
 
 
-resultsEventsInitialized = true;
 
 
 
-document.addEventListener(
-"click",
-async(e)=>{
 
+      const pdfBtn =
+        e.target.closest(
+          ".downloadResultPdf"
+        );
 
 
-const reviewBtn =
-e.target.closest(
-".reviewResult"
-);
 
+      if(pdfBtn){
 
 
-if(reviewBtn){
+        const id =
+          pdfBtn.dataset.result;
 
 
-const id =
-reviewBtn.dataset.result;
 
+        const results =
+          await getResults();
 
 
-const results =
-await getResults();
 
+        const result =
+          results.find(
+            r =>
+              r.id === id
+          );
 
 
-const result =
-results.find(
-r =>
-r.id === id
-);
 
+        if(result){
 
+          await createPDF(
+            [result],
+            "Student_Result_" +
+            (
+              result.studentName ||
+              "Result"
+            )
+          );
 
-if(result){
+        }
 
 
-app.innerHTML =
-reviewResultPage(
-result
-);
+        return;
 
+      }
 
-}
 
 
-return;
-
-
-}
-
-
-
-
-const delBtn =
-e.target.closest(
-".deleteResult"
-);
-
-
-
-if(delBtn){
-
-
-const id =
-delBtn.dataset.result;
-
-
-
-if(
-!confirm(
-"Delete this result?"
-)
-)
-return;
-
-
-
-await deleteResult(id);
-
-
-
-app.innerHTML =
-resultsPage();
-
-
-
-resultsEvents();
-
-
-
-return;
-
-
-}
-const pdfBtn =
-e.target.closest(
-".downloadResultPdf"
-);
-
-
-
-if(pdfBtn){
-
-
-const id =
-pdfBtn.dataset.result;
-
-
-
-const results =
-await getResults();
-
-
-
-const result =
-results.find(
-r =>
-r.id === id
-);
-
-
-
-if(result){
-
-
-await createPDF(
-[result],
-`Student_Result_${result.studentName || "Result"}`
-);
-
-
-}
-
-
-return;
+    }
+  );
 
 
 }
 
 
 
-});
 
 
-}
+async function createPDF(
+  results,
+  fileName
+){
+
+  try{
 
 
-
-async function createPDF(results, fileName){
-
-
-try{
-
-
-const { jsPDF } =
-await import("jspdf");
+    const { jsPDF } =
+      await import(
+        "jspdf"
+      );
 
 
-await import(
-"jspdf-autotable"
-);
-
-
-
-const doc =
-new jsPDF();
+    await import(
+      "jspdf-autotable"
+    );
 
 
 
-doc.text(
-"Ahmed.R Physics Results",
-14,
-15
-);
+    const doc =
+      new jsPDF();
 
 
 
-const rows =
-results.map(r=>[
-
-
-r.studentName || "",
-
-
-r.examTitle || "",
-
-
-`${r.score}/${r.total}`,
-
-
-r.total
-?
-Math.round(
-(r.score / r.total) * 100
-)
-+
-"%"
-:
-"0%",
-
-
-r.date || ""
-
-
-]);
+    doc.text(
+      "Ahmed.R Physics Results",
+      14,
+      15
+    );
 
 
 
-doc.autoTable({
+    const rows =
+      results.map(
+        r=>[
+
+          r.studentName || "",
+
+          r.examTitle || "",
+
+          String(r.score) +
+          "/" +
+          String(r.total),
 
 
-startY:25,
+          r.total
+            ? Math.round(
+                (
+                  r.score /
+                  r.total
+                ) * 100
+              ) + "%"
+
+            : "0%",
 
 
-head:[
+          r.date || ""
 
-[
-"Student",
-"Exam",
-"Score",
-"Percent",
-"Date"
-]
-
-],
-
-
-body:rows
-
-
-});
-
-
-
-doc.save(
-fileName + ".pdf"
-);
-
-
-
-}catch(err){
-
-
-console.error(
-"PDF Generation Error:",
-err
-);
+        ]
+      );
 
 
 
-alert(
-"Error generating PDF file."
-);
+    doc.autoTable({
+
+      startY:25,
 
 
-}
+      head:[
 
+        [
+          "Student",
+          "Exam",
+          "Score",
+          "Percent",
+          "Date"
+        ]
+
+      ],
+
+
+      body:rows
+
+    });
+
+
+
+    doc.save(
+      fileName +
+      ".pdf"
+    );
+
+
+
+  }
+  catch(err){
+
+    console.error(
+      "PDF Generation Error:",
+      err
+    );
+
+
+    alert(
+      "Error generating PDF file."
+    );
+
+  }
 
 }
