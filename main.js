@@ -28,8 +28,10 @@ import { manageExamsEvents } from "./pages/manageExamsEvents.js";
 import { createExamPage } from "./pages/createExam.js";
 import { createExamEvents } from "./pages/createExamEvents.js";
 
-import { examsListPage } from "./pages/examsList.js";
-import { resultsPage } from "./pages/results.js";
+import {
+  examsListPage,
+  loadExamsList
+} from "./pages/examsList.js";import { resultsPage } from "./pages/results.js";
 
 const app = document.querySelector("#app");
 

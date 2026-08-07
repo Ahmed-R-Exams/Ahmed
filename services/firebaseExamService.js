@@ -10,7 +10,7 @@ import {
     where
   } from "firebase/firestore";
   
-  import { db } from "../Firebase";
+  import { db } from "../firebase.js";
   
   const examsRef = collection(db, "exams");
   

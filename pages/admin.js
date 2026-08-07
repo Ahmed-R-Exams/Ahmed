@@ -4,8 +4,7 @@ import { resultsPage } from "./results.js";
 import { homePage } from "./home.js";
 
 export function adminPage() {
-return `
-
+  return `
 <!-- Hero Banner -->
 <div style="background: linear-gradient(135deg, #090d16 0%, #1e293b 100%); padding: 50px 40px; border-radius: 32px; color: white; box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.4); margin-bottom: 45px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 25px; border: 1px solid rgba(255, 255, 255, 0.08); position: relative; overflow: hidden;">
 
@@ -168,7 +167,7 @@ document.addEventListener("click", async (e) => {
   
   // تشغيل أحداث النتائج بعد تحميل الصفحة
   const module =
-  await import("./resultpages.js");
+  await import("./results.js");
   
   
   if(module.resultsEvents){

@@ -2,6 +2,12 @@ import {
   examsListPage
 } from "./examsList.js";
 
+import {
+  addExam,
+  updateExam
+} from "../services/examService.js";
+
+
 let initialized = false;
 let editingExam = null;
 
@@ -25,9 +31,6 @@ export function createExamEvents(){
     "click",
     (e)=>{
 
-
-
-      // إضافة سؤال
 
       if(
         e.target.closest("#btnAddQuestion")
@@ -62,13 +65,10 @@ export function createExamEvents(){
         }
 
         return;
-
       }
 
 
 
-
-      // حذف سؤال
 
       if(
         e.target.closest(".removeQuestion")
@@ -85,13 +85,11 @@ export function createExamEvents(){
 
 
         return;
-
       }
 
 
 
 
-      // حفظ الامتحان
 
       if(
         e.target.closest("#btnSaveExam")
@@ -100,13 +98,11 @@ export function createExamEvents(){
         saveExam();
 
         return;
-
       }
 
 
 
 
-      // رجوع
 
       if(
         e.target.closest("#btnBackToList")
@@ -114,14 +110,11 @@ export function createExamEvents(){
 
         editingExam = null;
 
-
         document.querySelector("#app")
           .innerHTML =
           examsListPage();
 
-
         return;
-
       }
 
 
@@ -130,19 +123,18 @@ export function createExamEvents(){
 
 
 
+
+
   document.addEventListener(
     "change",
     (e)=>{
 
-
-      // تغيير نوع السؤال
 
       if(
         e.target.classList.contains(
           "q-type-select"
         )
       ){
-
 
         const card =
           e.target.closest(
@@ -173,23 +165,26 @@ export function createExamEvents(){
         ){
 
           if(mcq)
-            mcq.style.display = "none";
+            mcq.style.display =
+              "none";
 
 
           if(essay)
-            essay.style.display = "block";
+            essay.style.display =
+              "block";
 
 
         }else{
 
 
           if(mcq)
-            mcq.style.display = "block";
+            mcq.style.display =
+              "block";
 
 
           if(essay)
-            essay.style.display = "none";
-
+            essay.style.display =
+              "none";
 
         }
 
@@ -197,7 +192,8 @@ export function createExamEvents(){
 
 
 
-      // صورة السؤال
+
+
 
       if(
         e.target.classList.contains(
@@ -253,6 +249,7 @@ export function createExamEvents(){
               );
 
 
+
             if(preview){
 
               preview.style.display =
@@ -271,7 +268,6 @@ export function createExamEvents(){
 
             }
 
-
           };
 
 
@@ -281,18 +277,18 @@ export function createExamEvents(){
       }
 
 
-
     }
   );
 
+
 }
-function saveExam(){
+async function saveExam(){
 
   const title =
     document
-      .querySelector("#examTitle")
-      .value
-      .trim();
+    .querySelector("#examTitle")
+    .value
+    .trim();
 
 
 
@@ -301,93 +297,90 @@ function saveExam(){
     alert("اكتب عنوان الامتحان");
 
     return;
-
   }
+
+
 
 
 
   const subject =
     document
-      .querySelector("#examSubject")
-      ?.value
+    .querySelector("#examSubject")
+    ?.value
     ||
     "physics";
 
 
 
+
+
   const className =
     document
-      .querySelector("#examClass")
-      ?.value
+    .querySelector("#examClass")
+    ?.value
     ||
     "الصف الأول الثانوي";
+
+
 
 
 
   const duration =
     Number(
       document
-        .querySelector("#examDuration")
-        ?.value
+      .querySelector("#examDuration")
+      ?.value
     )
     ||
     60;
 
 
 
+
+
   const passingScore =
     Number(
       document
-        .querySelector("#examPassingScore")
-        ?.value
+      .querySelector("#examPassingScore")
+      ?.value
     )
     ||
     50;
 
 
 
+
+
   const startDate =
     document
-      .querySelector("#examStartDate")
-      ?.value
+    .querySelector("#examStartDate")
+    ?.value
     ||
     "";
+
+
 
 
 
   const endDate =
     document
-      .querySelector("#examEndDate")
-      ?.value
+    .querySelector("#examEndDate")
+    ?.value
     ||
     "";
 
 
 
-  const manualBtn =
-    document.querySelector(
-      "#toggleManualCloseBtn"
-    );
-
-
-
-  const manualClose =
-    manualBtn
-    ?
-    manualBtn.getAttribute(
-      "data-closed"
-    ) === "true"
-    :
-    false;
-
 
 
   const cards =
-    [
-      ...document.querySelectorAll(
-        ".question-card"
-      )
-    ];
+  [
+    ...document.querySelectorAll(
+      ".question-card"
+    )
+  ];
+
+
 
 
 
@@ -398,183 +391,163 @@ function saveExam(){
     );
 
     return;
-
   }
 
 
 
+
+
   const questions =
-    cards.map(
-      (card)=>{
+  cards.map(
+    (card)=>{
 
 
-        const type =
+      const type =
+        card.querySelector(
+          ".q-type-select"
+        )
+        ?.value
+        ||
+        "mcq";
+
+
+
+      const text =
+        card.querySelector(
+          ".q-text"
+        )
+        ?.value
+        .trim()
+        ||
+        "";
+
+
+
+      const score =
+        Number(
           card.querySelector(
-            ".q-type-select"
+            ".q-score"
           )
           ?.value
-          ||
-          "mcq";
+        )
+        ||
+        1;
 
 
 
-        const text =
+
+      const image =
+        card.querySelector(
+          ".q-image"
+        )
+        ?.value
+        ||
+        "";
+
+
+
+
+
+      let options = [];
+
+      let correctAnswerIndex = 0;
+
+
+
+
+
+      if(type === "mcq"){
+
+
+        options =
+        [
+          ...card.querySelectorAll(
+            ".opt-text"
+          )
+        ]
+        .map(
+          input =>
+          input.value.trim()
+        );
+
+
+
+
+        const checked =
           card.querySelector(
-            ".q-text"
-          )
-          ?.value
-          .trim()
-          ||
-          "";
+            ".q-correct-radio:checked"
+          );
 
 
 
-        const score =
-          Number(
-            card.querySelector(
-              ".q-score"
-            )
-            ?.value
-          )
-          ||
-          1;
+        if(checked){
 
-
-
-        const image =
-          card.querySelector(
-            ".q-image"
-          )
-          ?.value
-          .trim()
-          ||
-          "";
-
-
-
-        let options = [];
-
-        let correctAnswerIndex = 0;
-
-
-
-        if(type === "mcq"){
-
-
-          options =
-            [
-              ...card.querySelectorAll(
-                ".opt-text"
-              )
-            ]
-            .map(
-              input =>
-                input.value.trim()
+          correctAnswerIndex =
+            Number(
+              checked.value
             );
-
-
-
-          const checked =
-            card.querySelector(
-              ".q-correct-radio:checked"
-            );
-
-
-
-          if(checked){
-
-            correctAnswerIndex =
-              Number(
-                checked.value
-              );
-
-          }
-
 
         }
 
-
-
-        const essayAnswer =
-          card.querySelector(
-            ".student-essay-answer"
-          )
-          ?.value
-          ||
-          "";
+      }
 
 
 
-        return {
 
 
+      return {
+
+        question:
           text,
 
-          question:
-            text,
+        text,
+
+        type,
+
+        score,
 
 
-          type,
+        image,
 
-
-          score,
-
-
-          questionImage:
-            image,
-
-
+        questionImage:
           image,
 
 
-
-          options,
-
+        options,
 
 
+        correctAnswerIndex,
+
+
+        correctIndex:
           correctAnswerIndex,
 
 
-          correctIndex:
-            correctAnswerIndex,
+        answer:
+          correctAnswerIndex
+
+      };
 
 
-          answer:
-            correctAnswerIndex,
+    }
+  );
 
 
 
-          essayAnswer
 
-
-        };
-
-
-      }
-    );
 
 
 
   const examData = {
 
 
-    id:
-      editingExam?.id
-      ||
-      Date.now(),
-
-
-
     title,
-
 
 
     subject,
 
 
-
     className,
-
 
 
     grade:
@@ -583,7 +556,6 @@ function saveExam(){
 
 
     duration,
-
 
 
     examTime:
@@ -598,12 +570,7 @@ function saveExam(){
     startDate,
 
 
-
     endDate,
-
-
-
-    manualClose,
 
 
 
@@ -619,93 +586,68 @@ function saveExam(){
 
 
 
-  let exams = [];
+
 
 
 
   try{
 
 
-    exams =
-      JSON.parse(
-        localStorage.getItem(
-          "app_exams"
-        )
-      )
-      ||
-      [];
+    if(editingExam){
 
 
-
-  }catch{
-
-
-    exams = [];
-
-
-  }
-  if(editingExam){
-
-
-    exams =
-      exams.map(
-        (exam)=>
-
-
-          exam.id === editingExam.id
-
-          ?
-
-          examData
-
-          :
-
-          exam
-
+      await updateExam(
+        editingExam.firestoreId,
+        examData
       );
 
 
-  }else{
+    }else{
 
 
-    exams.unshift(
-      examData
+      await addExam(
+        examData
+      );
+
+
+    }
+
+
+
+
+
+    alert(
+      "✅ تم حفظ الامتحان بنجاح"
+    );
+
+
+
+    editingExam = null;
+
+
+
+    document.querySelector("#app")
+      .innerHTML =
+      examsListPage();
+
+
+
+
+
+  }catch(error){
+
+
+    console.error(
+      error
+    );
+
+
+    alert(
+      "❌ حدث خطأ أثناء الحفظ"
     );
 
 
   }
-
-
-
-  localStorage.setItem(
-    "app_exams",
-    JSON.stringify(
-      exams
-    )
-  );
-
-
-
-  localStorage.removeItem(
-    "filtered_exams"
-  );
-
-
-
-  alert(
-    "✅ تم حفظ الامتحان بنجاح"
-  );
-
-
-
-  editingExam = null;
-
-
-
-  document.querySelector("#app")
-    .innerHTML =
-    examsListPage();
-
 
 
 }
@@ -715,61 +657,46 @@ function saveExam(){
 
 
 
+
 function createQuestionTemplate(index){
+
 
 return `
 
-
-<div class="question-card"
-style="
-background:linear-gradient(135deg,rgba(30,41,59,.8),rgba(15,23,42,.9));
-padding:25px;
-border-radius:20px;
-border:1px solid rgba(255,255,255,.1);
-margin-top:15px;
-">
-
-
-<h3 style="
-color:#818cf8;
-margin-bottom:15px;
-">
-السؤال رقم ${index}
-</h3>
-
-
-
-<button
-type="button"
-class="removeQuestion"
-style="
-background:#ef4444;
-color:white;
-border:none;
-padding:8px 15px;
-border-radius:8px;
-cursor:pointer;
-margin-bottom:15px;
-">
-
-🗑 حذف السؤال
-
-</button>
-
-
+<div class="question-card">
 
 
 <textarea
 class="q-text"
-placeholder="اكتب نص السؤال هنا..."
-style="
-width:100%;
-height:90px;
-padding:12px;
-border-radius:10px;
-font-family:inherit;
-margin-bottom:15px;
-"></textarea>
+placeholder="اكتب السؤال"
+></textarea>
+
+
+
+<input
+type="file"
+accept="image/*"
+class="q-file-input"
+/>
+
+
+
+<input
+type="hidden"
+class="q-image"
+/>
+
+
+
+<div class="image-preview-container"
+style="display:none">
+
+<img
+style="max-width:200px"
+/>
+
+</div>
+
 
 
 
@@ -777,112 +704,36 @@ margin-bottom:15px;
 <div>
 
 <input
-type="file"
-accept="image/*"
-class="q-file-input"
+type="radio"
+class="q-correct-radio"
+name="correct_${index}"
+value="0"
+checked
 >
-
-
 
 <input
-type="hidden"
-class="q-image"
->
-
-
-
-<div
-class="image-preview-container"
-style="
-display:none;
-margin-top:10px;
-">
-
-<img
-style="
-max-width:250px;
-border-radius:10px;
-">
-
-</div>
+class="opt-text"
+placeholder="A"
+/>
 
 
 </div>
 
 
 
-
-
-<div style="
-margin-top:15px;
-">
-
-
-<select
-class="q-type-select"
-style="
-padding:10px;
-border-radius:8px;
-">
-
-<option value="mcq">
-اختيار من متعدد
-</option>
-
-<option value="essay">
-سؤال مقالي
-</option>
-
-
-</select>
-
-
-</div>
-
-
-
-
-
-<div
-class="mcq-options-wrapper"
-style="
-margin-top:15px;
-">
-
-
-${["A","B","C","D"].map((x,i)=>`
-
-<div style="
-display:flex;
-gap:10px;
-align-items:center;
-margin-bottom:10px;
-">
-
+<div>
 
 <input
 type="radio"
 class="q-correct-radio"
 name="correct_${index}"
-value="${i}"
-${i===0?"checked":""}
+value="1"
 >
-
 
 <input
 class="opt-text"
-placeholder="الإجابة ${x}"
-style="
-flex:1;
-padding:10px;
-border-radius:8px;
-font-family:inherit;
-">
-
-
-</div>
-
-`).join("")}
+placeholder="B"
+/>
 
 
 </div>
@@ -890,27 +741,19 @@ font-family:inherit;
 
 
 
+<div>
 
+<input
+type="radio"
+class="q-correct-radio"
+name="correct_${index}"
+value="2"
+>
 
-<div
-class="essay-space-wrapper"
-style="
-display:none;
-margin-top:15px;
-">
-
-
-<textarea
-class="student-essay-answer"
-placeholder="نموذج الإجابة المقالية"
-style="
-width:100%;
-height:120px;
-padding:12px;
-border-radius:10px;
-font-family:inherit;
-">
-</textarea>
+<input
+class="opt-text"
+placeholder="C"
+/>
 
 
 </div>
@@ -918,33 +761,41 @@ font-family:inherit;
 
 
 
+<div>
+
+<input
+type="radio"
+class="q-correct-radio"
+name="correct_${index}"
+value="3"
+>
+
+<input
+class="opt-text"
+placeholder="D"
+/>
 
 
-<div style="
-margin-top:15px;
-">
+</div>
 
 
-<label>
-درجة السؤال
-</label>
+
 
 
 <input
 type="number"
 class="q-score"
 value="1"
-min="1"
-style="
-width:80px;
-padding:8px;
-border-radius:8px;
-"
+/>
+
+
+
+
+<button
+class="removeQuestion"
 >
-
-
-</div>
-
+🗑 حذف السؤال
+</button>
 
 
 
