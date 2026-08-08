@@ -10,74 +10,65 @@ import { filesPage } from "./pages/files.js";
 import { examsPage } from "./pages/exams.js";
 import { showExam } from "./pages/exam.js";
 
-console.log("MAIN USING EXAM.JS");
-
 import { teacherBoardsPage } from "./pages/TeacherBoards.js";
 import { adminPage } from "./pages/admin.js";
 
 import {
-teacherLoginPage,
-teacherLoginEvents
+  teacherLoginPage,
+  teacherLoginEvents
 } from "./pages/teacherLoginModal.js";
 
 import { teacherSettingsPage } from "./pages/teacherSettings.js";
 import { teacherSettingsEvents } from "./pages/teacherSettingsEvents.js";
+import { resultsEvents } from "./pages/resultsEvents.js";
 
-import { resultsPage } from "./pages/results.js";
-
-import { manageExamsPage } from "./pages/manageExams.js";
-import { manageExamsEvents } from "./pages/manageExamsEvents.js";
+import { manageExamsPage, manageExamsEvents } from "./pages/manageExams.js";
 
 import { createExamPage } from "./pages/createExam.js";
-import { createExamEvents } from "./pages/createExamEvents.js";
 
-import {
-  examsListPage,
-  loadExamsList
-  } from "./pages/examsList.js";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "./firebase.js";
 
+import { loadExamsList } from "./pages/examsList.js";
+import { resultsPage } from "./pages/results.js";
 
-const app =
-document.querySelector("#app");
+const app = document.querySelector("#app");
 
 
 // ================= START =================
 
-if (
-localStorage.getItem("teacherLogin") === "true"
-){
+// اعرض الصفحة فورًا كأول خطوة (بدل ما تفضل فاضية لو Firebase اتأخر أو اتحظر)
+app.innerHTML = homePage();
 
-app.innerHTML =
-adminPage();
-
-}
-else{
-
-app.innerHTML =
-homePage();
-
-}
+onAuthStateChanged(
+  auth,
+  (user) => {
+    if (user) {
+      app.innerHTML = adminPage();
+    }
+  },
+  (err) => {
+    console.error("Firebase auth error:", err);
+  }
+);
 
 
 
 // ================= EVENTS =================
 
-document.addEventListener(
-"click",
-async(e)=>{
+document.addEventListener("click", async (e) => {
 
 
 // HOME
 
 if(
-e.target.closest("#startBtn") ||
-e.target.closest("#studentLogin")
+  e.target.closest("#startBtn") ||
+  e.target.closest("#studentLogin")
 ){
 
-app.innerHTML =
-classesPage();
+  app.innerHTML = classesPage();
 
-return;
+  return;
 
 }
 
@@ -86,28 +77,25 @@ return;
 // TEACHER LOGIN
 
 if(
-e.target.closest("#teacherLogin") ||
-e.target.closest("#adminBtn")
+  e.target.closest("#teacherLogin") ||
+  e.target.closest("#adminBtn")
 ){
 
-if(
-localStorage.getItem("teacherLogin") === "true"
-){
+  if(
+    auth.currentUser
+  ){
 
-app.innerHTML =
-adminPage();
+    app.innerHTML = adminPage();
 
-}
-else{
+  }else{
 
-app.innerHTML =
-teacherLoginPage();
+    app.innerHTML = teacherLoginPage();
 
-teacherLoginEvents();
+    teacherLoginEvents();
 
-}
+  }
 
-return;
+  return;
 
 }
 
@@ -116,52 +104,42 @@ return;
 // PHYSICS
 
 if(
-e.target.closest("#physicsBtn")
+  e.target.closest("#physicsBtn")
 ){
 
-app.innerHTML =
-physicsPage();
+  app.innerHTML = physicsPage();
 
-return;
+  return;
 
 }
 
 
 
-// EXAMS PAGE
+// EXAMS
 
 if(
-e.target.closest("#openExams") ||
-e.target.closest("#examBtn") ||
-e.target.closest("#btnExams")
+  e.target.closest("#openExams") ||
+  e.target.closest("#examBtn") ||
+  e.target.closest("#btnExams")
 ){
 
-app.innerHTML =
-await examsPage();
+  app.innerHTML = examsPage();
 
-return;
+  return;
 
 }
 
 
 
-// OPEN EXAM ONLY
+// DIRECT OPEN EXAM
 
 if(
-e.target.closest("#startExam") ||
-e.target.closest(".exam-card")
+  e.target.closest("#startExam")
 ){
 
-console.log(
-"OPEN EXAM CLICKED"
-);
+  app.innerHTML = showExam();
 
-
-app.innerHTML =
-showExam();
-
-
-return;
+  return;
 
 }
 
@@ -169,15 +147,14 @@ return;
 
 // BOARDS
 
-if (
-  e.target.closest("#boardsBtn") ||
-  e.target.closest("#physicsBoardsBtn") ||
-  e.target.closest("#chemistryBoardsBtn")
-) {
+if(
+  e.target.closest("#boardsBtn")
+){
 
   app.innerHTML = await boardsPage();
 
   return;
+
 }
 
 
@@ -185,13 +162,12 @@ if (
 // FILES
 
 if(
-e.target.closest("#filesBtn")
+  e.target.closest("#filesBtn")
 ){
 
-app.innerHTML =
-filesPage();
+  app.innerHTML = await filesPage();
 
-return;
+  return;
 
 }
 
@@ -200,15 +176,14 @@ return;
 // MANAGE EXAMS
 
 if(
-e.target.closest("#manageExamsBtn")
+  e.target.closest("#manageExamsBtn")
 ){
 
-app.innerHTML =
-manageExamsPage();
+  app.innerHTML = manageExamsPage();
 
-manageExamsEvents();
+  manageExamsEvents();
 
-return;
+  return;
 
 }
 
@@ -218,56 +193,39 @@ return;
 
 if(
   e.target.closest("#btnCreateExam")
-  ){
-  
-  app.innerHTML =
-  createExamPage();
-  
-  setTimeout(()=>{
-  
-  createExamEvents();
-  
-  },0);
-  
-  
+){
+
+  app.innerHTML = createExamPage();
+
   return;
-  
-  }
+
+}
 
 
 
 // EXAMS LIST
 
-
 if(
   e.target.closest("#btnExamsList")
-  ){
-  
-  
-  app.innerHTML =
-  examsListPage();
-  
-  
+){
+
   loadExamsList();
-  
-  
+
   return;
-  
-  
-  }
+
+}
 
 
 
 // TEACHER BOARDS
 
 if(
-e.target.closest("#manageBoardsBtn")
+  e.target.closest("#manageBoardsBtn")
 ){
 
-app.innerHTML =
-teacherBoardsPage();
+  app.innerHTML = teacherBoardsPage();
 
-return;
+  return;
 
 }
 
@@ -276,15 +234,14 @@ return;
 // SETTINGS
 
 if(
-e.target.closest("#teacherSettingsBtn")
+  e.target.closest("#teacherSettingsBtn")
 ){
 
-app.innerHTML =
-teacherSettingsPage();
+  app.innerHTML = teacherSettingsPage();
 
-teacherSettingsEvents();
+  teacherSettingsEvents();
 
-return;
+  return;
 
 }
 
@@ -293,13 +250,14 @@ return;
 // RESULTS
 
 if(
-e.target.closest("#resultsBtn")
+  e.target.closest("#resultsBtn")
 ){
 
-app.innerHTML =
-await resultsPage();
+  app.innerHTML = resultsPage();
 
-return;
+  resultsEvents();
+
+  return;
 
 }
 
@@ -308,13 +266,12 @@ return;
 // BACK ADMIN
 
 if(
-e.target.closest("#btnBackToAdmin")
+  e.target.closest("#btnBackToAdmin")
 ){
 
-app.innerHTML =
-adminPage();
+  app.innerHTML = adminPage();
 
-return;
+  return;
 
 }
 
@@ -323,17 +280,15 @@ return;
 // BACK
 
 if(
-e.target.closest("#backBtn") ||
-e.target.closest("#btnBack")
+  e.target.closest("#backBtn") ||
+  e.target.closest("#btnBack")
 ){
 
-app.innerHTML =
-classesPage();
+  app.innerHTML = classesPage();
 
-return;
+  return;
 
 }
-
 
 
 });

@@ -167,7 +167,7 @@ export function physicsPage(){
   `;
 }
 
-document.addEventListener("click", (e) => {
+document.addEventListener("click", async (e) => {
   const app = document.querySelector("#app");
   if(!app) return;
 
@@ -194,12 +194,14 @@ document.addEventListener("click", (e) => {
   }
 
   if(e.target.closest("#physicsBoardsBtn")){
-    app.innerHTML = boardsPage();
+    app.innerHTML = `<div style="min-height:100vh;background:#0f172a;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-family:'Cairo',sans-serif;">جاري التحميل...</div>`;
+    app.innerHTML = await boardsPage();
     return;
   }
 
   if(e.target.closest("#physicsFilesBtn")){
-    app.innerHTML = filesPage();
+    app.innerHTML = `<div style="min-height:100vh;background:#0f172a;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-family:'Cairo',sans-serif;">جاري التحميل...</div>`;
+    app.innerHTML = await filesPage();
     return;
   }
 

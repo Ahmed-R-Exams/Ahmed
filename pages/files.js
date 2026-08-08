@@ -1,37 +1,20 @@
 import { physicsPage } from "./physics.js";
+import { db } from "../firebase.js";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
-export function filesPage() {
+export async function filesPage() {
   const currentClass = localStorage.getItem("currentClass") || "";
   const currentSub = localStorage.getItem("currentSubject") || "physics";
 
-  let allItems = [];
-  try {
-    const stored = localStorage.getItem("teacher_boards_management");
-    if (stored) allItems = JSON.parse(stored);
-  } catch (err) {
-    allItems = [];
-  }
+  const snap = await getDocs(query(collection(db, "content"), where("contentType", "==", "file")));
+  const allItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
   const filteredItems = allItems.filter(item => {
-    if (!item) return false;
-
-    const type = (item.contentType || item.type || "").trim().toLowerCase();
-    const isFile = type === "file" || type === "pdf" || type === "document";
-
-    const sub = (item.subjectName || item.subject || "").trim().toLowerCase();
-    const isPhysics = sub === "physics" || sub === "فيزياء";
-    const isChemistry = sub === "chemistry" || sub === "كيمياء";
-    const matchSubject = (currentSub === "physics" && isPhysics) || (currentSub === "chemistry" && isChemistry);
-
-    const itemClass = (item.className || item.class || "").trim().toLowerCase();
-    const studentClass = (currentClass || "").trim().toLowerCase();
-    
-    const matchClass = !studentClass || !itemClass || 
-      itemClass === studentClass ||
-      (studentClass.includes("ثاني") && (itemClass.includes("second") || itemClass.includes("ثاني"))) ||
-      (studentClass.includes("ثالث") && (itemClass.includes("third") || itemClass.includes("ثالث")));
-
-    return isFile && matchSubject && matchClass;
+    const sub = (item.subject || item.subjectName || "").trim().toLowerCase();
+    const matchSubject = sub === currentSub;
+    const itemClass = (item.className || "").trim();
+    const matchClass = !currentClass || !itemClass || itemClass === currentClass;
+    return matchSubject && matchClass;
   });
 
   if (filteredItems.length === 0) {
@@ -51,17 +34,17 @@ export function filesPage() {
   }
 
   const contentHTML = filteredItems.map(item => {
-    const title = item.contentName || item.title || item.name || "ملف بدون عنوان";
-    const className = item.className || item.class || currentClass || "عام";
-    const fileUrl = item.fileUrl || item.url || "#";
-    const isImage = fileUrl.startsWith("data:image/") || /\.(jpg|jpeg|png|webp|gif)$/i.test(fileUrl);
-    const isPdf = fileUrl.startsWith("data:application/pdf") || /\.pdf$/i.test(fileUrl);
+    const title = item.contentName || "ملف بدون عنوان";
+    const className = item.className || currentClass || "عام";
+    const fileUrl = item.fileUrl || "#";
+    const isImage = item.fileName && /\.(jpg|jpeg|png|webp|gif)$/i.test(item.fileName);
+    const isPdf = item.fileName && /\.pdf$/i.test(item.fileName);
 
     return `
       <div style="background: rgba(30, 41, 59, 0.7); padding: 24px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 15px;">
         <div style="display: flex; align-items: center; gap: 18px;">
           <div style="width: 52px; height: 52px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px;">
-            <i class="fa-solid ${isImage ? 'fa-image' : 'fa-file-pdf'}"></i>
+            <i class="fa-solid ${isImage ? "fa-image" : "fa-file-pdf"}"></i>
           </div>
           <div>
             <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 11px; padding: 4px 10px; border-radius: 6px; font-weight: 700;">${className}</span>
@@ -69,8 +52,8 @@ export function filesPage() {
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 10px;">
-          <button class="btn-preview-file" data-url="${fileUrl}" data-type="${isImage ? 'image' : (isPdf ? 'pdf' : 'file')}" data-title="${title}" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 12px 18px; border-radius: 14px; font-size: 14px; font-weight: 700; cursor: pointer;">معاينة</button>
-          <a href="${fileUrl}" download="${title}" target="_blank" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: white; padding: 12px 22px; border-radius: 14px; text-decoration: none; font-size: 14px; font-weight: 700; display: inline-block;">تحميل</a>
+          <button class="btn-preview-file" data-url="${fileUrl}" data-type="${isImage ? "image" : (isPdf ? "pdf" : "file")}" data-title="${title}" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 12px 18px; border-radius: 14px; font-size: 14px; font-weight: 700; cursor: pointer;">معاينة</button>
+          <a href="${fileUrl}" download="${title}" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: white; padding: 12px 22px; border-radius: 14px; text-decoration: none; font-size: 14px; font-weight: 700; display: inline-block;">تحميل</a>
         </div>
       </div>
     `;
@@ -118,7 +101,7 @@ document.addEventListener("click", (e) => {
 
     if (modal && modalBody && modalTitle) {
       modalTitle.textContent = title;
-      
+
       if (type === "image") {
         modalBody.innerHTML = `<img src="${url}" style="max-width: 100%; max-height: 70vh; border-radius: 12px; object-fit: contain;" />`;
       } else if (type === "pdf") {
@@ -126,7 +109,7 @@ document.addEventListener("click", (e) => {
       } else {
         modalBody.innerHTML = `
           <div style="color: #cbd5e1;">
-            <p style="margin-bottom: 20px; font-size: 16px;">هذا الملف لا يدعم المعاينة المباشرة داخل المتصفح، يمكنك تحميله مباشرة:</p>
+            <p style="margin-bottom: 20px; font-size: 16px;">هذا الملف لا يدعم المعاينة المباشرة، يمكنك تحميله مباشرة:</p>
             <a href="${url}" download="${title}" style="background: #0284c7; color: white; padding: 12px 25px; border-radius: 12px; text-decoration: none; font-weight: 700; display: inline-block;">تحميل الملف الآن</a>
           </div>
         `;

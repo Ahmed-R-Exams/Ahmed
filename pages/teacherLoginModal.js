@@ -3,61 +3,153 @@ import { homePage } from "./home.js";
 
 export function teacherLoginPage() {
   return `
-  <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #0f172a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px;">
-    <div style="background: #1e293b; padding: 45px 35px; border-radius: 28px; box-shadow: 0 20px 40px -15px rgba(0,0,0,0.5); width: 100%; max-width: 420px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.08); position: relative; overflow: hidden;">
-      
-      <!-- Background Glow Effect -->
-      <div style="position: absolute; top: -40px; right: -40px; width: 150px; height: 150px; background: rgba(59, 130, 246, 0.15); filter: blur(40px); border-radius: 50%; pointer-events: none;"></div>
+  <div class="tl">
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700;800&family=Tajawal:wght@400;500;700&family=JetBrains+Mono:wght@500;600&display=swap');
 
-      <div style="font-size: 45px; margin-bottom: 15px; background: rgba(59, 130, 246, 0.15); width: 85px; height: 85px; display: inline-flex; align-items: center; justify-content: center; border-radius: 22px; border: 1px solid rgba(59, 130, 246, 0.3);">🔐</div>
-      
-      <h2 style="color: #ffffff; margin-bottom: 8px; font-size: 26px; font-weight: 800;">Teacher Login</h2>
-      <p style="color: #94a3b8; font-size: 15px; margin-bottom: 30px; font-weight: 500;">Please enter your password to access dashboard</p>
-      
-      <form id="teacherLoginForm" style="display: flex; flex-direction: column; gap: 18px;">
-        <input type="password" id="teacherPassword" placeholder="Enter Password..." required style="
-          padding: 14px 18px; 
-          border: 1px solid rgba(255, 255, 255, 0.12); 
-          background: #0f172a;
-          color: #ffffff;
-          border-radius: 14px; 
-          font-size: 16px;
-          outline: none;
-          transition: all 0.2s;
-        " />
-        
-        <button type="submit" style="
-          background: #3b82f6; 
-          color: white; 
-          border: none; 
-          padding: 14px; 
-          border-radius: 14px; 
-          cursor: pointer; 
-          font-weight: 700;
-          font-size: 16px;
-          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-          transition: all 0.2s;
-        ">
-          Login
-        </button>
+      .tl{
+        --ink-950:#0a0f1c;
+        --ink-900:#111a2e;
+        --ink-800:#1a2440;
+        --line:#2a3559;
+        --paper:#eef1f8;
+        --muted:#93a0c2;
+        --gold:#e8b34c;
+        --fail:#ef4a63;
+
+        min-height:100vh;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:20px;
+        font-family:'Tajawal',sans-serif;
+        color:var(--paper);
+        background:
+          radial-gradient(700px 260px at 50% 0%, rgba(232,179,76,.12), transparent 60%),
+          linear-gradient(150deg,#0a0f1c,#141f3d 65%,#1c2a52);
+      }
+      .tl *{box-sizing:border-box;}
+
+      .tl-card{
+        width:100%;
+        max-width:400px;
+        background:var(--ink-900);
+        border:1px solid var(--line);
+        border-radius:24px;
+        padding:44px 34px 34px;
+        text-align:center;
+        box-shadow:0 25px 50px -20px rgba(0,0,0,.55);
+      }
+
+      .tl-seal{
+        width:84px;
+        height:84px;
+        margin:0 auto 20px;
+        border-radius:50%;
+        border:2px dashed var(--gold);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:34px;
+        background:rgba(232,179,76,.08);
+        transform:rotate(-6deg);
+      }
+
+      .tl-card h2{
+        font-family:'Cairo',sans-serif;
+        font-weight:800;
+        font-size:24px;
+        margin:0 0 8px;
+        color:#fff;
+      }
+      .tl-card p{
+        color:var(--muted);
+        font-size:14px;
+        margin:0 0 28px;
+      }
+
+      .tl-form{
+        display:flex;
+        flex-direction:column;
+        gap:16px;
+      }
+
+      .tl-input{
+        padding:14px 16px;
+        border-radius:14px;
+        border:1px solid var(--line);
+        background:var(--ink-800);
+        color:var(--paper);
+        font-family:'Tajawal',sans-serif;
+        font-size:15px;
+        text-align:center;
+        letter-spacing:2px;
+      }
+      .tl-input::placeholder{letter-spacing:normal; color:var(--muted);}
+      .tl-input:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+      .tl-submit{
+        padding:14px;
+        border-radius:14px;
+        border:none;
+        cursor:pointer;
+        font-family:'Cairo',sans-serif;
+        font-weight:700;
+        font-size:16px;
+        color:#fff;
+        background:linear-gradient(135deg,#2b5cff,#5b7dff);
+        box-shadow:0 10px 24px -8px rgba(43,92,255,.55);
+        transition:transform .15s ease, filter .15s ease;
+      }
+      .tl-submit:hover{filter:brightness(1.1); transform:translateY(-1px);}
+      .tl-submit:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+      #loginError{
+        margin-top:14px;
+        font-size:13.5px;
+        font-weight:600;
+        min-height:18px;
+      }
+
+      .tl-back-row{
+        margin-top:24px;
+        padding-top:18px;
+        border-top:1px solid var(--line);
+      }
+      .tl-back{
+        background:transparent;
+        border:none;
+        cursor:pointer;
+        color:var(--muted);
+        font-family:'Tajawal',sans-serif;
+        font-weight:600;
+        font-size:13.5px;
+        transition:color .15s ease;
+      }
+      .tl-back:hover{color:var(--gold);}
+      .tl-back:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+      @media (prefers-reduced-motion: reduce){
+        .tl-submit, .tl-back{transition:none;}
+      }
+    </style>
+
+    <div class="tl-card">
+      <div class="tl-seal">🔐</div>
+
+      <h2>Teacher Login</h2>
+      <p>Please enter your password to access dashboard</p>
+
+      <form id="teacherLoginForm" class="tl-form">
+        <input type="password" id="teacherPassword" class="tl-input" placeholder="Enter Password..." required>
+        <button type="submit" class="tl-submit">Login</button>
       </form>
 
-      <div id="loginError" style="margin-top: 15px; font-size: 14px; font-weight: 600;"></div>
+      <div id="loginError"></div>
 
-      <div style="margin-top: 25px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 20px;">
-        <button id="backHomeBtnFromLogin" style="
-          background: transparent; 
-          color: #94a3b8; 
-          border: none; 
-          cursor: pointer; 
-          font-size: 14px;
-          font-weight: 600;
-          transition: color 0.2s;
-        ">
-          ⬅ Back To Home
-        </button>
+      <div class="tl-back-row">
+        <button id="backHomeBtnFromLogin" class="tl-back">⬅ Back To Home</button>
       </div>
-
     </div>
   </div>
   `;
@@ -73,7 +165,7 @@ export function teacherLoginEvents() {
       const pass = document.getElementById("teacherPassword").value;
       const errorDiv = document.getElementById("loginError");
       
-      if (pass === "1234") { 
+      if (pass === "Mrmido@123#") { 
         localStorage.setItem("teacherLogin", "true");
         localStorage.setItem("currentRole", "teacher");
         app.innerHTML = adminPage();
