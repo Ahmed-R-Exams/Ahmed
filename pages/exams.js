@@ -1,0 +1,963 @@
+// pages/exams.js
+import { showExam } from "./exam.js";
+
+import { getExams } from "../services/examService.js";
+
+
+// ======================================================
+// EXAMS PAGE
+// ======================================================
+
+export function examsPage() {
+
+  const currentClass =
+    localStorage.getItem("currentClass") ||
+    localStorage.getItem("currentGrade") ||
+    "";
+
+  const currentSubject =
+    localStorage.getItem("currentSubject") ||
+    "physics";
+
+
+  // نعرض الصفحة أولاً ثم نجلب الامتحانات من Firebase
+  setTimeout(() => {
+    loadStudentExams(currentClass, currentSubject);
+  }, 0);
+
+
+  return `
+
+  <div style="
+  min-height:100vh;
+  background:#0f172a;
+  padding:40px 20px;
+  direction:rtl;
+  font-family:Cairo;
+  ">
+
+    <div style="
+    max-width:950px;
+    margin:auto;
+    ">
+
+      <button
+      id="backToHomeMainBtn"
+      style="
+      padding:10px 18px;
+      border-radius:12px;
+      cursor:pointer;
+      ">
+
+      الرئيسية
+
+      </button>
+
+
+      <h1 style="
+      color:white;
+      text-align:center;
+      margin:30px;
+      ">
+
+      قائمة الاختبارات المتاحة
+
+      </h1>
+
+
+      <div id="studentFirebaseExams">
+
+        <div style="
+        text-align:center;
+        padding:50px 20px;
+        background:#1e293b;
+        border-radius:20px;
+        color:white;
+        ">
+
+          <h3>
+            جاري تحميل الاختبارات...
+          </h3>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  `;
+}
+
+
+// ======================================================
+// LOAD STUDENT EXAMS FROM FIREBASE
+// ======================================================
+
+async function loadStudentExams(
+  currentClass,
+  currentSubject
+) {
+
+  const container =
+    document.querySelector("#studentFirebaseExams");
+
+  if (!container)
+    return;
+
+
+  try {
+
+    // Firebase فقط
+    const allExams =
+      await getExams();
+
+
+    const normalize = (value) =>
+      String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "");
+
+
+    const selectedClass =
+      normalize(currentClass);
+
+    const selectedSubject =
+      normalize(currentSubject);
+
+
+    const filteredExams =
+      allExams.filter(exam => {
+
+        const examClass =
+          normalize(
+            exam.className ||
+            exam.grade ||
+            exam.class ||
+            ""
+          );
+
+
+        const examSubject =
+          normalize(
+            exam.subject ||
+            exam.sub ||
+            "physics"
+          );
+
+
+        const classMatch =
+          !selectedClass ||
+          examClass.includes(selectedClass) ||
+          selectedClass.includes(examClass);
+
+
+        const subjectMatch =
+          examSubject === selectedSubject ||
+          (
+            selectedSubject === "physics" &&
+            examSubject === ""
+          );
+
+
+        return classMatch && subjectMatch;
+
+      });
+
+
+    const completedExams =
+      JSON.parse(
+        localStorage.getItem("completedExams") || "[]"
+      );
+
+
+    // ==================================================
+    // NO EXAMS
+    // ==================================================
+
+    if (!filteredExams.length) {
+
+      container.innerHTML = `
+
+      <div style="
+      text-align:center;
+      padding:50px 20px;
+      background:#1e293b;
+      border-radius:20px;
+      color:white;
+      ">
+
+        <h3>
+          لا توجد اختبارات متاحة
+        </h3>
+
+      </div>
+
+      `;
+
+      return;
+
+    }
+
+
+    // ==================================================
+    // EXAMS CARDS
+    // ==================================================
+
+    container.innerHTML = `
+
+      <div style="
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+      gap:20px;
+      ">
+
+      ${
+        filteredExams.map((exam, index) => {
+
+          const examId =
+            exam.id ||
+            exam.firestoreId ||
+            `exam_${index}`;
+
+
+          const isCompleted =
+            completedExams.includes(examId) ||
+            completedExams.includes(String(examId));
+
+
+          const endDateTime =
+            exam.endDate
+              ? new Date(exam.endDate).getTime()
+              : null;
+
+
+          const isClosed =
+            exam.manualClose === true ||
+            exam.manualClose === "true" ||
+            (
+              endDateTime &&
+              Date.now() > endDateTime
+            );
+
+
+          const examDataString =
+            encodeURIComponent(
+              JSON.stringify({
+                ...exam,
+                id: examId
+              })
+            );
+
+
+          return `
+
+          <div style="
+          background:#1e293b;
+          padding:22px;
+          border-radius:20px;
+          ">
+
+
+            <h3 style="
+            color:white;
+            ">
+
+              ${exam.title || "اختبار"}
+
+            </h3>
+
+
+            <p style="
+            color:#94a3b8;
+            ">
+
+              ${exam.className || currentClass}
+
+            </p>
+
+
+            <p style="
+            color:#94a3b8;
+            ">
+
+              عدد الأسئلة:
+
+              ${exam.questions?.length || 0}
+
+            </p>
+
+
+            ${
+              isCompleted
+
+              ?
+
+              `
+
+              <div style="
+              background:#065f46;
+              padding:12px;
+              border-radius:10px;
+              text-align:center;
+              color:white;
+              ">
+
+                تم التسليم
+
+              </div>
+
+              `
+
+              :
+
+              isClosed
+
+              ?
+
+              `
+
+              <div style="
+              background:#7f1d1d;
+              padding:12px;
+              border-radius:10px;
+              text-align:center;
+              color:white;
+              ">
+
+                الامتحان مغلق
+
+              </div>
+
+              `
+
+              :
+
+              `
+
+              <button
+              class="goToLoginBtn"
+              data-exam-json="${examDataString}"
+              style="
+              width:100%;
+              padding:12px;
+              background:#6366f1;
+              color:white;
+              border:none;
+              border-radius:12px;
+              cursor:pointer;
+              ">
+
+                ابدأ الاختبار
+
+              </button>
+
+              `
+            }
+
+
+          </div>
+
+          `;
+
+        }).join("")
+
+      }
+
+      </div>
+
+    `;
+
+
+  }
+
+  catch (error) {
+
+    console.error(
+      "Student exams Firebase error:",
+      error
+    );
+
+
+    container.innerHTML = `
+
+    <div style="
+    color:#ef4444;
+    padding:30px;
+    background:#1e293b;
+    border-radius:20px;
+    text-align:center;
+    ">
+
+      <h3>
+        حدث خطأ في تحميل الامتحانات
+      </h3>
+
+      <p style="color:#94a3b8;">
+        تأكد من الاتصال بالإنترنت ثم حاول مرة أخرى.
+      </p>
+
+    </div>
+
+    `;
+
+  }
+
+}
+
+
+// ======================================================
+// STUDENT LOGIN PAGE
+// ======================================================
+
+export function studentLoginPage() {
+
+  return `
+
+  <div style="
+  min-height:100vh;
+  background:#0f172a;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  direction:rtl;
+  font-family:Cairo;
+  ">
+
+
+    <div style="
+    background:#1e293b;
+    padding:40px;
+    border-radius:25px;
+    width:100%;
+    max-width:420px;
+    text-align:center;
+    ">
+
+
+      <h2 style="
+      color:white;
+      ">
+
+        تسجيل دخول الطالب
+
+      </h2>
+
+
+      <input
+      id="loginStudentNameInput"
+      type="text"
+      placeholder="اكتب الاسم الثلاثي"
+      style="
+      width:100%;
+      padding:15px;
+      margin:20px 0;
+      border-radius:12px;
+      background:#0f172a;
+      color:white;
+      border:1px solid #334155;
+      box-sizing:border-box;
+      font-family:Cairo;
+      ">
+
+
+      <button
+      id="submitLoginBtn"
+      style="
+      width:100%;
+      padding:15px;
+      background:#6366f1;
+      color:white;
+      border:none;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:bold;
+      ">
+
+        دخول وبدء الاختبار
+
+      </button>
+
+
+    </div>
+
+  </div>
+
+  `;
+
+}
+
+
+// ======================================================
+// EVENTS
+// ======================================================
+
+document.addEventListener(
+  "click",
+  (e) => {
+
+    const app =
+      document.querySelector("#app");
+
+    if (!app)
+      return;
+
+
+    // ==================================================
+    // HOME
+    // ==================================================
+
+    const backMainBtn =
+      e.target.closest(
+        "#backToHomeMainBtn"
+      );
+
+
+    if (backMainBtn) {
+
+      location.reload();
+
+      return;
+
+    }
+
+
+    // ==================================================
+    // START EXAM
+    // ==================================================
+
+    const loginBtn =
+      e.target.closest(
+        ".goToLoginBtn"
+      );
+
+
+    if (loginBtn) {
+
+      const examJson =
+        loginBtn.getAttribute(
+          "data-exam-json"
+        );
+
+
+      localStorage.setItem(
+        "currentSelectedExam",
+        examJson
+      );
+
+
+      app.innerHTML =
+        studentLoginPage();
+
+
+      return;
+
+    }
+
+
+    // ==================================================
+    // STUDENT LOGIN
+    // ==================================================
+
+    const submitBtn =
+      e.target.closest(
+        "#submitLoginBtn"
+      );
+
+
+    if (submitBtn) {
+
+      const input =
+        document.getElementById(
+          "loginStudentNameInput"
+        );
+
+
+      const name =
+        input.value.trim();
+
+
+      if (!name) {
+
+        alert(
+          "اكتب اسم الطالب"
+        );
+
+        return;
+
+      }
+
+
+      const examJson =
+        localStorage.getItem(
+          "currentSelectedExam"
+        );
+
+
+      if (!examJson)
+        return;
+
+
+      const exam =
+        JSON.parse(
+          decodeURIComponent(
+            examJson
+          )
+        );
+
+
+      // ================================================
+      // PREVENT RETAKE
+      // ================================================
+
+      const results =
+        JSON.parse(
+          localStorage.getItem(
+            "examResults"
+          ) || "[]"
+        );
+
+
+      const alreadyDone =
+        results.some(
+          r =>
+            String(r.examId) ===
+              String(exam.id)
+
+            &&
+
+            r.studentName === name
+        );
+
+
+      if (alreadyDone) {
+
+        alert(
+          "لقد سبق لك أداء هذا الاختبار"
+        );
+
+        return;
+
+      }
+
+
+      localStorage.setItem(
+        "studentName",
+        name
+      );
+
+
+      launchExamView(
+        exam
+      );
+
+
+      return;
+
+    }
+
+
+    // ==================================================
+    // SELECT ANSWER
+    // ==================================================
+
+    const option =
+      e.target.closest(
+        ".option-label"
+      );
+
+
+    if (option) {
+
+      const box =
+        option.closest(
+          ".options-container"
+        );
+
+
+      box
+        .querySelectorAll(
+          ".option-label"
+        )
+        .forEach(
+          item => {
+
+            item.style.background =
+              "#334155";
+
+          }
+        );
+
+
+      option.style.background =
+        "#6366f1";
+
+
+      const radio =
+        option.querySelector(
+          "input[type='radio']"
+        );
+
+
+      if (radio)
+        radio.checked = true;
+
+
+      return;
+
+    }
+
+
+    // ==================================================
+    // BACK AFTER EXAM
+    // ==================================================
+
+    const backHomeAfterExam =
+      e.target.closest(
+        "#backHomeAfterExam"
+      );
+
+
+    if (backHomeAfterExam) {
+
+      localStorage.removeItem(
+        "currentSelectedExam"
+      );
+
+
+      localStorage.removeItem(
+        "studentName"
+      );
+
+
+      location.reload();
+
+      return;
+
+    }
+
+
+    // ==================================================
+    // SUBMIT EXAM
+    // ==================================================
+
+    const submitExam =
+      e.target.closest(
+        "#submitExamBtn"
+      );
+
+
+    if (submitExam) {
+
+      const examJson =
+        localStorage.getItem(
+          "currentSelectedExam"
+        );
+
+
+      if (!examJson)
+        return;
+
+
+      const exam =
+        JSON.parse(
+          decodeURIComponent(
+            examJson
+          )
+        );
+
+
+      const studentName =
+        localStorage.getItem(
+          "studentName"
+        )
+        ||
+        "طالب";
+
+
+      let score = 0;
+
+      let total = 0;
+
+
+      exam.questions.forEach(
+        (q, index) => {
+
+          const selected =
+            document.querySelector(
+              `input[name="question_${index}"]:checked`
+            );
+
+
+          const answer =
+            selected
+              ? Number(selected.value)
+              : null;
+
+
+          const mark =
+            Number(q.score || 1);
+
+
+          total += mark;
+
+
+          if (
+            answer !== null &&
+            answer ===
+              Number(
+                q.correctAnswerIndex
+              )
+          ) {
+
+            score += mark;
+
+          }
+
+        }
+      );
+
+
+      const results =
+        JSON.parse(
+          localStorage.getItem(
+            "examResults"
+          ) || "[]"
+        );
+
+
+      results.push({
+
+        studentName,
+
+        examId:
+          exam.id,
+
+        examTitle:
+          exam.title ||
+          "اختبار",
+
+        score,
+
+        total,
+
+        date:
+          new Date()
+            .toLocaleString()
+
+      });
+
+
+      localStorage.setItem(
+        "examResults",
+        JSON.stringify(
+          results
+        )
+      );
+
+
+      app.innerHTML = `
+
+      <div style="
+      min-height:100vh;
+      background:#0f172a;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      direction:rtl;
+      font-family:Cairo;
+      color:white;
+      ">
+
+
+        <div style="
+        background:#1e293b;
+        padding:40px;
+        border-radius:20px;
+        text-align:center;
+        ">
+
+
+          <h2>
+
+            ✅ تم إرسال الاختبار بنجاح
+
+          </h2>
+
+
+          <button
+          id="backHomeAfterExam"
+          style="
+          margin-top:20px;
+          padding:15px 30px;
+          background:#6366f1;
+          color:white;
+          border:none;
+          border-radius:12px;
+          cursor:pointer;
+          ">
+
+            العودة للصفحة الرئيسية
+
+          </button>
+
+
+        </div>
+
+
+      </div>
+
+      `;
+
+
+      return;
+
+    }
+
+  }
+);
+
+
+// ======================================================
+// LAUNCH EXAM
+// ======================================================
+
+// ======================================================
+// LAUNCH EXAM
+// ======================================================
+
+function launchExamView(exam) {
+
+  // ملاحظة أمان: لا نخزن كائن الامتحان الكامل (ومعه الإجابات الصحيحة)
+  // في localStorage، لأنه يبقى مكشوفًا هناك طوال مدة الامتحان ويسهل
+  // على أي طالب فتحه من Application > Local Storage في المتصفح.
+  // نخزن فقط مرجعًا خفيفًا، وصفحة الامتحان تجيب البيانات الكاملة
+  // من Firestore وقت العرض بدون تخزينها محليًا.
+  localStorage.setItem(
+    "currentActiveExamRef",
+    JSON.stringify({
+      firestoreId: exam.firestoreId || "",
+      id: exam.id || "",
+      title: exam.title || exam.name || "",
+    })
+  );
+
+  localStorage.removeItem("currentActiveExam");
+
+
+  const app =
+    document.querySelector("#app");
+
+
+  if(!app)
+    return;
+
+
+  app.innerHTML =
+    showExam();
+
+
+}
