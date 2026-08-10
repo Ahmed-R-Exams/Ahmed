@@ -354,12 +354,13 @@ export async function resultsPage() {
       .rp-card[data-tier="pass"] .rp-stamp{border-color:var(--warn); color:var(--warn);}
       .rp-card[data-tier="fail"] .rp-stamp{border-color:var(--fail); color:var(--fail);}
 
-      .rp-card h3{
+      #resultsTable .rp-card h3{
         font-family:'Cairo',sans-serif;
         font-weight:700;
         font-size:17px;
         margin:0 0 6px;
         padding-inline-end:74px;
+        color:var(--paper) !important;
       }
       .rp-card .rp-exam{
         color:var(--muted);

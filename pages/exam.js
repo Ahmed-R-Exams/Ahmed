@@ -578,8 +578,8 @@ function sanitizeKey(str) {
     .replace(/[^a-zA-Z0-9\u0600-\u06FF]+/g, "_");
 }
 
-function getAttemptKey(examId, studentName) {
-  return `examAttempt_${sanitizeKey(examId)}_${sanitizeKey(studentName)}`;
+function getAttemptKey(examId) {
+  return `examAttempt_${sanitizeKey(examId)}`;
 }
 
 function hasAlreadyAttempted(key) {
@@ -642,8 +642,7 @@ async function checkAlreadyAttempted(
   studentName
 ) {
   const attemptKey = getAttemptKey(
-    examId,
-    studentName
+    examId
   );
 
   if (hasAlreadyAttempted(attemptKey)) {
@@ -717,6 +716,8 @@ function buildExamTemplate(
   questions
 ) {
   return `
+    <div class="exam-wrap">
+
     <div class="exam-header">
 
       <div style="
@@ -884,6 +885,8 @@ function buildExamTemplate(
         </form>
 
       </div>
+
+    </div>
 
     </div>
   `;
@@ -1736,8 +1739,7 @@ export function examPage() {
   const attemptKey =
     getAttemptKey(
       examId ||
-        examTitle,
-      studentName
+        examTitle
     );
 
   setTimeout(
