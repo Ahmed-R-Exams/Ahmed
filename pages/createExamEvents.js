@@ -44,6 +44,108 @@ export function createExamEvents() {
 
 
   document.addEventListener(
+    "change",
+    (e) => {
+
+      // ==================================================
+      // TOGGLE ESSAY / MCQ VIEW
+      // ==================================================
+
+      if (
+        e.target.classList.contains("q-type-select")
+      ) {
+
+        const card =
+          e.target.closest(".question-card");
+
+        if (!card) return;
+
+        const isEssay =
+          e.target.value === "essay";
+
+        const options =
+          card.querySelector(".mcq-options");
+
+        const note =
+          card.querySelector(".essay-note");
+
+        if (options) {
+          options.style.display =
+            isEssay ? "none" : "";
+        }
+
+        if (note) {
+          note.style.display =
+            isEssay ? "" : "none";
+        }
+
+        return;
+      }
+
+
+      // ==================================================
+      // UPLOAD QUESTION IMAGE
+      // ==================================================
+
+      if (
+        e.target.classList.contains("q-image-file")
+      ) {
+
+        const file =
+          e.target.files && e.target.files[0];
+
+        if (!file) return;
+
+        const card =
+          e.target.closest(".question-card");
+
+        if (!card) return;
+
+        const reader =
+          new FileReader();
+
+        reader.onload = (event) => {
+
+          const result =
+            event.target.result;
+
+          const hidden =
+            card.querySelector(".q-image");
+
+          if (hidden) {
+            hidden.value = result;
+          }
+
+          const oldImg =
+            card.querySelector(".question-image-preview");
+
+          if (oldImg) {
+            oldImg.src = result;
+          } else {
+            const img =
+              document.createElement("img");
+
+            img.src = result;
+            img.className = "question-image-preview";
+            img.alt = "صورة السؤال";
+
+            e.target.insertAdjacentElement(
+              "afterend",
+              img
+            );
+          }
+        };
+
+        reader.readAsDataURL(file);
+
+        return;
+      }
+
+    }
+  );
+
+
+  document.addEventListener(
     "click",
     async (e) => {
 

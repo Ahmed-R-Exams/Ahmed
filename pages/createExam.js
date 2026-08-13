@@ -335,6 +335,37 @@ export function createExamPage() {
   display:block;
 }
 
+.q-image-label{
+  display:block;
+  margin-top:16px;
+  margin-bottom:8px;
+  font-size:13px;
+  color:var(--muted);
+}
+
+.q-image-file{
+  width:100%;
+  padding:10px 14px;
+  border-radius:10px;
+  border:1px dashed var(--line);
+  background:var(--ink-900);
+  color:var(--paper);
+  font-family:'Tajawal',sans-serif;
+  font-size:13px;
+  cursor:pointer;
+}
+
+.essay-note{
+  margin-top:16px;
+  padding:14px;
+  border-radius:10px;
+  background:var(--ink-900);
+  border:1px solid var(--line);
+  color:var(--muted);
+  font-size:13.5px;
+  line-height:1.7;
+}
+
 </style>
 
 
@@ -753,7 +784,7 @@ export function createQuestionTemplate(index, question = {}) {
     </select>
 
 
-    <div class="mcq-options">
+    <div class="mcq-options" style="${type === "essay" ? "display:none;" : ""}">
 
       ${["A", "B", "C", "D"]
         .map((letter, i) => {
@@ -800,6 +831,10 @@ export function createQuestionTemplate(index, question = {}) {
 
     </div>
 
+    <div class="essay-note" style="${type === "essay" ? "" : "display:none;"}">
+      ✍️ سؤال مقالي — مفيش اختيارات هنا، الطالب هيكتب إجابته في مساحة نصية مخصصة أثناء الامتحان، وهتحتاج تصححها يدويًا بعد التسليم.
+    </div>
+
 
     <div class="q-score-row">
 
@@ -816,6 +851,14 @@ export function createQuestionTemplate(index, question = {}) {
 
     </div>
 
+
+    <label class="q-image-label">📷 إرفاق صورة للسؤال (اختياري)</label>
+
+    <input
+      type="file"
+      class="q-image-file"
+      accept="image/*"
+    >
 
     ${
       question.image
