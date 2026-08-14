@@ -1,6 +1,7 @@
 // pages/admin.js
 
 import { manageExamsPage } from "./manageExams.js";
+import { manageExamsEvents } from "./manageExamsEvents.js";
 import { teacherBoardsPage } from "./TeacherBoards.js";
 import { resultsPage } from "./results.js";
 import { homePage } from "./home.js";
@@ -151,15 +152,17 @@ return;
 // الامتحانات
 
 if(
-e.target.closest("#cardManageExams")
-){
-
-app.innerHTML =
-manageExamsPage();
-
-return;
-
-}
+    e.target.closest("#cardManageExams")
+    ){
+    
+    app.innerHTML =
+    manageExamsPage();
+    
+    manageExamsEvents();
+    
+    return;
+    
+    }
 
 
 

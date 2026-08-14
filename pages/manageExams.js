@@ -300,6 +300,3 @@ import {
   
   
   
-  export function manageExamsEvents(){
-  
-  }

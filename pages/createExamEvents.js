@@ -18,7 +18,7 @@ import {
   createQuestionTemplate
 } from "./createExam.js";
 
-let initialized = false;
+let eventsAttached = false;
 let editingExam = null;
 
 
@@ -27,7 +27,149 @@ let editingExam = null;
 // ======================================================
 
 export function setEditingExam(exam) {
-  editingExam = exam;
+  editingExam = exam || null;
+}
+
+export function clearEditingExam() {
+  editingExam = null;
+}
+
+
+// ======================================================
+// RENUMBER QUESTIONS
+// ======================================================
+
+function renumberQuestions() {
+
+  const list =
+    document.querySelector("#questionsList");
+
+  if (!list)
+    return;
+
+  const cards =
+    Array.from(
+      list.querySelectorAll(".question-card")
+    );
+
+  cards.forEach((card, index) => {
+
+    const number =
+      index + 1;
+
+    card.dataset.questionIndex =
+      number;
+
+    const numberElement =
+      card.querySelector(".question-number");
+
+    if (numberElement) {
+      numberElement.textContent =
+        number;
+    }
+
+    const title =
+      card.querySelector(
+        ".question-card-header strong"
+      );
+
+    if (title) {
+      title.textContent =
+        `السؤال ${number}`;
+    }
+
+    card
+      .querySelectorAll(
+        ".q-correct-radio"
+      )
+      .forEach(radio => {
+
+        radio.name =
+          `correct_${number}`;
+
+      });
+
+  });
+
+}
+
+
+// ======================================================
+// UPDATE QUESTION TYPE VIEW
+// ======================================================
+
+function updateQuestionType(card) {
+
+  if (!card)
+    return;
+
+  const select =
+    card.querySelector(
+      ".q-type-select"
+    );
+
+  const options =
+    card.querySelector(
+      ".mcq-options"
+    );
+
+  const note =
+    card.querySelector(
+      ".essay-note"
+    );
+
+  if (!select)
+    return;
+
+  const isEssay =
+    select.value === "essay";
+
+  if (options) {
+
+    options.style.display =
+      isEssay
+        ? "none"
+        : "";
+
+  }
+
+  if (note) {
+
+    note.style.display =
+      isEssay
+        ? ""
+        : "none";
+
+  }
+
+}
+
+
+// ======================================================
+// READ IMAGE
+// ======================================================
+
+function readFileAsDataURL(file) {
+
+  return new Promise(
+    (resolve, reject) => {
+
+      const reader =
+        new FileReader();
+
+      reader.onload =
+        () => resolve(
+          reader.result
+        );
+
+      reader.onerror =
+        reject;
+
+      reader.readAsDataURL(file);
+
+    }
+  );
+
 }
 
 
@@ -37,196 +179,421 @@ export function setEditingExam(exam) {
 
 export function createExamEvents() {
 
-  if (initialized)
+  /*
+   * مهم:
+   * نربط الأحداث مرة واحدة فقط.
+   * الأحداث نفسها تعمل على أي أسئلة جديدة يتم
+   * إضافتها بعد ذلك بسبب event delegation.
+   */
+
+  if (eventsAttached)
     return;
 
-  initialized = true;
+  eventsAttached = true;
 
+
+  // ====================================================
+  // CHANGE
+  // ====================================================
 
   document.addEventListener(
     "change",
-    (e) => {
+    async (e) => {
 
-      // ==================================================
-      // TOGGLE ESSAY / MCQ VIEW
-      // ==================================================
+      // -----------------------------------------------
+      // QUESTION TYPE
+      // -----------------------------------------------
 
       if (
-        e.target.classList.contains("q-type-select")
+        e.target.matches(
+          ".q-type-select"
+        )
       ) {
 
         const card =
-          e.target.closest(".question-card");
+          e.target.closest(
+            ".question-card"
+          );
 
-        if (!card) return;
-
-        const isEssay =
-          e.target.value === "essay";
-
-        const options =
-          card.querySelector(".mcq-options");
-
-        const note =
-          card.querySelector(".essay-note");
-
-        if (options) {
-          options.style.display =
-            isEssay ? "none" : "";
-        }
-
-        if (note) {
-          note.style.display =
-            isEssay ? "" : "none";
-        }
+        updateQuestionType(card);
 
         return;
+
       }
 
 
-      // ==================================================
-      // UPLOAD QUESTION IMAGE
-      // ==================================================
+      // -----------------------------------------------
+      // QUESTION IMAGE
+      // -----------------------------------------------
 
       if (
-        e.target.classList.contains("q-image-file")
+        e.target.matches(
+          ".q-image-file"
+        )
       ) {
 
-        const file =
-          e.target.files && e.target.files[0];
+        const input =
+          e.target;
 
-        if (!file) return;
+        const file =
+          input.files?.[0];
+
+        if (!file)
+          return;
 
         const card =
-          e.target.closest(".question-card");
+          input.closest(
+            ".question-card"
+          );
 
-        if (!card) return;
+        if (!card)
+          return;
 
-        const reader =
-          new FileReader();
-
-        reader.onload = (event) => {
+        try {
 
           const result =
-            event.target.result;
+            await readFileAsDataURL(
+              file
+            );
+
 
           const hidden =
-            card.querySelector(".q-image");
+            card.querySelector(
+              ".q-image"
+            );
 
           if (hidden) {
-            hidden.value = result;
+
+            hidden.value =
+              result;
+
           }
 
-          const oldImg =
-            card.querySelector(".question-image-preview");
 
-          if (oldImg) {
-            oldImg.src = result;
-          } else {
-            const img =
-              document.createElement("img");
-
-            img.src = result;
-            img.className = "question-image-preview";
-            img.alt = "صورة السؤال";
-
-            e.target.insertAdjacentElement(
-              "afterend",
-              img
+          let image =
+            card.querySelector(
+              ".question-image-preview"
             );
+
+
+          if (!image) {
+
+            image =
+              document.createElement(
+                "img"
+              );
+
+            image.className =
+              "question-image-preview";
+
+            image.alt =
+              "صورة السؤال";
+
+            input.insertAdjacentElement(
+              "afterend",
+              image
+            );
+
           }
-        };
 
-        reader.readAsDataURL(file);
 
-        return;
+          image.src =
+            result;
+
+        }
+        catch (error) {
+
+          console.error(
+            "QUESTION IMAGE ERROR:",
+            error
+          );
+
+          alert(
+            "❌ لم يتم تحميل الصورة."
+          );
+
+        }
+
       }
 
     }
   );
 
 
+  // ====================================================
+  // CLICK
+  // ====================================================
+
   document.addEventListener(
     "click",
     async (e) => {
 
 
-      // ==================================================
+      // =================================================
       // ADD QUESTION
-      // ==================================================
+      // =================================================
 
-      if (
-        e.target.closest("#btnAddQuestion")
-      ) {
+      const addButton =
+        e.target.closest(
+          "#btnAddQuestion"
+        );
+
+      if (addButton) {
+
+        e.preventDefault();
+        e.stopPropagation();
+
 
         const list =
-          document.querySelector("#questionsList");
-
-        if (list) {
-
-          const empty =
-            list.querySelector(".eb-empty");
-
-          if (empty)
-            empty.remove();
-
-
-          list.insertAdjacentHTML(
-            "beforeend",
-            createQuestionTemplate(
-              list.querySelectorAll(".question-card").length + 1
-            )
+          document.querySelector(
+            "#questionsList"
           );
+
+        if (!list)
+          return;
+
+
+        const empty =
+          list.querySelector(
+            ".eb-empty"
+          );
+
+        if (empty) {
+
+          empty.remove();
 
         }
 
+
+        const count =
+          list.querySelectorAll(
+            ".question-card"
+          ).length;
+
+
+        list.insertAdjacentHTML(
+          "beforeend",
+          createQuestionTemplate(
+            count + 1
+          )
+        );
+
+
+        renumberQuestions();
+
+
+        const cards =
+          list.querySelectorAll(
+            ".question-card"
+          );
+
+        const lastCard =
+          cards[cards.length - 1];
+
+
+        if (lastCard) {
+
+          lastCard.scrollIntoView({
+            behavior: "smooth",
+            block: "center"
+          });
+
+        }
+
+
         return;
+
       }
 
 
-      // ==================================================
+      // =================================================
       // DELETE QUESTION
-      // ==================================================
+      // =================================================
 
-      if (
-        e.target.closest(".removeQuestion")
-      ) {
+      const deleteButton =
+        e.target.closest(
+          ".removeQuestion"
+        );
+
+      if (deleteButton) {
+
+        e.preventDefault();
+        e.stopPropagation();
+
 
         const card =
-          e.target.closest(".question-card");
+          deleteButton.closest(
+            ".question-card"
+          );
 
-        if (card)
-          card.remove();
+        if (!card)
+          return;
+
+
+        const list =
+          document.querySelector(
+            "#questionsList"
+          );
+
+        if (!list)
+          return;
+
+
+        const cards =
+          list.querySelectorAll(
+            ".question-card"
+          );
+
+
+        if (cards.length <= 1) {
+
+          alert(
+            "لا يمكن حذف السؤال الوحيد في الامتحان."
+          );
+
+          return;
+
+        }
+
+
+        card.remove();
+
+        renumberQuestions();
 
         return;
+
       }
 
 
-      // ==================================================
-      // SAVE EXAM
-      // ==================================================
+      // =================================================
+      // DUPLICATE QUESTION
+      // =================================================
 
-      if (
-        e.target.closest("#btnSaveExam")
-      ) {
+      const duplicateButton =
+        e.target.closest(
+          ".duplicateQuestion"
+        );
 
-        await saveExam();
+      if (duplicateButton) {
+
+        e.preventDefault();
+        e.stopPropagation();
+
+
+        const card =
+          duplicateButton.closest(
+            ".question-card"
+          );
+
+        if (!card)
+          return;
+
+
+        const list =
+          document.querySelector(
+            "#questionsList"
+          );
+
+        if (!list)
+          return;
+
+
+        /*
+         * ننسخ الـ HTML نفسه.
+         * وده يحافظ على:
+         * النص
+         * الاختيارات
+         * النوع
+         * الدرجة
+         * الصورة
+         */
+
+        const clone =
+          card.cloneNode(true);
+
+
+        // تنظيف file input
+        const fileInput =
+          clone.querySelector(
+            ".q-image-file"
+          );
+
+        if (fileInput) {
+
+          fileInput.value =
+            "";
+
+        }
+
+
+        // إضافة النسخة بعد السؤال
+        card.insertAdjacentElement(
+          "afterend",
+          clone
+        );
+
+
+        renumberQuestions();
+
+
+        clone.scrollIntoView({
+          behavior: "smooth",
+          block: "center"
+        });
+
 
         return;
+
       }
 
 
-      // ==================================================
+      // =================================================
+      // SAVE
+      // =================================================
+
+      const saveButton =
+        e.target.closest(
+          "#btnSaveExam"
+        );
+
+      if (saveButton) {
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        await saveExam(
+          saveButton
+        );
+
+        return;
+
+      }
+
+
+      // =================================================
       // BACK
-      // ==================================================
+      // =================================================
 
-      if (
-        e.target.closest("#btnBackToList")
-      ) {
+      const backButton =
+        e.target.closest(
+          "#btnBackToList"
+        );
 
-        editingExam = null;
+      if (backButton) {
+
+        e.preventDefault();
+        e.stopPropagation();
+
+
+        editingExam =
+          null;
+
 
         const app =
-          document.querySelector("#app");
+          document.querySelector(
+            "#app"
+          );
+
 
         if (app) {
 
@@ -235,7 +602,9 @@ export function createExamEvents() {
 
         }
 
+
         return;
+
       }
 
     }
@@ -248,13 +617,17 @@ export function createExamEvents() {
 // SAVE EXAM
 // ======================================================
 
-async function saveExam() {
+async function saveExam(
+  saveButton
+) {
 
   const title =
     document
-      .querySelector("#examTitle")
+      .querySelector(
+        "#examTitle"
+      )
       ?.value
-      .trim();
+      ?.trim();
 
 
   if (!title) {
@@ -264,16 +637,15 @@ async function saveExam() {
     );
 
     return;
+
   }
 
 
-  // ==================================================
-  // BASIC DATA
-  // ==================================================
-
   const subject =
     document
-      .querySelector("#examSubject")
+      .querySelector(
+        "#examSubject"
+      )
       ?.value
       ||
       "physics";
@@ -281,7 +653,9 @@ async function saveExam() {
 
   const className =
     document
-      .querySelector("#examClass")
+      .querySelector(
+        "#examClass"
+      )
       ?.value
       ||
       "الصف الأول الثانوي";
@@ -290,7 +664,9 @@ async function saveExam() {
   const duration =
     Number(
       document
-        .querySelector("#examDuration")
+        .querySelector(
+          "#examDuration"
+        )
         ?.value
     )
     ||
@@ -300,7 +676,9 @@ async function saveExam() {
   const passingScore =
     Number(
       document
-        .querySelector("#examPassingScore")
+        .querySelector(
+          "#examPassingScore"
+        )
         ?.value
     )
     ||
@@ -309,7 +687,9 @@ async function saveExam() {
 
   const startDate =
     document
-      .querySelector("#examStartDate")
+      .querySelector(
+        "#examStartDate"
+      )
       ?.value
       ||
       "";
@@ -317,19 +697,19 @@ async function saveExam() {
 
   const endDate =
     document
-      .querySelector("#examEndDate")
+      .querySelector(
+        "#examEndDate"
+      )
       ?.value
       ||
       "";
 
 
-  // ==================================================
-  // OPEN / CLOSE
-  // ==================================================
-
   const openStatus =
     document
-      .querySelector("#examOpenStatus")
+      .querySelector(
+        "#examOpenStatus"
+      )
       ?.value
       ||
       "open";
@@ -339,78 +719,147 @@ async function saveExam() {
     openStatus === "open";
 
 
-  // ==================================================
+  // ====================================================
   // QUESTIONS
-  // ==================================================
+  // ====================================================
 
-  const questions =
-    [
-      ...document.querySelectorAll(
+  const cards =
+    Array.from(
+      document.querySelectorAll(
         ".question-card"
       )
-    ]
-    .map(
-      (card) => {
+    );
+
+
+  if (!cards.length) {
+
+    alert(
+      "أضف سؤالًا واحدًا على الأقل."
+    );
+
+    return;
+
+  }
+
+
+  const questions =
+    cards.map(
+      (card, index) => {
+
+        const text =
+          card
+            .querySelector(
+              ".q-text"
+            )
+            ?.value
+            ?.trim()
+            ||
+            "";
+
+
+        const type =
+          card
+            .querySelector(
+              ".q-type-select"
+            )
+            ?.value
+            ||
+            "mcq";
+
+
+        const score =
+          Number(
+            card
+              .querySelector(
+                ".q-score"
+              )
+              ?.value
+          )
+          ||
+          1;
+
+
+        const options =
+          Array.from(
+            card.querySelectorAll(
+              ".opt-text"
+            )
+          )
+          .map(
+            input =>
+              input.value?.trim() || ""
+          );
+
+
+        const checked =
+          card.querySelector(
+            ".q-correct-radio:checked"
+          );
+
+
+        const correctIndex =
+          type === "essay"
+            ? 0
+            : Number(
+                checked?.value ?? 0
+              );
+
+
+        const image =
+          card
+            .querySelector(
+              ".q-image"
+            )
+            ?.value
+            ||
+            "";
+
 
         return {
 
+          id:
+            card.dataset.questionId ||
+            `${Date.now()}-${index}`,
+
           question:
-            card
-              .querySelector(".q-text")
-              ?.value
-              ||
-              "",
+            text,
 
-          text:
-            card
-              .querySelector(".q-text")
-              ?.value
-              ||
-              "",
+          text,
 
-          type:
-            card
-              .querySelector(".q-type-select")
-              ?.value
-              ||
-              "mcq",
+          title:
+            text,
 
-          score:
-            Number(
-              card
-                .querySelector(".q-score")
-                ?.value
-            )
-            ||
-            1,
+          type,
+
+          score,
+
+          points:
+            score,
 
           options:
-            [
-              ...card.querySelectorAll(
-                ".opt-text"
-              )
-            ]
-            .map(
-              x => x.value
-            ),
+            type === "essay"
+              ? []
+              : [
+                  options[0] || "",
+                  options[1] || "",
+                  options[2] || "",
+                  options[3] || ""
+                ],
 
-          correctIndex:
-            Number(
-              card
-                .querySelector(
-                  ".q-correct-radio:checked"
-                )
-                ?.value
-              ||
-              0
-            ),
+          correctIndex,
 
-          image:
-            card
-              .querySelector(".q-image")
-              ?.value
-              ||
-              ""
+          correctAnswerIndex:
+            correctIndex,
+
+          answer:
+            type === "essay"
+              ? ""
+              : (
+                  options[correctIndex] ||
+                  ""
+                ),
+
+          image
 
         };
 
@@ -418,9 +867,9 @@ async function saveExam() {
     );
 
 
-  // ==================================================
+  // ====================================================
   // EXAM DATA
-  // ==================================================
+  // ====================================================
 
   const examData = {
 
@@ -444,23 +893,31 @@ async function saveExam() {
 
     endDate,
 
-    // ⭐ فتح / غلق الامتحان
     isOpen,
 
-    // الاحتفاظ بالتوافق مع النظام القديم
     isPublished:
       isOpen,
 
-    questions
+    questions,
+
+    questionsCount:
+      questions.length
 
   };
 
 
-  // ==================================================
-  // SAVE FIREBASE
-  // ==================================================
+  // ====================================================
+  // SAVE
+  // ====================================================
 
   try {
+
+    saveButton.disabled =
+      true;
+
+    saveButton.textContent =
+      "⏳ جاري الحفظ...";
+
 
     if (editingExam) {
 
@@ -475,7 +932,6 @@ async function saveExam() {
       );
 
     }
-
     else {
 
       await addExam(
@@ -492,11 +948,14 @@ async function saveExam() {
     );
 
 
-    editingExam = null;
+    editingExam =
+      null;
 
 
     const app =
-      document.querySelector("#app");
+      document.querySelector(
+        "#app"
+      );
 
 
     if (app) {
@@ -509,17 +968,30 @@ async function saveExam() {
     }
 
   }
-
   catch (error) {
 
     console.error(
-      "Save exam error:",
+      "SAVE EXAM ERROR:",
       error
     );
 
+
     alert(
-      "حدث خطأ أثناء حفظ الامتحان"
+      "❌ حدث خطأ أثناء حفظ الامتحان\n\n" +
+      (
+        error?.message ||
+        "خطأ غير معروف"
+      )
     );
+
+
+    saveButton.disabled =
+      false;
+
+    saveButton.textContent =
+      editingExam
+        ? "💾 حفظ التعديلات"
+        : "💾 حفظ الامتحان";
 
   }
 

@@ -1,12 +1,6 @@
-// pages/createExam.js
-
 import { addExam } from "../services/examService.js";
 
 let editingExamData = null;
-
-// ======================================================
-// EDIT MODE
-// ======================================================
 
 export function setExamToEdit(exam) {
   editingExamData = exam || null;
@@ -15,10 +9,6 @@ export function setExamToEdit(exam) {
 export function clearEditingExam() {
   editingExamData = null;
 }
-
-// ======================================================
-// CREATE EXAM PAGE
-// ======================================================
 
 export function createExamPage() {
 
@@ -47,24 +37,12 @@ export function createExamPage() {
   padding:30px 20px 60px;
 }
 
-.eb *{
-  box-sizing:border-box;
-}
+.eb *{box-sizing:border-box;}
 
 .eb-hero{
   background:
-    radial-gradient(
-      600px 200px at 15% 0%,
-      rgba(232,179,76,.14),
-      transparent 60%
-    ),
-    linear-gradient(
-      150deg,
-      #0a0f1c,
-      #141f3d 65%,
-      #1c2a52
-    );
-
+    radial-gradient(600px 200px at 15% 0%,rgba(232,179,76,.14),transparent 60%),
+    linear-gradient(150deg,#0a0f1c,#141f3d 65%,#1c2a52);
   border:1px solid var(--line);
   border-radius:22px;
   padding:26px 28px;
@@ -98,9 +76,7 @@ export function createExamPage() {
 }
 
 @media(max-width:640px){
-  .eb-grid2{
-    grid-template-columns:1fr;
-  }
+  .eb-grid2{grid-template-columns:1fr;}
 }
 
 .eb-field{
@@ -131,7 +107,6 @@ export function createExamPage() {
 .eb-field input:focus-visible,
 .eb-field select:focus-visible{
   outline:2px solid var(--gold);
-  outline-offset:1px;
 }
 
 .eb-qhead{
@@ -181,9 +156,7 @@ export function createExamPage() {
   cursor:pointer;
 }
 
-.eb-btn:hover{
-  filter:brightness(1.15);
-}
+.eb-btn:hover{filter:brightness(1.15);}
 
 .eb-btn-add{
   width:100%;
@@ -204,11 +177,7 @@ export function createExamPage() {
   font-size:17px;
   font-weight:700;
   font-family:'Cairo',sans-serif;
-  background:linear-gradient(
-    135deg,
-    #1fa968,
-    #31c07a
-  );
+  background:linear-gradient(135deg,#1fa968,#31c07a);
   border-color:transparent;
   color:#062015;
 }
@@ -282,9 +251,7 @@ export function createExamPage() {
   font-family:'Tajawal',sans-serif;
 }
 
-.mcq-options{
-  margin-top:16px;
-}
+.mcq-options{margin-top:16px;}
 
 .option-row{
   display:flex;
@@ -333,6 +300,7 @@ export function createExamPage() {
   border:1px solid var(--line);
   margin-top:10px;
   display:block;
+  object-fit:contain;
 }
 
 .q-image-label{
@@ -368,11 +336,9 @@ export function createExamPage() {
 
 </style>
 
-
 <div class="eb" dir="rtl">
 
   <div class="eb-hero">
-
     <h2>
       ${isEdit ? "✏️ تعديل الامتحان" : "➕ إنشاء امتحان جديد"}
     </h2>
@@ -382,234 +348,130 @@ export function createExamPage() {
         ? "تعديل بيانات وأسئلة الامتحان"
         : "إنشاء اختبار جديد للطلاب"}
     </span>
-
   </div>
-
-
-  <!-- ============================================== -->
-  <!-- EXAM DATA -->
-  <!-- ============================================== -->
 
   <div class="eb-panel">
 
     <div class="eb-grid2">
 
       <div class="eb-field">
-
-        <label>
-          عنوان الامتحان
-        </label>
+        <label>عنوان الامتحان</label>
 
         <input
           id="examTitle"
-          value="${isEdit
-            ? escapeHtml(editingExamData?.title || "")
-            : ""}"
+          value="${isEdit ? escapeHtml(editingExamData?.title || "") : ""}"
           placeholder="مثال: اختبار الفيزياء الأول"
         >
-
       </div>
 
-
       <div class="eb-field">
-
-        <label>
-          المادة
-        </label>
+        <label>المادة</label>
 
         <select id="examSubject">
 
           <option
             value="physics"
-            ${
-              isEdit &&
-              String(editingExamData?.subject || "").toLowerCase() ===
-              "physics"
-                ? "selected"
-                : ""
-            }
+            ${isEdit && String(editingExamData?.subject || "").toLowerCase() === "physics" ? "selected" : ""}
           >
             فيزياء
           </option>
 
           <option
             value="chemistry"
-            ${
-              isEdit &&
-              String(editingExamData?.subject || "").toLowerCase() ===
-              "chemistry"
-                ? "selected"
-                : ""
-            }
+            ${isEdit && String(editingExamData?.subject || "").toLowerCase() === "chemistry" ? "selected" : ""}
           >
             كيمياء
           </option>
 
         </select>
-
       </div>
 
     </div>
 
-
     <div class="eb-grid2">
 
       <div class="eb-field">
-
-        <label>
-          الصف
-        </label>
+        <label>الصف</label>
 
         <select id="examClass">
 
-          <option
-            value="الصف الأول الثانوي"
-            ${
-              isEdit &&
-              editingExamData?.className ===
-              "الصف الأول الثانوي"
-                ? "selected"
-                : ""
-            }
-          >
+          <option value="الصف الأول الثانوي"
+            ${isEdit && editingExamData?.className === "الصف الأول الثانوي" ? "selected" : ""}>
             الصف الأول الثانوي
           </option>
 
-          <option
-            value="الصف الثاني الثانوي"
-            ${
-              isEdit &&
-              editingExamData?.className ===
-              "الصف الثاني الثانوي"
-                ? "selected"
-                : ""
-            }
-          >
+          <option value="الصف الثاني الثانوي"
+            ${isEdit && editingExamData?.className === "الصف الثاني الثانوي" ? "selected" : ""}>
             الصف الثاني الثانوي
           </option>
 
-          <option
-            value="الصف الثالث الثانوي"
-            ${
-              isEdit &&
-              editingExamData?.className ===
-              "الصف الثالث الثانوي"
-                ? "selected"
-                : ""
-            }
-          >
+          <option value="الصف الثالث الثانوي"
+            ${isEdit && editingExamData?.className === "الصف الثالث الثانوي" ? "selected" : ""}>
             الصف الثالث الثانوي
           </option>
 
         </select>
-
       </div>
 
-
       <div class="eb-field">
-
-        <label>
-          مدة الامتحان بالدقائق
-        </label>
+        <label>مدة الامتحان بالدقائق</label>
 
         <input
           type="number"
           id="examDuration"
           min="1"
-          value="${
-            isEdit
-              ? Number(editingExamData?.duration) || 60
-              : 60
-          }"
+          value="${isEdit ? Number(editingExamData?.duration) || 60 : 60}"
         >
-
       </div>
 
     </div>
 
-
     <div class="eb-grid2">
 
       <div class="eb-field">
-
-        <label>
-          درجة النجاح
-        </label>
+        <label>درجة النجاح</label>
 
         <input
           type="number"
           id="examPassingScore"
           min="0"
-          value="${
-            isEdit
-              ? Number(editingExamData?.passingScore) || 50
-              : 50
-          }"
+          value="${isEdit ? Number(editingExamData?.passingScore) || 50 : 50}"
         >
-
       </div>
 
-
       <div class="eb-field">
-
-        <label>
-          تاريخ بداية الامتحان
-        </label>
+        <label>تاريخ بداية الامتحان</label>
 
         <input
           type="datetime-local"
           id="examStartDate"
-          value="${
-            isEdit
-              ? editingExamData?.startDate || ""
-              : ""
-          }"
+          value="${isEdit ? editingExamData?.startDate || "" : ""}"
         >
-
       </div>
 
     </div>
 
-
     <div class="eb-field">
-
-      <label>
-        تاريخ نهاية الامتحان
-      </label>
+      <label>تاريخ نهاية الامتحان</label>
 
       <input
         type="datetime-local"
         id="examEndDate"
-        value="${
-          isEdit
-            ? editingExamData?.endDate || ""
-            : ""
-        }"
+        value="${isEdit ? editingExamData?.endDate || "" : ""}"
       >
-
     </div>
 
   </div>
-
-
-  <!-- ============================================== -->
-  <!-- QUESTIONS -->
-  <!-- ============================================== -->
 
   <div class="eb-panel">
 
     <div class="eb-qhead">
 
-      <h3>
-        📝 أسئلة الامتحان
-      </h3>
+      <h3>📝 أسئلة الامتحان</h3>
 
-      <span>
-        أضف الأسئلة وحدد الإجابة الصحيحة
-      </span>
+      <span>أضف الأسئلة وحدد الإجابة الصحيحة</span>
 
     </div>
-
 
     <div id="questionsList">
 
@@ -617,32 +479,18 @@ export function createExamPage() {
         isEdit &&
         Array.isArray(editingExamData?.questions) &&
         editingExamData.questions.length
-
           ? editingExamData.questions
-              .map(
-                (q, i) =>
-                  createQuestionTemplate(
-                    i + 1,
-                    q
-                  )
-              )
+              .map((q, i) => createQuestionTemplate(i + 1, q))
               .join("")
-
           : `
             <div class="eb-empty">
-
-              <b>
-                لا توجد أسئلة
-              </b>
-
+              <b>لا توجد أسئلة</b>
               أضف سؤال جديد للبدء
-
             </div>
           `
       }
 
     </div>
-
 
     <button
       id="btnAddQuestion"
@@ -654,11 +502,6 @@ export function createExamPage() {
 
   </div>
 
-
-  <!-- ============================================== -->
-  <!-- ACTIONS -->
-  <!-- ============================================== -->
-
   <div class="eb-panel">
 
     <button
@@ -668,7 +511,6 @@ export function createExamPage() {
     >
       💾 ${isEdit ? "حفظ التعديلات" : "حفظ الامتحان"}
     </button>
-
 
     <button
       id="btnBackToList"
@@ -685,28 +527,17 @@ export function createExamPage() {
 `;
 }
 
-
-// ======================================================
-// QUESTION TEMPLATE
-// ======================================================
-
 export function createQuestionTemplate(index, question = {}) {
 
   const options =
     Array.isArray(question.options)
-      ? question.options
+      ? [...question.options, "", "", "", ""].slice(0, 4)
       : ["", "", "", ""];
 
-
   const correctIndex =
-    Number.isInteger(
-      Number(
-        question.correctAnswerIndex
-      )
-    )
+    Number.isInteger(Number(question.correctAnswerIndex))
       ? Number(question.correctAnswerIndex)
       : Number(question.correctIndex || 0);
-
 
   const questionText =
     question.text ||
@@ -714,14 +545,18 @@ export function createQuestionTemplate(index, question = {}) {
     question.title ||
     "";
 
-
   const score =
-    Number(question.score) || 1;
-
+    Number(question.score ?? question.points) || 1;
 
   const type =
-    question.type || "mcq";
+    question.type === "essay"
+      ? "essay"
+      : "mcq";
 
+  const image =
+    question.image ||
+    question.questionImage ||
+    "";
 
   return `
 
@@ -748,7 +583,6 @@ export function createQuestionTemplate(index, question = {}) {
 
       </div>
 
-
       <button
         type="button"
         class="removeQuestion"
@@ -758,12 +592,10 @@ export function createQuestionTemplate(index, question = {}) {
 
     </div>
 
-
     <textarea
       class="q-text"
       placeholder="اكتب نص السؤال هنا..."
     >${escapeHtml(questionText)}</textarea>
-
 
     <select class="q-type-select">
 
@@ -783,64 +615,54 @@ export function createQuestionTemplate(index, question = {}) {
 
     </select>
 
+    <div
+      class="mcq-options"
+      style="${type === "essay" ? "display:none;" : ""}"
+    >
 
-    <div class="mcq-options" style="${type === "essay" ? "display:none;" : ""}">
+      ${["A", "B", "C", "D"].map((letter, i) => `
 
-      ${["A", "B", "C", "D"]
-        .map((letter, i) => {
+        <div class="option-row">
 
-          return `
+          <input
+            type="radio"
+            name="correct_${index}"
+            class="q-correct-radio"
+            value="${i}"
+            ${correctIndex === i ? "checked" : ""}
+          >
 
-          <div class="option-row">
+          <span style="
+            width:25px;
+            font-weight:bold;
+            color:#e8b34c;
+          ">
+            ${letter}
+          </span>
 
-            <input
-              type="radio"
-              name="correct_${index}"
-              class="q-correct-radio"
-              value="${i}"
-              ${
-                correctIndex === i
-                  ? "checked"
-                  : ""
-              }
-            >
+          <input
+            type="text"
+            class="opt-text"
+            value="${escapeHtml(options[i] || "")}"
+            placeholder="الإجابة ${letter}"
+          >
 
-            <span style="
-              width:25px;
-              font-weight:bold;
-              color:#e8b34c;
-            ">
-              ${letter}
-            </span>
+        </div>
 
-            <input
-              type="text"
-              class="opt-text"
-              value="${escapeHtml(
-                options[i] || ""
-              )}"
-              placeholder="الإجابة ${letter}"
-            >
-
-          </div>
-
-          `;
-
-        })
-        .join("")}
+      `).join("")}
 
     </div>
 
-    <div class="essay-note" style="${type === "essay" ? "" : "display:none;"}">
-      ✍️ سؤال مقالي — مفيش اختيارات هنا، الطالب هيكتب إجابته في مساحة نصية مخصصة أثناء الامتحان، وهتحتاج تصححها يدويًا بعد التسليم.
+    <div
+      class="essay-note"
+      style="${type === "essay" ? "" : "display:none;"}"
+    >
+      ✍️ سؤال مقالي — الطالب سيكتب إجابته في مساحة نصية أثناء الامتحان، ويمكن تصحيحه يدويًا بعد التسليم.
     </div>
-
 
     <div class="q-score-row">
 
-      <label>
-        درجة السؤال:
-      </label>
+      <label>درجة السؤال:</label>
 
       <input
         type="number"
@@ -851,8 +673,9 @@ export function createQuestionTemplate(index, question = {}) {
 
     </div>
 
-
-    <label class="q-image-label">📷 إرفاق صورة للسؤال (اختياري)</label>
+    <label class="q-image-label">
+      📷 إرفاق صورة للسؤال (اختياري)
+    </label>
 
     <input
       type="file"
@@ -860,28 +683,28 @@ export function createQuestionTemplate(index, question = {}) {
       accept="image/*"
     >
 
-    ${
-      question.image
-        ? `
-          <input
-            type="hidden"
-            class="q-image"
-            value="${escapeHtml(question.image)}"
-          >
+    <input
+      type="hidden"
+      class="q-image"
+      value="${escapeHtml(image)}"
+    >
 
+    ${
+      image
+        ? `
           <img
             class="question-image-preview"
-            src="${escapeHtml(question.image)}"
+            src="${escapeHtml(
+              String(image).startsWith("data:")
+                ? image
+                : String(image).startsWith("/")
+                  ? image
+                  : "/images/" + image
+            )}"
             alt="صورة السؤال"
           >
         `
-        : `
-          <input
-            type="hidden"
-            class="q-image"
-            value=""
-          >
-        `
+        : ""
     }
 
   </div>
@@ -889,13 +712,7 @@ export function createQuestionTemplate(index, question = {}) {
   `;
 }
 
-
-// ======================================================
-// ESCAPE HTML
-// ======================================================
-
 function escapeHtml(value) {
-
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

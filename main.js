@@ -22,8 +22,7 @@ import { teacherSettingsPage } from "./pages/teacherSettings.js";
 import { teacherSettingsEvents } from "./pages/teacherSettingsEvents.js";
 import { resultsEvents } from "./pages/resultsEvents.js";
 
-import { manageExamsPage, manageExamsEvents } from "./pages/manageExams.js";
-
+import { manageExamsEvents } from "./pages/manageExamsEvents.js";
 import { createExamPage } from "./pages/createExam.js";
 
 import { onAuthStateChanged, signOut } from "firebase/auth";

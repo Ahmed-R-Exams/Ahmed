@@ -16,8 +16,6 @@ function readExamSettings() {
       Number(localStorage.getItem("examTime")) || 30
     ),
 
-    // النتيجة والمراجعة مقفولة حاليًا بعد التسليم.
-    // سيتم التحكم فيها لاحقًا من لوحة المعلم.
     showScore: false,
     showAnswers: false,
     allowReview: false,
@@ -509,37 +507,288 @@ function shuffleArray(arr) {
   return a;
 }
 
-function shuffleQuestionOptions(q) {
-  if (isEssayQuestion(q)) return q;
+// ======================================================
+// NORMALIZE OPTIONS
+// ======================================================
 
-  if (!examSettings.shuffleOptions) return q;
+function getQuestionOptions(q) {
+  if (!q || typeof q !== "object") {
+    return [];
+  }
 
-  const options = Array.isArray(q.options) ? q.options : [];
+  // الشكل الأساسي
+  if (Array.isArray(q.options)) {
+    return q.options.filter(
+      (op) =>
+        op !== undefined &&
+        op !== null &&
+        String(op).trim() !== ""
+    );
+  }
 
-  const correctIndex = getQuestionCorrectAnswer(q);
+  // أحيانًا تكون choices بدل options
+  if (Array.isArray(q.choices)) {
+    return q.choices.filter(
+      (op) =>
+        op !== undefined &&
+        op !== null &&
+        String(op).trim() !== ""
+    );
+  }
 
-  const indexed = options.map((op, i) => ({
-    op,
-    i,
-  }));
+  // أحيانًا Excel/Firebase يخزنها كـ A/B/C/D
+  const letterOptions = [
+    q.A,
+    q.B,
+    q.C,
+    q.D,
+  ];
 
-  const shuffled = shuffleArray(indexed);
+  if (
+    letterOptions.some(
+      (op) =>
+        op !== undefined &&
+        op !== null &&
+        String(op).trim() !== ""
+    )
+  ) {
+    return letterOptions.filter(
+      (op) =>
+        op !== undefined &&
+        op !== null &&
+        String(op).trim() !== ""
+    );
+  }
 
-  const newOptions = shuffled.map((item) => item.op);
+  // أشكال optionA / optionB ...
+  const namedOptions = [
+    q.optionA,
+    q.optionB,
+    q.optionC,
+    q.optionD,
+  ];
 
-  const newCorrectIndex = shuffled.findIndex(
-    (item) => item.i === correctIndex
-  );
+  if (
+    namedOptions.some(
+      (op) =>
+        op !== undefined &&
+        op !== null &&
+        String(op).trim() !== ""
+    )
+  ) {
+    return namedOptions.filter(
+      (op) =>
+        op !== undefined &&
+        op !== null &&
+        String(op).trim() !== ""
+    );
+  }
 
+  return [];
+}
+
+// ======================================================
+// NORMALIZE CORRECT ANSWER
+// ======================================================
+
+function normalizeCorrectAnswer(value, options = []) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return -1;
+  }
+
+  // رقم مباشر
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
+    return Math.trunc(value);
+  }
+
+  const raw = String(value).trim();
+
+  // A / B / C / D
+  const upper = raw.toUpperCase();
+
+  const letters = {
+    A: 0,
+    B: 1,
+    C: 2,
+    D: 3,
+  };
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      letters,
+      upper
+    )
+  ) {
+    return letters[upper];
+  }
+
+  // 1 / 2 / 3 / 4
+  if (/^[1-4]$/.test(raw)) {
+    return Number(raw) - 1;
+  }
+
+  // رقم index مباشر
+  if (/^\d+$/.test(raw)) {
+    const n = Number(raw);
+
+    if (
+      n >= 0 &&
+      n < options.length
+    ) {
+      return n;
+    }
+  }
+
+  // لو الإجابة نفسها نص أحد الاختيارات
+  const textIndex =
+    options.findIndex(
+      (op) =>
+        String(op).trim() === raw
+    );
+
+  if (textIndex !== -1) {
+    return textIndex;
+  }
+
+  return -1;
+}
+
+// ======================================================
+// NORMALIZE QUESTION
+// ======================================================
+
+function normalizeQuestion(q) {
   const cloned = Object.assign({}, q);
+
+  const options =
+    getQuestionOptions(q);
+
+  if (options.length > 0) {
+    cloned.options = options;
+
+    cloned.correctAnswerIndex =
+      normalizeCorrectAnswer(
+        getRawCorrectAnswer(q),
+        options
+      );
+  }
+
+  return cloned;
+}
+
+function getRawCorrectAnswer(q) {
+  if (
+    q.correctAnswerIndex !==
+    undefined
+  ) {
+    return q.correctAnswerIndex;
+  }
+
+  if (
+    q.correctIndex !==
+    undefined
+  ) {
+    return q.correctIndex;
+  }
+
+  if (
+    q.rightIndex !==
+    undefined
+  ) {
+    return q.rightIndex;
+  }
+
+  if (
+    q.correctAnswer !==
+    undefined
+  ) {
+    return q.correctAnswer;
+  }
+
+  if (
+    q.answer !==
+    undefined
+  ) {
+    return q.answer;
+  }
+
+  if (
+    q.correct !==
+    undefined
+  ) {
+    return q.correct;
+  }
+
+  return undefined;
+}
+
+// ======================================================
+// SHUFFLE OPTIONS
+// ======================================================
+
+function shuffleQuestionOptions(q) {
+  const normalized =
+    normalizeQuestion(q);
+
+  if (isEssayQuestion(normalized)) {
+    return normalized;
+  }
+
+  if (!examSettings.shuffleOptions) {
+    return normalized;
+  }
+
+  const options =
+    getQuestionOptions(normalized);
+
+  const correctIndex =
+    getQuestionCorrectAnswer(
+      normalized
+    );
+
+  const indexed =
+    options.map((op, i) => ({
+      op,
+      i,
+    }));
+
+  const shuffled =
+    shuffleArray(indexed);
+
+  const newOptions =
+    shuffled.map(
+      (item) => item.op
+    );
+
+  const newCorrectIndex =
+    shuffled.findIndex(
+      (item) =>
+        item.i === correctIndex
+    );
+
+  const cloned =
+    Object.assign(
+      {},
+      normalized
+    );
 
   delete cloned.correctIndex;
   delete cloned.rightIndex;
   delete cloned.correctAnswer;
   delete cloned.answer;
 
-  cloned.options = newOptions;
-  cloned.correctAnswerIndex = newCorrectIndex;
+  cloned.options =
+    newOptions;
+
+  cloned.correctAnswerIndex =
+    newCorrectIndex;
 
   return cloned;
 }
@@ -550,17 +799,32 @@ function shuffleQuestionOptions(q) {
 
 function stripUndefinedDeep(value) {
   if (Array.isArray(value)) {
-    return value.map((item) => stripUndefinedDeep(item));
+    return value.map(
+      (item) =>
+        stripUndefinedDeep(item)
+    );
   }
 
-  if (value && typeof value === "object") {
+  if (
+    value &&
+    typeof value === "object"
+  ) {
     const clean = {};
 
-    Object.keys(value).forEach((key) => {
-      if (value[key] === undefined) return;
+    Object.keys(value).forEach(
+      (key) => {
+        if (
+          value[key] === undefined
+        ) {
+          return;
+        }
 
-      clean[key] = stripUndefinedDeep(value[key]);
-    });
+        clean[key] =
+          stripUndefinedDeep(
+            value[key]
+          );
+      }
+    );
 
     return clean;
   }
@@ -575,19 +839,30 @@ function stripUndefinedDeep(value) {
 function sanitizeKey(str) {
   return String(str || "")
     .trim()
-    .replace(/[^a-zA-Z0-9\u0600-\u06FF]+/g, "_");
+    .replace(
+      /[^a-zA-Z0-9\u0600-\u06FF]+/g,
+      "_"
+    );
 }
 
 function getAttemptKey(examId) {
-  return `examAttempt_${sanitizeKey(examId)}`;
+  return `examAttempt_${sanitizeKey(
+    examId
+  )}`;
 }
 
 function hasAlreadyAttempted(key) {
-  return localStorage.getItem(key) === "done";
+  return (
+    localStorage.getItem(key) ===
+    "done"
+  );
 }
 
 function markAttempted(key) {
-  localStorage.setItem(key, "done");
+  localStorage.setItem(
+    key,
+    "done"
+  );
 }
 
 // ======================================================
@@ -595,33 +870,67 @@ function markAttempted(key) {
 // ======================================================
 
 function applyAntiCheat(root) {
-  const block = (e) => e.preventDefault();
-
-  root.addEventListener("contextmenu", block);
-  root.addEventListener("copy", block);
-  root.addEventListener("cut", block);
-  root.addEventListener("dragstart", block);
-
-  root.addEventListener("selectstart", (e) => {
-    const tag = e.target.tagName;
-
-    if (tag === "TEXTAREA" || tag === "INPUT") return;
-
+  const block = (e) =>
     e.preventDefault();
-  });
+
+  root.addEventListener(
+    "contextmenu",
+    block
+  );
+
+  root.addEventListener(
+    "copy",
+    block
+  );
+
+  root.addEventListener(
+    "cut",
+    block
+  );
+
+  root.addEventListener(
+    "dragstart",
+    block
+  );
+
+  root.addEventListener(
+    "selectstart",
+    (e) => {
+      const tag =
+        e.target.tagName;
+
+      if (
+        tag === "TEXTAREA" ||
+        tag === "INPUT"
+      ) {
+        return;
+      }
+
+      e.preventDefault();
+    }
+  );
 
   const keyBlock = (e) => {
-    const k = (e.key || "").toLowerCase();
+    const k = (
+      e.key || ""
+    ).toLowerCase();
 
     const blocked =
       k === "f12" ||
-      (e.ctrlKey &&
+      (
+        e.ctrlKey &&
         e.shiftKey &&
-        ["i", "j", "c"].includes(k)) ||
-      (e.ctrlKey && ["u", "s", "p"].includes(k)) ||
-      (e.metaKey &&
+        ["i", "j", "c"].includes(k)
+      ) ||
+      (
+        e.ctrlKey &&
+        ["u", "s", "p"].includes(k)
+      ) ||
+      (
+        e.metaKey &&
         e.altKey &&
-        ["i", "j", "c"].includes(k));
+        ["i", "j", "c"].includes(k)
+      );
 
     if (blocked) {
       e.preventDefault();
@@ -629,7 +938,10 @@ function applyAntiCheat(root) {
     }
   };
 
-  document.addEventListener("keydown", keyBlock);
+  document.addEventListener(
+    "keydown",
+    keyBlock
+  );
 }
 
 // ======================================================
@@ -641,33 +953,46 @@ async function checkAlreadyAttempted(
   examTitle,
   studentName
 ) {
-  const attemptKey = getAttemptKey(
-    examId
-  );
+  const attemptKey =
+    getAttemptKey(examId);
 
-  if (hasAlreadyAttempted(attemptKey)) {
+  if (
+    hasAlreadyAttempted(
+      attemptKey
+    )
+  ) {
     return true;
   }
 
   try {
-    const results = await getResults();
+    const results =
+      await getResults();
 
-    const studentKey = sanitizeKey(studentName);
+    const studentKey =
+      sanitizeKey(studentName);
 
     return results.some((r) => {
-      if (sanitizeKey(r.studentName) !== studentKey) {
+      if (
+        sanitizeKey(
+          r.studentName
+        ) !== studentKey
+      ) {
         return false;
       }
 
       if (examId) {
         return (
-          sanitizeKey(r.examId) ===
+          sanitizeKey(
+            r.examId
+          ) ===
           sanitizeKey(examId)
         );
       }
 
       return (
-        sanitizeKey(r.examTitle) ===
+        sanitizeKey(
+          r.examTitle
+        ) ===
         sanitizeKey(examTitle)
       );
     });
@@ -688,6 +1013,7 @@ async function checkAlreadyAttempted(
 function lockedScreenHTML() {
   return `
     <div class="exam-locked">
+
       <div class="icon">🔒</div>
 
       <h2>
@@ -702,6 +1028,7 @@ function lockedScreenHTML() {
       <button id="examLockedBackBtn">
         العودة للصفحة الرئيسية
       </button>
+
     </div>
   `;
 }
@@ -718,175 +1045,188 @@ function buildExamTemplate(
   return `
     <div class="exam-wrap">
 
-    <div class="exam-header">
+      <div class="exam-header">
 
-      <div style="
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-start;
-        gap:12px;
-      ">
-
-        <div>
-          <h1>${examTitle}</h1>
-
-          <p class="student">
-            الطالب: ${studentName}
-          </p>
-        </div>
-
-        <div id="examTimerBox" style="
-          background:rgba(255,255,255,.15);
-          border-radius:14px;
-          padding:8px 16px;
-          text-align:center;
-          font-weight:800;
-          font-size:18px;
-          min-width:80px;
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-start;
+          gap:12px;
         ">
-          ⏱
-          <span id="examTimerLabel">
-            --:--
-          </span>
-        </div>
 
-      </div>
+          <div>
 
-      <div class="exam-progress-track">
-        <div
-          class="exam-progress-fill"
-          id="examProgressFill"
-        ></div>
-      </div>
+            <h1>
+              ${examTitle}
+            </h1>
 
-      <p
-        class="exam-progress-label"
-        id="examProgressLabel"
-      >
-        تمت الإجابة عن 0 من ${questions.length} سؤال
-      </p>
-
-    </div>
-
-    <div class="exam-layout">
-
-      <div class="exam-sidebar">
-
-        <p class="exam-sidebar-title">
-          الأسئلة (${questions.length})
-        </p>
-
-        <div class="exam-sidebar-grid">
-
-          ${questions
-            .map(
-              (q, index) => `
-                <button
-                  type="button"
-                  class="exam-nav-btn"
-                  data-index="${index}"
-                >
-                  ${index + 1}
-                </button>
-              `
-            )
-            .join("")}
-
-        </div>
-
-      </div>
-
-      <div class="exam-main">
-
-        <form id="examSubmitForm">
-
-          ${questions
-            .map((q, index) => {
-              return `
-                <div
-                  class="exam-q-card${
-                    index === 0
-                      ? ""
-                      : " exam-q-hidden"
-                  }"
-                  id="examQCard${index}"
-                  data-index="${index}"
-                >
-
-                  <p class="exam-q-counter">
-                    سؤال ${index + 1} من ${
-                questions.length
-              }
-                  </p>
-
-                  <h3 class="exam-q-title">
-
-                    <span class="exam-q-badge">
-                      ${index + 1}
-                    </span>
-
-                    <span>
-                      ${q.question || q.text || ""}
-                    </span>
-
-                  </h3>
-
-                  ${
-                    q.image || q.questionImage
-                      ? `
-                        <img
-                          class="exam-q-img"
-                          src="${
-                            q.image ||
-                            q.questionImage
-                          }"
-                        >
-                      `
-                      : ""
-                  }
-
-                  ${renderAnswers(q, index)}
-
-                </div>
-              `;
-            })
-            .join("")}
-
-          <div class="exam-submit-bar">
-
-            <button
-              type="button"
-              class="exam-step-btn exam-step-next"
-              id="examNextBtn"
-            >
-              التالي
-            </button>
-
-            <button
-              type="button"
-              class="exam-submit-btn"
-              id="examSubmitBtn"
-              style="display:none;"
-            >
-              تسليم الامتحان
-            </button>
-
-            <button
-              type="button"
-              class="exam-step-btn"
-              id="examPrevBtn"
-              disabled
-            >
-              السابق
-            </button>
+            <p class="student">
+              الطالب: ${studentName}
+            </p>
 
           </div>
 
-        </form>
+          <div id="examTimerBox" style="
+            background:rgba(255,255,255,.15);
+            border-radius:14px;
+            padding:8px 16px;
+            text-align:center;
+            font-weight:800;
+            font-size:18px;
+            min-width:80px;
+          ">
+
+            ⏱
+
+            <span id="examTimerLabel">
+              --:--
+            </span>
+
+          </div>
+
+        </div>
+
+        <div class="exam-progress-track">
+
+          <div
+            class="exam-progress-fill"
+            id="examProgressFill"
+          ></div>
+
+        </div>
+
+        <p
+          class="exam-progress-label"
+          id="examProgressLabel"
+        >
+          تمت الإجابة عن 0 من ${questions.length} سؤال
+        </p>
 
       </div>
 
-    </div>
+      <div class="exam-layout">
+
+        <div class="exam-sidebar">
+
+          <p class="exam-sidebar-title">
+            الأسئلة (${questions.length})
+          </p>
+
+          <div class="exam-sidebar-grid">
+
+            ${questions
+              .map(
+                (q, index) => `
+                  <button
+                    type="button"
+                    class="exam-nav-btn"
+                    data-index="${index}"
+                  >
+                    ${index + 1}
+                  </button>
+                `
+              )
+              .join("")}
+
+          </div>
+
+        </div>
+
+        <div class="exam-main">
+
+          <form id="examSubmitForm">
+
+            ${questions
+              .map(
+                (q, index) => `
+                  <div
+                    class="exam-q-card${
+                      index === 0
+                        ? ""
+                        : " exam-q-hidden"
+                    }"
+                    id="examQCard${index}"
+                    data-index="${index}"
+                  >
+
+                    <p class="exam-q-counter">
+                      سؤال ${index + 1} من ${questions.length}
+                    </p>
+
+                    <h3 class="exam-q-title">
+
+                      <span class="exam-q-badge">
+                        ${index + 1}
+                      </span>
+
+                      <span>
+                        ${q.question ||
+                        q.text ||
+                        ""}
+                      </span>
+
+                    </h3>
+
+                    ${
+                      q.image ||
+                      q.questionImage
+                        ? `
+                          <img
+                            class="exam-q-img"
+                            src="${
+                              q.image ||
+                              q.questionImage
+                            }"
+                          >
+                        `
+                        : ""
+                    }
+
+                    ${renderAnswers(
+                      q,
+                      index
+                    )}
+
+                  </div>
+                `
+              )
+              .join("")}
+
+            <div class="exam-submit-bar">
+
+              <button
+                type="button"
+                class="exam-step-btn exam-step-next"
+                id="examNextBtn"
+              >
+                التالي
+              </button>
+
+              <button
+                type="button"
+                class="exam-submit-btn"
+                id="examSubmitBtn"
+                style="display:none;"
+              >
+                تسليم الامتحان
+              </button>
+
+              <button
+                type="button"
+                class="exam-step-btn"
+                id="examPrevBtn"
+                disabled
+              >
+                السابق
+              </button>
+
+            </div>
+
+          </form>
+
+        </div>
+
+      </div>
 
     </div>
   `;
@@ -894,12 +1234,6 @@ function buildExamTemplate(
 
 // ======================================================
 // POST SUBMIT SCREEN
-// ======================================================
-// مهم:
-// لا توجد نتيجة.
-// لا توجد مراجعة.
-// لا توجد إجابات.
-// لا يوجد زر مراجعة.
 // ======================================================
 
 function buildDoneScreen() {
@@ -932,9 +1266,6 @@ function buildDoneScreen() {
 // ======================================================
 // REVIEW SCREEN
 // ======================================================
-// موجود في الكود تحسبًا لاستخدامه مستقبلًا.
-// لكنه غير قابل للوصول بعد التسليم حاليًا.
-// ======================================================
 
 function buildReviewScreen({
   questions,
@@ -943,7 +1274,9 @@ function buildReviewScreen({
 }) {
   const rows = questions
     .map((q, index) => {
-      if (isEssayQuestion(q)) {
+      if (
+        isEssayQuestion(q)
+      ) {
         return `
           <div class="exam-q-card">
 
@@ -978,71 +1311,85 @@ function buildReviewScreen({
         answers[index];
 
       const isCorrect =
-        studentAnswer === correctIndex;
+        studentAnswer ===
+        correctIndex;
 
-      const optionsHTML = (q.options || [])
-        .filter(
-          (op) =>
-            op &&
-            String(op).trim() !== ""
-        )
-        .map((op, i) => {
-          let bg = "#f8fafc";
-          let border = "#eef0f5";
+      const optionsHTML =
+        getQuestionOptions(q)
+          .map((op, i) => {
+            let bg =
+              "#f8fafc";
 
-          if (
-            settings.showAnswers &&
-            i === correctIndex
-          ) {
-            bg = "#ecfdf5";
-            border = "#6ee7b7";
-          }
+            let border =
+              "#eef0f5";
 
-          if (
-            i === studentAnswer &&
-            !isCorrect
-          ) {
-            bg = "#fef2f2";
-            border = "#fca5a5";
-          }
+            if (
+              settings.showAnswers &&
+              i === correctIndex
+            ) {
+              bg =
+                "#ecfdf5";
 
-          if (
-            i === studentAnswer &&
-            isCorrect
-          ) {
-            bg = "#ecfdf5";
-            border = "#6ee7b7";
-          }
+              border =
+                "#6ee7b7";
+            }
 
-          return `
-            <div style="
-              display:flex;
-              align-items:center;
-              gap:10px;
-              padding:10px 14px;
-              margin:6px 0;
-              background:${bg};
-              border:1.5px solid ${border};
-              border-radius:12px;
-              font-size:15px;
-            ">
-              ${
-                i === studentAnswer
-                  ? "👉"
-                  : ""
-              }
+            if (
+              i === studentAnswer &&
+              !isCorrect
+            ) {
+              bg =
+                "#fef2f2";
 
-              <span>${op}</span>
-            </div>
-          `;
-        })
-        .join("");
+              border =
+                "#fca5a5";
+            }
+
+            if (
+              i === studentAnswer &&
+              isCorrect
+            ) {
+              bg =
+                "#ecfdf5";
+
+              border =
+                "#6ee7b7";
+            }
+
+            return `
+              <div style="
+                display:flex;
+                align-items:center;
+                gap:10px;
+                padding:10px 14px;
+                margin:6px 0;
+                background:${bg};
+                border:1.5px solid ${border};
+                border-radius:12px;
+                font-size:15px;
+              ">
+
+                ${
+                  i === studentAnswer
+                    ? "👉"
+                    : ""
+                }
+
+                <span>
+                  ${op}
+                </span>
+
+              </div>
+            `;
+          })
+          .join("");
 
       return `
         <div class="exam-q-card">
 
           <p class="exam-q-counter">
             سؤال ${index + 1}
+
             ${
               settings.showAnswers
                 ? ` — ${
@@ -1052,12 +1399,17 @@ function buildReviewScreen({
                   }`
                 : ""
             }
+
           </p>
 
           <h3 class="exam-q-title">
+
             <span>
-              ${q.question || q.text || ""}
+              ${q.question ||
+              q.text ||
+              ""}
             </span>
+
           </h3>
 
           ${optionsHTML}
@@ -1111,7 +1463,9 @@ function wireUpExam({
   settings,
 }) {
   const wrap =
-    document.querySelector(".exam-wrap");
+    document.querySelector(
+      ".exam-wrap"
+    );
 
   const form =
     document.getElementById(
@@ -1136,14 +1490,17 @@ function wireUpExam({
     );
 
   let secondsLeft =
-    settings.examTimeMinutes * 60;
+    settings.examTimeMinutes *
+    60;
 
-  let autoSubmitting = false;
+  let autoSubmitting =
+    false;
 
   function renderTimer() {
-    const m = Math.floor(
-      secondsLeft / 60
-    );
+    const m =
+      Math.floor(
+        secondsLeft / 60
+      );
 
     const s =
       secondsLeft % 60;
@@ -1158,7 +1515,9 @@ function wireUpExam({
           "0"
         )}`;
 
-      if (secondsLeft <= 60) {
+      if (
+        secondsLeft <= 60
+      ) {
         timerLabel.style.color =
           "#fecaca";
       }
@@ -1211,7 +1570,8 @@ function wireUpExam({
             `.exam-nav-btn[data-index="${index}"]`
           );
 
-        let isAnswered = false;
+        let isAnswered =
+          false;
 
         if (
           isEssayQuestion(q)
@@ -1286,18 +1646,20 @@ function wireUpExam({
           .querySelectorAll(
             ".exam-option"
           )
-          .forEach((opt) => {
-            const input =
-              opt.querySelector(
-                "input"
-              );
+          .forEach(
+            (opt) => {
+              const input =
+                opt.querySelector(
+                  "input"
+                );
 
-            opt.classList.toggle(
-              "checked",
-              !!input &&
-                input.checked
-            );
-          });
+              opt.classList.toggle(
+                "checked",
+                !!input &&
+                  input.checked
+              );
+            }
+          );
       }
 
       updateProgress();
@@ -1359,7 +1721,8 @@ function wireUpExam({
       return;
     }
 
-    currentIndex = index;
+    currentIndex =
+      index;
 
     cards.forEach(
       (card) => {
@@ -1406,12 +1769,16 @@ function wireUpExam({
 
     if (nextBtn) {
       nextBtn.style.display =
-        isLast ? "none" : "";
+        isLast
+          ? "none"
+          : "";
     }
 
     if (submitBtn) {
       submitBtn.style.display =
-        isLast ? "" : "none";
+        isLast
+          ? ""
+          : "none";
     }
 
     const activeCard =
@@ -1421,8 +1788,10 @@ function wireUpExam({
 
     if (activeCard) {
       activeCard.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
+        behavior:
+          "smooth",
+        block:
+          "start",
       });
     }
   }
@@ -1482,7 +1851,9 @@ function wireUpExam({
     }
 
     if (submitBtn) {
-      submitBtn.disabled = true;
+      submitBtn.disabled =
+        true;
+
       submitBtn.textContent =
         "جاري الحفظ...";
     }
@@ -1520,7 +1891,9 @@ function wireUpExam({
             const answer =
               selected === null
                 ? -1
-                : Number(selected);
+                : Number(
+                    selected
+                  );
 
             answers[index] =
               answer;
@@ -1567,12 +1940,10 @@ function wireUpExam({
             new Date().toLocaleString(),
         });
 
-      // حفظ النتيجة في Firebase
       await saveResult(
         resultPayload
       );
 
-      // منع إعادة أداء الامتحان
       markAttempted(
         attemptKey
       );
@@ -1595,21 +1966,9 @@ function wireUpExam({
         );
 
       if (app) {
-        // ==================================================
-        // هنا التغيير المطلوب:
-        //
-        // لا درجة
-        // لا مراجعة
-        // لا إجابات صحيحة
-        // لا زر مراجعة
-        //
-        // الطالب يرى فقط رسالة التسليم.
-        // ==================================================
-
         app.innerHTML =
           buildDoneScreen();
 
-        // العودة للرئيسية فقط
         const homeBtn =
           document.createElement(
             "button"
@@ -1686,7 +2045,6 @@ function wireUpExam({
     );
   }
 
-  // safety net
   form.addEventListener(
     "submit",
     (e) => {
@@ -1797,7 +2155,6 @@ export function examPage() {
         return;
       }
 
-      // جلب الامتحان من Firebase
       let exam =
         legacyExam;
 
@@ -1821,12 +2178,21 @@ export function examPage() {
           ? exam.questions
           : [];
 
+      // ================================================
+      // NORMALIZE QUESTIONS FIRST
+      // ================================================
+
+      const normalizedQuestions =
+        rawQuestions.map(
+          normalizeQuestion
+        );
+
       const orderedQuestions =
         examSettings.shuffleQuestions
           ? shuffleArray(
-              rawQuestions
+              normalizedQuestions
             )
-          : rawQuestions;
+          : normalizedQuestions;
 
       const questions =
         orderedQuestions.map(
@@ -1873,41 +2239,51 @@ export function examPage() {
 // ANSWERS
 // ======================================================
 
-function renderAnswers(q, index) {
-  if (isEssayQuestion(q)) {
-    return `
-      <textarea
-        class="exam-essay"
-        name="question_${index}"
-        placeholder="اكتب إجابتك هنا"
-      ></textarea>
-    `;
+function renderAnswers(
+  q,
+  index
+) {
+  // مهم:
+  // نستخدم getQuestionOptions بدل q.options مباشرة
+  // حتى لا يتحول الاختياري إلى مقالي بسبب اختلاف
+  // شكل البيانات القادمة من Excel / Firebase.
+
+  const options =
+    getQuestionOptions(q);
+
+  // إذا كان عندنا اختيارات فعلية
+  // فهذا سؤال اختيار من متعدد مهما كان type.
+  if (options.length > 0) {
+    return options
+      .map(
+        (op, i) => `
+          <label class="exam-option">
+
+            <input
+              type="radio"
+              name="question_${index}"
+              value="${i}"
+            >
+
+            <span>
+              ${op}
+            </span>
+
+          </label>
+        `
+      )
+      .join("");
   }
 
-  return (q.options || [])
-    .filter(
-      (op) =>
-        op &&
-        String(op).trim() !== ""
-    )
-    .map(
-      (op, i) => `
-        <label class="exam-option">
-
-          <input
-            type="radio"
-            name="question_${index}"
-            value="${i}"
-          >
-
-          <span>
-            ${op}
-          </span>
-
-        </label>
-      `
-    )
-    .join("");
+  // فقط إذا لم توجد أي اختيارات
+  // نعتبر السؤال مقالي.
+  return `
+    <textarea
+      class="exam-essay"
+      name="question_${index}"
+      placeholder="اكتب إجابتك هنا"
+    ></textarea>
+  `;
 }
 
 // ======================================================
@@ -1915,74 +2291,39 @@ function renderAnswers(q, index) {
 // ======================================================
 
 function isEssayQuestion(q) {
-  const type = String(
-    q.type || ""
-  )
-    .toLowerCase()
-    .trim();
+  const options =
+    getQuestionOptions(q);
 
-  const hasOptions =
-    Array.isArray(q.options) &&
-    q.options.some(
-      (x) =>
-        x &&
-        String(x).trim() !== ""
-    );
+  // وجود اختيارات يعني أن السؤال اختياري
+  // حتى لو type مكتوب بشكل غير صحيح.
+  if (options.length > 0) {
+    return false;
+  }
+
+  const type =
+    String(
+      q.type || ""
+    )
+      .toLowerCase()
+      .trim();
 
   return (
     type.includes("essay") ||
     type.includes("مقال") ||
-    !hasOptions
+    type.includes("written") ||
+    type.includes("text") ||
+    !type
   );
 }
 
 function getQuestionCorrectAnswer(q) {
-  if (
-    q.correctAnswerIndex !==
-    undefined
-  ) {
-    return Number(
-      q.correctAnswerIndex
-    );
-  }
+  const options =
+    getQuestionOptions(q);
 
-  if (
-    q.correctIndex !==
-    undefined
-  ) {
-    return Number(
-      q.correctIndex
-    );
-  }
-
-  if (
-    q.rightIndex !==
-    undefined
-  ) {
-    return Number(
-      q.rightIndex
-    );
-  }
-
-  if (
-    q.correctAnswer !==
-    undefined
-  ) {
-    return Number(
-      q.correctAnswer
-    );
-  }
-
-  if (
-    q.answer !==
-    undefined
-  ) {
-    return Number(
-      q.answer
-    );
-  }
-
-  return -1;
+  return normalizeCorrectAnswer(
+    getRawCorrectAnswer(q),
+    options
+  );
 }
 
 function getQuestionScore(q) {
@@ -2007,6 +2348,10 @@ function calculatePercentage(
     (score / total) * 100
   );
 }
+
+// ======================================================
+// EXPORT
+// ======================================================
 
 export {
   examPage as showExam,
