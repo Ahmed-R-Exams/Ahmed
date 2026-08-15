@@ -13,133 +13,362 @@ import {
   manageExamsEvents
 } from "./manageExamsEvents.js";
 
-
 // =====================================================
 // HELPERS
 // =====================================================
 
 function escapeHtml(value = "") {
-
   return String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
-
 }
-
 
 function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
 
-  return new Promise(
-    (resolve, reject) => {
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
 
-      const reader =
-        new FileReader();
-
-      reader.onload =
-        () => resolve(
-          reader.result
-        );
-
-      reader.onerror =
-        reject;
-
-      reader.readAsDataURL(file);
-
-    }
-  );
-
+    reader.readAsDataURL(file);
+  });
 }
 
+// =====================================================
+// OPTIONS NORMALIZATION
+// =====================================================
+
+function cleanOptions(list = []) {
+  return list.filter(
+    (value) =>
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ""
+  );
+}
+
+function getQuestionOptions(question = {}) {
+  if (Array.isArray(question.options)) {
+    const options = cleanOptions(question.options);
+
+    if (options.length > 0) {
+      return options;
+    }
+  }
+
+  if (Array.isArray(question.choices)) {
+    const options = cleanOptions(question.choices);
+
+    if (options.length > 0) {
+      return options;
+    }
+  }
+
+  const letterOptions = [
+    question.A,
+    question.B,
+    question.C,
+    question.D
+  ];
+
+  if (letterOptions.some(
+    (value) =>
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ""
+  )) {
+    return letterOptions.map(
+      (value) =>
+        value === undefined ||
+        value === null
+          ? ""
+          : String(value)
+    );
+  }
+
+  const namedOptions = [
+    question.optionA,
+    question.optionB,
+    question.optionC,
+    question.optionD
+  ];
+
+  if (namedOptions.some(
+    (value) =>
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ""
+  )) {
+    return namedOptions.map(
+      (value) =>
+        value === undefined ||
+        value === null
+          ? ""
+          : String(value)
+    );
+  }
+
+  return [];
+}
+
+// =====================================================
+// CORRECT ANSWER NORMALIZATION
+// =====================================================
+
+function getRawCorrectAnswer(question = {}) {
+  if (
+    question.correctAnswerIndex !== undefined &&
+    question.correctAnswerIndex !== null &&
+    question.correctAnswerIndex !== ""
+  ) {
+    return question.correctAnswerIndex;
+  }
+
+  if (
+    question.correctIndex !== undefined &&
+    question.correctIndex !== null &&
+    question.correctIndex !== ""
+  ) {
+    return question.correctIndex;
+  }
+
+  if (
+    question.rightIndex !== undefined &&
+    question.rightIndex !== null &&
+    question.rightIndex !== ""
+  ) {
+    return question.rightIndex;
+  }
+
+  if (
+    question.correctAnswer !== undefined &&
+    question.correctAnswer !== null &&
+    question.correctAnswer !== ""
+  ) {
+    return question.correctAnswer;
+  }
+
+  if (
+    question.answer !== undefined &&
+    question.answer !== null &&
+    question.answer !== ""
+  ) {
+    return question.answer;
+  }
+
+  if (
+    question.correct !== undefined &&
+    question.correct !== null &&
+    question.correct !== ""
+  ) {
+    return question.correct;
+  }
+
+  return undefined;
+}
+
+function normalizeCorrectIndex(
+  value,
+  options = []
+) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return 0;
+  }
+
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
+    const n = Math.trunc(value);
+
+    if (
+      n >= 0 &&
+      n < options.length
+    ) {
+      return n;
+    }
+
+    if (
+      n >= 1 &&
+      n <= options.length
+    ) {
+      return n - 1;
+    }
+  }
+
+  const raw = String(value).trim();
+  const upper = raw.toUpperCase();
+
+  const letters = {
+    A: 0,
+    B: 1,
+    C: 2,
+    D: 3
+  };
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      letters,
+      upper
+    )
+  ) {
+    return letters[upper];
+  }
+
+  if (/^[1-4]$/.test(raw)) {
+    const n = Number(raw) - 1;
+
+    if (n >= 0 && n < options.length) {
+      return n;
+    }
+  }
+
+  if (/^\d+$/.test(raw)) {
+    const n = Number(raw);
+
+    if (n >= 0 && n < options.length) {
+      return n;
+    }
+  }
+
+  const index = options.findIndex(
+    (option) =>
+      String(option).trim() === raw
+  );
+
+  if (index !== -1) {
+    return index;
+  }
+
+  return 0;
+}
+
+// =====================================================
+// QUESTION TYPE
+// =====================================================
+
+function normalizeQuestionType(
+  question,
+  options
+) {
+  if (options.length > 0) {
+    return "mcq";
+  }
+
+  const rawType =
+    String(
+      question.type || ""
+    )
+      .toLowerCase()
+      .trim();
+
+  if (
+    rawType.includes("essay") ||
+    rawType.includes("مقال") ||
+    rawType.includes("written")
+  ) {
+    return "essay";
+  }
+
+  if (
+    rawType === "mcq" ||
+    rawType.includes("multiple") ||
+    rawType.includes("choice") ||
+    rawType.includes("اختيار")
+  ) {
+    return "mcq";
+  }
+
+  return "essay";
+}
 
 // =====================================================
 // QUESTION HTML
 // =====================================================
 
-function questionHTML(
+export function questionHTML(
   question = {},
   index
 ) {
-
   const text =
     question.text ||
     question.question ||
     question.title ||
     "";
 
+  let rawOptions =
+    getQuestionOptions(question);
+
+  const hasMCQ =
+    rawOptions.length > 0;
 
   const type =
-    question.type ||
-    "mcq";
+    hasMCQ
+      ? "mcq"
+      : normalizeQuestionType(
+          question,
+          rawOptions
+        );
 
+  let options = [
+    "",
+    "",
+    "",
+    ""
+  ];
 
-  const options =
-    Array.isArray(
-      question.options
-    )
-      ? [
-          question.options[0] || "",
-          question.options[1] || "",
-          question.options[2] || "",
-          question.options[3] || ""
-        ]
-      : [
-          "",
-          "",
-          "",
-          ""
-        ];
+  if (hasMCQ) {
+    options = [
+      rawOptions[0] || "",
+      rawOptions[1] || "",
+      rawOptions[2] || "",
+      rawOptions[3] || ""
+    ];
+  }
 
+  const rawCorrect =
+    getRawCorrectAnswer(question);
 
   const correct =
-    Number(
-      question.correctIndex ??
-      question.correctAnswerIndex ??
-      0
-    );
-
+    type === "essay"
+      ? 0
+      : normalizeCorrectIndex(
+          rawCorrect,
+          options
+        );
 
   const image =
     question.image ||
     question.questionImage ||
     "";
 
-
-  let imageHTML =
-    "";
-
+  let imageHTML = "";
 
   if (image) {
-
     const src =
-      String(image).startsWith(
-        "data:"
-      )
+      String(image).startsWith("data:")
         ? image
-        : String(image).startsWith(
-            "/"
-          )
-            ? image
-            : "/images/" + image;
-
+        : String(image).startsWith("/")
+          ? image
+          : "/images/" + image;
 
     imageHTML = `
-
       <img
         src="${escapeHtml(src)}"
         class="question-image"
         alt="صورة السؤال"
       >
-
     `;
-
   }
 
-
   return `
-
 <div
   class="edit-question-card"
   data-index="${index}"
@@ -174,16 +403,12 @@ function questionHTML(
 
   </div>
 
-
   <textarea
     class="editQText"
     placeholder="اكتب السؤال..."
   >${escapeHtml(text)}</textarea>
 
-
-  <select
-    class="editTypeSelect"
-  >
+  <select class="editTypeSelect">
 
     <option
       value="mcq"
@@ -201,7 +426,6 @@ function questionHTML(
 
   </select>
 
-
   <div
     class="editMcqOptions"
     style="
@@ -209,9 +433,9 @@ function questionHTML(
     "
   >
 
-    ${options.map(
-      (opt, i) => `
-
+    ${options
+      .map(
+        (opt, i) => `
       <div class="edit-option-row">
 
         <input
@@ -228,23 +452,26 @@ function questionHTML(
         >
 
         <span>
-          ${String.fromCharCode(65 + i)}
+          ${String.fromCharCode(
+            65 + i
+          )}
         </span>
 
         <input
           type="text"
           class="editOptText"
           value="${escapeHtml(opt)}"
-          placeholder="الإجابة ${String.fromCharCode(65 + i)}"
+          placeholder="الإجابة ${String.fromCharCode(
+            65 + i
+          )}"
         >
 
       </div>
-
     `
-    ).join("")}
+      )
+      .join("")}
 
   </div>
-
 
   <div
     class="editEssayNote"
@@ -258,7 +485,6 @@ function questionHTML(
 
   </div>
 
-
   <div class="edit-score-row">
 
     <label>
@@ -269,16 +495,21 @@ function questionHTML(
       type="number"
       class="editScore"
       min="1"
-      value="${Number(question.score || question.points) || 1}"
+      value="${
+        Number(
+          question.score ||
+          question.points ||
+          question.maxScore ||
+          question.grade
+        ) || 1
+      }"
     >
 
   </div>
 
-
   <label class="edit-image-label">
     📷 صورة السؤال
   </label>
-
 
   <input
     type="file"
@@ -286,29 +517,23 @@ function questionHTML(
     accept="image/*"
   >
 
-
   <input
     type="hidden"
     class="editImage"
     value="${escapeHtml(image)}"
   >
 
-
   ${imageHTML}
 
 </div>
-
 `;
-
 }
-
 
 // =====================================================
 // COLLECT QUESTIONS
 // =====================================================
 
 async function collectQuestions() {
-
   const cards =
     Array.from(
       document.querySelectorAll(
@@ -316,107 +541,112 @@ async function collectQuestions() {
       )
     );
 
-
-  const questions =
-    [];
-
+  const questions = [];
 
   for (
     let index = 0;
     index < cards.length;
     index++
   ) {
-
-    const card =
-      cards[index];
-
+    const card = cards[index];
 
     const text =
       card.querySelector(
         ".editQText"
       )?.value?.trim() || "";
 
-
-    const type =
+    const selectedType =
       card.querySelector(
         ".editTypeSelect"
-      )?.value ||
-      "mcq";
-
+      )?.value || "mcq";
 
     const options =
       Array.from(
         card.querySelectorAll(
           ".editOptText"
         )
-      )
-      .map(
-        input =>
+      ).map(
+        (input) =>
           input.value?.trim() || ""
       );
 
-
-    while (
-      options.length < 4
-    ) {
-
+    while (options.length < 4) {
       options.push("");
-
     }
 
+    const hasOptions =
+      options.some(
+        (option) =>
+          String(option).trim() !== ""
+      );
+
+    const type =
+      hasOptions
+        ? "mcq"
+        : selectedType === "essay"
+          ? "essay"
+          : "mcq";
 
     const selectedRadio =
       card.querySelector(
         ".editCorrectRadio:checked"
       );
 
+    let correctIndex = 0;
 
-    const correctIndex =
-      type === "essay"
-        ? 0
-        : Number(
-            selectedRadio?.value ?? 0
-          );
+    if (type === "mcq") {
+      correctIndex =
+        Number(
+          selectedRadio?.value ?? 0
+        );
 
+      if (
+        !Number.isFinite(
+          correctIndex
+        ) ||
+        correctIndex < 0 ||
+        correctIndex > 3
+      ) {
+        correctIndex = 0;
+      }
+    }
 
     const imageInput =
       card.querySelector(
         ".editImageFile"
       );
 
-
     const hiddenImage =
       card.querySelector(
         ".editImage"
       );
 
-
     let image =
-      hiddenImage?.value ||
-      "";
-
+      hiddenImage?.value || "";
 
     if (
       imageInput &&
       imageInput.files &&
       imageInput.files.length
     ) {
-
       image =
         await readFileAsDataURL(
           imageInput.files[0]
         );
-
     }
-
 
     const oldId =
       card.dataset.questionId ||
       "";
 
+    const score =
+      Number(
+        card.querySelector(
+          ".editScore"
+        )?.value
+      ) || 1;
 
     questions.push({
-
       id:
         oldId ||
         `${Date.now()}-${index}`,
@@ -432,14 +662,14 @@ async function collectQuestions() {
       type,
 
       options:
-        type === "essay"
-          ? []
-          : [
+        type === "mcq"
+          ? [
               options[0],
               options[1],
               options[2],
               options[3]
-            ],
+            ]
+          : [],
 
       correctIndex,
 
@@ -447,38 +677,23 @@ async function collectQuestions() {
         correctIndex,
 
       answer:
-        type === "essay"
-          ? ""
-          : (
+        type === "mcq"
+          ? (
               options[correctIndex] ||
               ""
-            ),
+            )
+          : "",
 
       image,
 
-      score:
-        Number(
-          card.querySelector(
-            ".editScore"
-          )?.value
-        ) || 1,
+      score,
 
-      points:
-        Number(
-          card.querySelector(
-            ".editScore"
-          )?.value
-        ) || 1
-
+      points: score
     });
-
   }
 
-
   return questions;
-
 }
-
 
 // =====================================================
 // RENDER
@@ -487,16 +702,14 @@ async function collectQuestions() {
 function renderQuestions(
   questions
 ) {
-
   const container =
     document.querySelector(
       "#editQuestionsList"
     );
 
-
-  if (!container)
+  if (!container) {
     return;
-
+  }
 
   container.innerHTML =
     questions
@@ -508,63 +721,49 @@ function renderQuestions(
           )
       )
       .join("");
-
 }
-
 
 // =====================================================
 // UPDATE TYPE
 // =====================================================
 
 function updateType(card) {
-
   const select =
     card.querySelector(
       ".editTypeSelect"
     );
 
-
-  if (!select)
+  if (!select) {
     return;
-
+  }
 
   const isEssay =
     select.value === "essay";
-
 
   const options =
     card.querySelector(
       ".editMcqOptions"
     );
 
-
   const note =
     card.querySelector(
       ".editEssayNote"
     );
 
-
   if (options) {
-
     options.style.display =
       isEssay
         ? "none"
         : "block";
-
   }
 
-
   if (note) {
-
     note.style.display =
       isEssay
         ? "block"
         : "none";
-
   }
-
 }
-
 
 // =====================================================
 // MAIN EVENTS
@@ -573,30 +772,25 @@ function updateType(card) {
 export function editExamEvents(
   examId
 ) {
-
   const container =
     document.querySelector(
       "#editExamContainer"
     );
 
-
-  if (!container)
+  if (!container) {
     return;
-
-
-  if (
-    container.dataset.eventsInitialized ===
-    "true"
-  ) {
-
-    return;
-
   }
 
+  if (
+    container.dataset
+      .eventsInitialized ===
+    "true"
+  ) {
+    return;
+  }
 
   container.dataset.eventsInitialized =
     "true";
-
 
   // ===================================================
   // CLICK
@@ -606,81 +800,55 @@ export function editExamEvents(
     "click",
     async (e) => {
 
-
-      // -----------------------------------------------
-      // BACK
-      // -----------------------------------------------
-
       const back =
         e.target.closest(
           "#backToManageExams"
         );
 
-
       if (back) {
-
         e.preventDefault();
-
 
         const app =
           document.querySelector(
             "#app"
           );
 
-
-        if (!app)
+        if (!app) {
           return;
-
+        }
 
         app.innerHTML =
           manageExamsPage();
 
-
         manageExamsEvents();
 
         return;
-
       }
-
-
-      // -----------------------------------------------
-      // ADD
-      // -----------------------------------------------
 
       const add =
         e.target.closest(
           "#addEditQuestion"
         );
 
-
       if (add) {
-
         e.preventDefault();
-
 
         const questions =
           await collectQuestions();
 
-
         questions.push({
-
           id:
             `${Date.now()}-${questions.length}`,
 
-          text:
-            "",
+          text: "",
 
-          question:
-            "",
+          question: "",
 
-          title:
-            "",
+          title: "",
 
-          type:
-            "mcq",
+          type: "mcq",
 
-          image:
-            "",
+          image: "",
 
           options: [
             "",
@@ -689,58 +857,40 @@ export function editExamEvents(
             ""
           ],
 
-          correctIndex:
-            0,
+          correctIndex: 0,
 
-          correctAnswerIndex:
-            0,
+          correctAnswerIndex: 0,
 
-          answer:
-            "",
+          answer: "",
 
-          score:
-            1,
+          score: 1,
 
-          points:
-            1
-
+          points: 1
         });
-
 
         renderQuestions(
           questions
         );
 
-
         return;
-
       }
-
-
-      // -----------------------------------------------
-      // DELETE
-      // -----------------------------------------------
 
       const deleteButton =
         e.target.closest(
           ".deleteQuestion"
         );
 
-
       if (deleteButton) {
-
         e.preventDefault();
-
 
         const card =
           deleteButton.closest(
             ".edit-question-card"
           );
 
-
-        if (!card)
+        if (!card) {
           return;
-
+        }
 
         const cards =
           Array.from(
@@ -749,76 +899,50 @@ export function editExamEvents(
             )
           );
 
-
-        if (
-          cards.length <= 1
-        ) {
-
+        if (cards.length <= 1) {
           alert(
             "لا يمكن حذف السؤال الوحيد في الامتحان."
           );
 
           return;
-
         }
-
 
         const questions =
           await collectQuestions();
 
-
         const index =
-          cards.indexOf(
-            card
-          );
+          cards.indexOf(card);
 
-
-        if (
-          index >= 0
-        ) {
-
+        if (index >= 0) {
           questions.splice(
             index,
             1
           );
-
         }
-
 
         renderQuestions(
           questions
         );
 
-
         return;
-
       }
-
-
-      // -----------------------------------------------
-      // DUPLICATE
-      // -----------------------------------------------
 
       const duplicateButton =
         e.target.closest(
           ".duplicateQuestion"
         );
 
-
       if (duplicateButton) {
-
         e.preventDefault();
-
 
         const card =
           duplicateButton.closest(
             ".edit-question-card"
           );
 
-
-        if (!card)
+        if (!card) {
           return;
-
+        }
 
         const cards =
           Array.from(
@@ -827,22 +951,15 @@ export function editExamEvents(
             )
           );
 
-
         const index =
-          cards.indexOf(
-            card
-          );
+          cards.indexOf(card);
 
-
-        if (
-          index < 0
-        )
+        if (index < 0) {
           return;
-
+        }
 
         const questions =
           await collectQuestions();
-
 
         const copy =
           JSON.parse(
@@ -851,10 +968,8 @@ export function editExamEvents(
             )
           );
 
-
         copy.id =
           `${Date.now()}-${questions.length}`;
-
 
         questions.splice(
           index + 1,
@@ -862,70 +977,47 @@ export function editExamEvents(
           copy
         );
 
-
         renderQuestions(
           questions
         );
 
-
         return;
-
       }
-
-
-      // -----------------------------------------------
-      // SAVE
-      // -----------------------------------------------
 
       const save =
         e.target.closest(
           "#saveExamEdit"
         );
 
-
       if (save) {
-
         e.preventDefault();
 
-
         try {
-
-          save.disabled =
-            true;
-
+          save.disabled = true;
 
           save.textContent =
             "⏳ جاري الحفظ...";
-
 
           const realId =
             container.dataset.examId ||
             examId;
 
-
           if (!realId) {
-
             throw new Error(
               "لم يتم العثور على ID الامتحان."
             );
-
           }
-
 
           const oldExam =
             await getExamById(
               realId
             );
 
-
           if (!oldExam) {
-
             throw new Error(
               "الامتحان غير موجود في Firebase."
             );
-
           }
-
 
           const title =
             document
@@ -934,35 +1026,24 @@ export function editExamEvents(
               )
               ?.value
               ?.trim() ||
-              "";
-
+            "";
 
           if (!title) {
-
             throw new Error(
               "اكتب عنوان الامتحان أولاً."
             );
-
           }
-
 
           const questions =
             await collectQuestions();
 
-
-          if (
-            !questions.length
-          ) {
-
+          if (!questions.length) {
             throw new Error(
               "يجب أن يحتوي الامتحان على سؤال واحد على الأقل."
             );
-
           }
 
-
           const payload = {
-
             ...oldExam,
 
             title,
@@ -971,13 +1052,10 @@ export function editExamEvents(
 
             questionsCount:
               questions.length
-
           };
-
 
           delete payload.id;
           delete payload.firestoreId;
-
 
           await updateExam(
             oldExam.firestoreId ||
@@ -985,39 +1063,30 @@ export function editExamEvents(
             payload
           );
 
-
           save.textContent =
             "✅ تم الحفظ بنجاح";
-
 
           alert(
             "✅ تم حفظ تعديلات الامتحان بنجاح"
           );
-
 
           const app =
             document.querySelector(
               "#app"
             );
 
-
           if (app) {
-
             app.innerHTML =
               manageExamsPage();
 
             manageExamsEvents();
-
           }
 
-        }
-        catch (error) {
-
+        } catch (error) {
           console.error(
             "EDIT EXAM SAVE ERROR:",
             error
           );
-
 
           alert(
             "❌ فشل حفظ التعديلات\n\n" +
@@ -1027,21 +1096,15 @@ export function editExamEvents(
             )
           );
 
-
           save.disabled =
             false;
 
-
           save.textContent =
             "💾 حفظ التعديلات";
-
         }
-
       }
-
     }
   );
-
 
   // ===================================================
   // CHANGE
@@ -1051,117 +1114,86 @@ export function editExamEvents(
     "change",
     async (e) => {
 
-
-      // -----------------------------------------------
-      // TYPE
-      // -----------------------------------------------
-
       if (
         e.target.matches(
           ".editTypeSelect"
         )
       ) {
-
         const card =
           e.target.closest(
             ".edit-question-card"
           );
 
-
-        updateType(
-          card
-        );
-
+        updateType(card);
 
         return;
-
       }
-
-
-      // -----------------------------------------------
-      // IMAGE
-      // -----------------------------------------------
 
       if (
         !e.target.matches(
           ".editImageFile"
         )
-      )
+      ) {
         return;
-
+      }
 
       const input =
         e.target;
 
-
       if (
         !input.files ||
         !input.files.length
-      )
+      ) {
         return;
-
+      }
 
       try {
-
         const card =
           input.closest(
             ".edit-question-card"
           );
 
-
-        if (!card)
+        if (!card) {
           return;
-
+        }
 
         const image =
           await readFileAsDataURL(
             input.files[0]
           );
 
-
         const hidden =
           card.querySelector(
             ".editImage"
           );
 
-
         if (hidden) {
-
           hidden.value =
             image;
-
         }
-
 
         let img =
           card.querySelector(
             ".question-image"
           );
 
-
         if (!img) {
-
           img =
             document.createElement(
               "img"
             );
 
-
           img.className =
             "question-image";
-
 
           input.insertAdjacentElement(
             "afterend",
             img
           );
-
         }
-
 
         img.src =
           image;
-
 
         img.style.maxWidth =
           "300px";
@@ -1181,22 +1213,16 @@ export function editExamEvents(
         img.style.objectFit =
           "contain";
 
-      }
-      catch (error) {
-
+      } catch (error) {
         console.error(
           "IMAGE ERROR:",
           error
         );
 
-
         alert(
           "❌ لم يتم تحميل الصورة."
         );
-
       }
-
     }
   );
-
 }

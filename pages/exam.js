@@ -44,7 +44,7 @@ function injectExamStyles() {
     .exam-wrap{
       font-family:'Cairo',sans-serif;
       direction:rtl;
-      max-width:960px;
+      max-width:1100px;
       margin:0 auto;
       padding:16px 16px 60px;
       color:#1e293b;
@@ -101,33 +101,39 @@ function injectExamStyles() {
       font-weight:600;
     }
 
+    /* ==================================================
+       EXAM LAYOUT
+       لوحة الأسئلة أصغر + مساحة السؤال أكبر
+       ================================================== */
+
     .exam-layout{
       display:flex;
-      gap:20px;
+      gap:16px;
       align-items:flex-start;
     }
 
     .exam-sidebar{
-      flex:0 0 220px;
+      flex:0 0 135px;
       position:sticky;
       top:16px;
       background:#fff;
       border:1px solid #eef0f5;
       border-radius:16px;
-      padding:16px;
+      padding:12px;
     }
 
     .exam-sidebar-title{
-      font-size:13px;
+      font-size:12px;
       font-weight:800;
       color:#475569;
-      margin:0 0 12px;
+      margin:0 0 10px;
+      text-align:center;
     }
 
     .exam-sidebar-grid{
       display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:10px;
+      grid-template-columns:repeat(3,1fr);
+      gap:7px;
       max-height:calc(100vh - 120px);
       overflow-y:auto;
       padding:2px;
@@ -135,12 +141,12 @@ function injectExamStyles() {
 
     .exam-nav-btn{
       width:100%;
-      height:42px;
+      height:36px;
       border:1.5px solid #eef0f5;
       background:#f8fafc;
-      border-radius:10px;
+      border-radius:9px;
       font-family:inherit;
-      font-size:15px;
+      font-size:13px;
       font-weight:700;
       color:#475569;
       cursor:pointer;
@@ -168,13 +174,13 @@ function injectExamStyles() {
     }
 
     .exam-main{
-      flex:1;
+      flex:1 1 auto;
       min-width:0;
     }
 
     .exam-q-card{
       background:#fff;
-      padding:20px;
+      padding:26px;
       margin:0 0 16px;
       border-radius:16px;
       border:1px solid #eef0f5;
@@ -207,10 +213,10 @@ function injectExamStyles() {
       display:flex;
       gap:10px;
       align-items:flex-start;
-      margin:0 0 14px;
-      font-size:16px;
+      margin:0 0 16px;
+      font-size:17px;
       font-weight:700;
-      line-height:1.6;
+      line-height:1.7;
     }
 
     .exam-q-badge{
@@ -239,8 +245,8 @@ function injectExamStyles() {
       display:flex;
       align-items:center;
       gap:10px;
-      padding:12px 14px;
-      margin:8px 0;
+      padding:13px 15px;
+      margin:9px 0;
       background:#f8fafc;
       border:1.5px solid #eef0f5;
       border-radius:12px;
@@ -476,14 +482,22 @@ function injectExamStyles() {
         max-height:none;
         grid-template-columns:none;
         grid-auto-flow:column;
-        grid-auto-columns:48px;
+        grid-auto-columns:42px;
         overflow-x:auto;
         overflow-y:hidden;
       }
 
       .exam-nav-btn{
-        height:48px;
-        font-size:14px;
+        height:42px;
+        font-size:13px;
+      }
+
+      .exam-q-card{
+        padding:20px;
+      }
+
+      .exam-q-title{
+        font-size:16px;
       }
     }
   `;
@@ -516,7 +530,6 @@ function getQuestionOptions(q) {
     return [];
   }
 
-  // الشكل الأساسي
   if (Array.isArray(q.options)) {
     return q.options.filter(
       (op) =>
@@ -526,7 +539,6 @@ function getQuestionOptions(q) {
     );
   }
 
-  // أحيانًا تكون choices بدل options
   if (Array.isArray(q.choices)) {
     return q.choices.filter(
       (op) =>
@@ -536,7 +548,6 @@ function getQuestionOptions(q) {
     );
   }
 
-  // أحيانًا Excel/Firebase يخزنها كـ A/B/C/D
   const letterOptions = [
     q.A,
     q.B,
@@ -560,7 +571,6 @@ function getQuestionOptions(q) {
     );
   }
 
-  // أشكال optionA / optionB ...
   const namedOptions = [
     q.optionA,
     q.optionB,
@@ -600,7 +610,6 @@ function normalizeCorrectAnswer(value, options = []) {
     return -1;
   }
 
-  // رقم مباشر
   if (
     typeof value === "number" &&
     Number.isFinite(value)
@@ -610,7 +619,6 @@ function normalizeCorrectAnswer(value, options = []) {
 
   const raw = String(value).trim();
 
-  // A / B / C / D
   const upper = raw.toUpperCase();
 
   const letters = {
@@ -629,12 +637,10 @@ function normalizeCorrectAnswer(value, options = []) {
     return letters[upper];
   }
 
-  // 1 / 2 / 3 / 4
   if (/^[1-4]$/.test(raw)) {
     return Number(raw) - 1;
   }
 
-  // رقم index مباشر
   if (/^\d+$/.test(raw)) {
     const n = Number(raw);
 
@@ -646,7 +652,6 @@ function normalizeCorrectAnswer(value, options = []) {
     }
   }
 
-  // لو الإجابة نفسها نص أحد الاختيارات
   const textIndex =
     options.findIndex(
       (op) =>
@@ -2178,10 +2183,6 @@ export function examPage() {
           ? exam.questions
           : [];
 
-      // ================================================
-      // NORMALIZE QUESTIONS FIRST
-      // ================================================
-
       const normalizedQuestions =
         rawQuestions.map(
           normalizeQuestion
@@ -2243,16 +2244,9 @@ function renderAnswers(
   q,
   index
 ) {
-  // مهم:
-  // نستخدم getQuestionOptions بدل q.options مباشرة
-  // حتى لا يتحول الاختياري إلى مقالي بسبب اختلاف
-  // شكل البيانات القادمة من Excel / Firebase.
-
   const options =
     getQuestionOptions(q);
 
-  // إذا كان عندنا اختيارات فعلية
-  // فهذا سؤال اختيار من متعدد مهما كان type.
   if (options.length > 0) {
     return options
       .map(
@@ -2275,8 +2269,6 @@ function renderAnswers(
       .join("");
   }
 
-  // فقط إذا لم توجد أي اختيارات
-  // نعتبر السؤال مقالي.
   return `
     <textarea
       class="exam-essay"
@@ -2294,8 +2286,6 @@ function isEssayQuestion(q) {
   const options =
     getQuestionOptions(q);
 
-  // وجود اختيارات يعني أن السؤال اختياري
-  // حتى لو type مكتوب بشكل غير صحيح.
   if (options.length > 0) {
     return false;
   }

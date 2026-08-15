@@ -42,66 +42,75 @@ export function clearEditingExam() {
 function renumberQuestions() {
 
   const list =
-    document.querySelector("#questionsList");
+    document.querySelector(
+      "#questionsList"
+    );
 
-  if (!list)
+  if (!list) {
     return;
+  }
 
   const cards =
     Array.from(
-      list.querySelectorAll(".question-card")
+      list.querySelectorAll(
+        ".question-card"
+      )
     );
 
-  cards.forEach((card, index) => {
+  cards.forEach(
+    (card, index) => {
 
-    const number =
-      index + 1;
+      const number =
+        index + 1;
 
-    card.dataset.questionIndex =
-      number;
-
-    const numberElement =
-      card.querySelector(".question-number");
-
-    if (numberElement) {
-      numberElement.textContent =
+      card.dataset.questionIndex =
         number;
+
+      const numberElement =
+        card.querySelector(
+          ".question-number"
+        );
+
+      if (numberElement) {
+        numberElement.textContent =
+          number;
+      }
+
+      const title =
+        card.querySelector(
+          ".question-card-header strong"
+        );
+
+      if (title) {
+        title.textContent =
+          `السؤال ${number}`;
+      }
+
+      card
+        .querySelectorAll(
+          ".q-correct-radio"
+        )
+        .forEach(
+          radio => {
+            radio.name =
+              `correct_${number}`;
+          }
+        );
+
     }
-
-    const title =
-      card.querySelector(
-        ".question-card-header strong"
-      );
-
-    if (title) {
-      title.textContent =
-        `السؤال ${number}`;
-    }
-
-    card
-      .querySelectorAll(
-        ".q-correct-radio"
-      )
-      .forEach(radio => {
-
-        radio.name =
-          `correct_${number}`;
-
-      });
-
-  });
-
+  );
 }
 
 
 // ======================================================
-// UPDATE QUESTION TYPE VIEW
+// UPDATE QUESTION TYPE
 // ======================================================
 
 function updateQuestionType(card) {
 
-  if (!card)
+  if (!card) {
     return;
+  }
 
   const select =
     card.querySelector(
@@ -118,30 +127,26 @@ function updateQuestionType(card) {
       ".essay-note"
     );
 
-  if (!select)
+  if (!select) {
     return;
+  }
 
   const isEssay =
     select.value === "essay";
 
   if (options) {
-
     options.style.display =
       isEssay
         ? "none"
         : "";
-
   }
 
   if (note) {
-
     note.style.display =
       isEssay
         ? ""
         : "none";
-
   }
-
 }
 
 
@@ -169,7 +174,6 @@ function readFileAsDataURL(file) {
 
     }
   );
-
 }
 
 
@@ -179,15 +183,9 @@ function readFileAsDataURL(file) {
 
 export function createExamEvents() {
 
-  /*
-   * مهم:
-   * نربط الأحداث مرة واحدة فقط.
-   * الأحداث نفسها تعمل على أي أسئلة جديدة يتم
-   * إضافتها بعد ذلك بسبب event delegation.
-   */
-
-  if (eventsAttached)
+  if (eventsAttached) {
     return;
+  }
 
   eventsAttached = true;
 
@@ -198,7 +196,7 @@ export function createExamEvents() {
 
   document.addEventListener(
     "change",
-    async (e) => {
+    async e => {
 
       // -----------------------------------------------
       // QUESTION TYPE
@@ -218,7 +216,6 @@ export function createExamEvents() {
         updateQuestionType(card);
 
         return;
-
       }
 
 
@@ -238,16 +235,18 @@ export function createExamEvents() {
         const file =
           input.files?.[0];
 
-        if (!file)
+        if (!file) {
           return;
+        }
 
         const card =
           input.closest(
             ".question-card"
           );
 
-        if (!card)
+        if (!card) {
           return;
+        }
 
         try {
 
@@ -263,10 +262,8 @@ export function createExamEvents() {
             );
 
           if (hidden) {
-
             hidden.value =
               result;
-
           }
 
 
@@ -326,8 +323,7 @@ export function createExamEvents() {
 
   document.addEventListener(
     "click",
-    async (e) => {
-
+    async e => {
 
       // =================================================
       // ADD QUESTION
@@ -349,8 +345,9 @@ export function createExamEvents() {
             "#questionsList"
           );
 
-        if (!list)
+        if (!list) {
           return;
+        }
 
 
         const empty =
@@ -359,9 +356,7 @@ export function createExamEvents() {
           );
 
         if (empty) {
-
           empty.remove();
-
         }
 
 
@@ -394,15 +389,15 @@ export function createExamEvents() {
         if (lastCard) {
 
           lastCard.scrollIntoView({
-            behavior: "smooth",
-            block: "center"
+            behavior:
+              "smooth",
+            block:
+              "center"
           });
 
         }
 
-
         return;
-
       }
 
 
@@ -426,8 +421,9 @@ export function createExamEvents() {
             ".question-card"
           );
 
-        if (!card)
+        if (!card) {
           return;
+        }
 
 
         const list =
@@ -435,8 +431,9 @@ export function createExamEvents() {
             "#questionsList"
           );
 
-        if (!list)
+        if (!list) {
           return;
+        }
 
 
         const cards =
@@ -452,7 +449,6 @@ export function createExamEvents() {
           );
 
           return;
-
         }
 
 
@@ -461,7 +457,6 @@ export function createExamEvents() {
         renumberQuestions();
 
         return;
-
       }
 
 
@@ -485,8 +480,9 @@ export function createExamEvents() {
             ".question-card"
           );
 
-        if (!card)
+        if (!card) {
           return;
+        }
 
 
         const list =
@@ -494,39 +490,26 @@ export function createExamEvents() {
             "#questionsList"
           );
 
-        if (!list)
+        if (!list) {
           return;
+        }
 
-
-        /*
-         * ننسخ الـ HTML نفسه.
-         * وده يحافظ على:
-         * النص
-         * الاختيارات
-         * النوع
-         * الدرجة
-         * الصورة
-         */
 
         const clone =
           card.cloneNode(true);
 
 
-        // تنظيف file input
         const fileInput =
           clone.querySelector(
             ".q-image-file"
           );
 
         if (fileInput) {
-
           fileInput.value =
             "";
-
         }
 
 
-        // إضافة النسخة بعد السؤال
         card.insertAdjacentElement(
           "afterend",
           clone
@@ -537,13 +520,13 @@ export function createExamEvents() {
 
 
         clone.scrollIntoView({
-          behavior: "smooth",
-          block: "center"
+          behavior:
+            "smooth",
+          block:
+            "center"
         });
 
-
         return;
-
       }
 
 
@@ -566,7 +549,6 @@ export function createExamEvents() {
         );
 
         return;
-
       }
 
 
@@ -583,7 +565,6 @@ export function createExamEvents() {
 
         e.preventDefault();
         e.stopPropagation();
-
 
         editingExam =
           null;
@@ -602,14 +583,11 @@ export function createExamEvents() {
 
         }
 
-
         return;
-
       }
 
     }
   );
-
 }
 
 
@@ -637,7 +615,6 @@ async function saveExam(
     );
 
     return;
-
   }
 
 
@@ -738,7 +715,6 @@ async function saveExam(
     );
 
     return;
-
   }
 
 
@@ -791,18 +767,37 @@ async function saveExam(
           );
 
 
+        const normalizedOptions = [
+          options[0] || "",
+          options[1] || "",
+          options[2] || "",
+          options[3] || ""
+        ];
+
+
         const checked =
           card.querySelector(
             ".q-correct-radio:checked"
           );
 
 
-        const correctIndex =
-          type === "essay"
-            ? 0
-            : Number(
-                checked?.value ?? 0
-              );
+        let correctIndex =
+          Number(
+            checked?.value ?? 0
+          );
+
+
+        if (
+          !Number.isInteger(
+            correctIndex
+          ) ||
+          correctIndex < 0 ||
+          correctIndex > 3
+        ) {
+
+          correctIndex = 0;
+
+        }
 
 
         const image =
@@ -815,10 +810,84 @@ async function saveExam(
             "";
 
 
+        const existingId =
+          card.dataset.questionId ||
+          "";
+
+
+        // ---------------------------------------------
+        // MCQ
+        // ---------------------------------------------
+
+        if (type === "mcq") {
+
+          return {
+
+            id:
+              existingId ||
+              `${Date.now()}-${index}`,
+
+            question:
+              text,
+
+            text,
+
+            title:
+              text,
+
+            type:
+              "mcq",
+
+            score,
+
+            points:
+              score,
+
+            maxScore:
+              score,
+
+            options:
+              normalizedOptions,
+
+            // A/B/C/D أيضاً للحفاظ على
+            // التوافق مع Excel والبيانات القديمة
+            A:
+              normalizedOptions[0],
+
+            B:
+              normalizedOptions[1],
+
+            C:
+              normalizedOptions[2],
+
+            D:
+              normalizedOptions[3],
+
+            correctIndex,
+
+            correctAnswerIndex:
+              correctIndex,
+
+            answer:
+              normalizedOptions[
+                correctIndex
+              ] || "",
+
+            image
+
+          };
+
+        }
+
+
+        // ---------------------------------------------
+        // ESSAY
+        // ---------------------------------------------
+
         return {
 
           id:
-            card.dataset.questionId ||
+            existingId ||
             `${Date.now()}-${index}`,
 
           question:
@@ -829,35 +898,27 @@ async function saveExam(
           title:
             text,
 
-          type,
+          type:
+            "essay",
 
           score,
 
           points:
             score,
 
-          options:
-            type === "essay"
-              ? []
-              : [
-                  options[0] || "",
-                  options[1] || "",
-                  options[2] || "",
-                  options[3] || ""
-                ],
+          maxScore:
+            score,
 
-          correctIndex,
+          options: [],
+
+          correctIndex:
+            -1,
 
           correctAnswerIndex:
-            correctIndex,
+            -1,
 
           answer:
-            type === "essay"
-              ? ""
-              : (
-                  options[correctIndex] ||
-                  ""
-                ),
+            "",
 
           image
 
@@ -926,6 +987,15 @@ async function saveExam(
         editingExam.id;
 
 
+      if (!examId) {
+
+        throw new Error(
+          "معرف الامتحان غير موجود."
+        );
+
+      }
+
+
       await updateExam(
         examId,
         examData
@@ -989,9 +1059,7 @@ async function saveExam(
       false;
 
     saveButton.textContent =
-      editingExam
-        ? "💾 حفظ التعديلات"
-        : "💾 حفظ الامتحان";
+      "💾 حفظ الامتحان";
 
   }
 
