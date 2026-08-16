@@ -15,6 +15,10 @@ import {
 } from "../services/examService.js";
 
 import {
+  recalculateResultsForExam
+} from "../services/resultService.js";
+
+import {
   createQuestionTemplate,
   getEditingExam,
   clearEditingExam
@@ -786,6 +790,8 @@ async function saveExam(saveButton) {
     saveButton.textContent =
       "⏳ جاري الحفظ...";
 
+    let recalcInfo = null;
+
     if (isEdit) {
 
       const examId =
@@ -805,6 +811,30 @@ async function saveExam(saveButton) {
         examData
       );
 
+      // ================================================
+      // إعادة تصحيح نتائج الطلاب اللي امتحنوا فعلاً
+      // بناءً على التعديل الجديد
+      // ================================================
+
+      try {
+
+        recalcInfo =
+          await recalculateResultsForExam(
+            examId,
+            currentExam.title || title,
+            questions
+          );
+
+      }
+      catch (recalcError) {
+
+        console.error(
+          "RECALCULATE RESULTS ERROR:",
+          recalcError
+        );
+
+      }
+
     }
     else {
 
@@ -814,10 +844,19 @@ async function saveExam(saveButton) {
 
     }
 
+    const recalcMessage =
+      isEdit &&
+      recalcInfo &&
+      recalcInfo.updated > 0
+        ? `\n\n🔄 تم تحديث نتائج ${recalcInfo.updated} طالب/طلاب بناءً على التعديل.`
+        : "";
+
     alert(
-      isEdit
-        ? "✅ تم حفظ تعديلات الامتحان"
-        : "✅ تم حفظ الامتحان بنجاح"
+      (
+        isEdit
+          ? "✅ تم حفظ تعديلات الامتحان"
+          : "✅ تم حفظ الامتحان بنجاح"
+      ) + recalcMessage
     );
 
     clearEditingExam();

@@ -10,10 +10,548 @@ import {
 } from "./createExam.js";
 
 import {
+  createExamEvents
+} from "./createExamEvents.js";
+
+import {
   adminPage
 } from "./admin.js";
 
 let examsCache = [];
+
+
+// ======================================================
+// HELPERS
+// ======================================================
+
+function escapeHtml(value) {
+
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+
+// ======================================================
+// CREATE PRINTABLE PDF PAGE
+// ======================================================
+
+function printExamAsPDF(exam) {
+
+  if (!exam) {
+    alert("❌ لم يتم العثور على الامتحان.");
+    return;
+  }
+
+  const questions =
+    Array.isArray(exam.questions)
+      ? exam.questions
+      : [];
+
+  if (!questions.length) {
+    alert("❌ الامتحان لا يحتوي على أسئلة.");
+    return;
+  }
+
+
+  const examTitle =
+    escapeHtml(
+      exam.title ||
+      "امتحان"
+    );
+
+  const className =
+    escapeHtml(
+      exam.className ||
+      "عام"
+    );
+
+  const subject =
+    escapeHtml(
+      exam.subject ||
+      "Physics"
+    );
+
+  const duration =
+    escapeHtml(
+      exam.duration ||
+      exam.examTime ||
+      0
+    );
+
+
+  const questionsHTML =
+    questions
+      .map(
+        (question, index) => {
+
+          const text =
+            question.question ??
+            question.text ??
+            "";
+
+          const image =
+            question.image ??
+            question.imageUrl ??
+            "";
+
+          const options =
+            Array.isArray(
+              question.options
+            )
+              ? question.options
+              : [
+                  question.A ??
+                    question.optionA ??
+                    "",
+                  question.B ??
+                    question.optionB ??
+                    "",
+                  question.C ??
+                    question.optionC ??
+                    "",
+                  question.D ??
+                    question.optionD ??
+                    ""
+                ];
+
+
+          const optionsHTML =
+            options
+              .map(
+                (option, optionIndex) => {
+
+                  if (
+                    option === null ||
+                    option === undefined ||
+                    String(option).trim() === ""
+                  ) {
+                    return "";
+                  }
+
+                  const letters = [
+                    "أ",
+                    "ب",
+                    "ج",
+                    "د"
+                  ];
+
+                  return `
+                    <div class="option">
+                      <span class="optionLetter">
+                        ${letters[optionIndex] || ""}
+                      </span>
+
+                      <span>
+                        ${escapeHtml(option)}
+                      </span>
+                    </div>
+                  `;
+
+                }
+              )
+              .join("");
+
+
+          const imageHTML =
+            image
+              ? `
+                <div class="questionImage">
+                  <img
+                    src="${escapeHtml(image)}"
+                    alt="صورة السؤال"
+                  >
+                </div>
+              `
+              : "";
+
+
+          return `
+            <div class="question">
+
+              <div class="questionNumber">
+                السؤال ${index + 1}
+              </div>
+
+              <div class="questionText">
+                ${escapeHtml(text)}
+              </div>
+
+              ${imageHTML}
+
+              <div class="options">
+                ${optionsHTML}
+              </div>
+
+            </div>
+          `;
+
+        }
+      )
+      .join("");
+
+
+  const printWindow =
+    window.open(
+      "",
+      "_blank",
+      "width=900,height=1100"
+    );
+
+
+  if (!printWindow) {
+
+    alert(
+      "❌ المتصفح منع نافذة الطباعة.\n\n" +
+      "اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى."
+    );
+
+    return;
+  }
+
+
+  printWindow.document.open();
+
+  printWindow.document.write(`
+<!DOCTYPE html>
+
+<html
+  lang="ar"
+  dir="rtl"
+>
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>
+${examTitle}
+</title>
+
+<style>
+
+@page {
+  size: A4;
+  margin: 15mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+
+  font-family:
+    "Tahoma",
+    "Arial",
+    sans-serif;
+
+  direction: rtl;
+
+  background: white;
+
+  color: #111;
+
+  font-size: 14px;
+
+  line-height: 1.8;
+}
+
+.examHeader {
+
+  text-align: center;
+
+  border-bottom:
+    2px solid #111;
+
+  padding-bottom: 15px;
+
+  margin-bottom: 20px;
+}
+
+.examTitle {
+
+  font-size: 25px;
+
+  font-weight: 800;
+
+  margin-bottom: 8px;
+}
+
+.examMeta {
+
+  display: flex;
+
+  justify-content:
+    space-between;
+
+  gap: 15px;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  margin-top: 12px;
+}
+
+.studentInfo {
+
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap: 18px;
+
+  margin-bottom: 25px;
+}
+
+.studentField {
+
+  border-bottom:
+    1px solid #555;
+
+  padding: 5px;
+
+  min-height: 32px;
+}
+
+.question {
+
+  page-break-inside:
+    avoid;
+
+  break-inside:
+    avoid;
+
+  margin-bottom: 22px;
+
+  border-bottom:
+    1px solid #ddd;
+
+  padding-bottom: 16px;
+}
+
+.questionNumber {
+
+  font-weight: 800;
+
+  font-size: 16px;
+
+  margin-bottom: 6px;
+}
+
+.questionText {
+
+  font-size: 16px;
+
+  font-weight: 600;
+
+  margin-bottom: 10px;
+
+  white-space: pre-wrap;
+}
+
+.questionImage {
+
+  text-align: center;
+
+  margin: 12px 0;
+}
+
+.questionImage img {
+
+  max-width: 100%;
+
+  max-height: 260px;
+
+  object-fit: contain;
+}
+
+.options {
+
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap: 8px 25px;
+
+  margin-top: 10px;
+}
+
+.option {
+
+  display: flex;
+
+  align-items:
+    flex-start;
+
+  gap: 8px;
+
+  font-size: 15px;
+
+  min-height: 30px;
+}
+
+.optionLetter {
+
+  min-width: 25px;
+
+  height: 25px;
+
+  border:
+    1px solid #222;
+
+  border-radius: 50%;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  font-weight: 700;
+}
+
+.footer {
+
+  margin-top: 30px;
+
+  padding-top: 10px;
+
+  border-top:
+    1px solid #999;
+
+  text-align: center;
+
+  font-size: 11px;
+
+  color: #555;
+}
+
+@media print {
+
+  body {
+    -webkit-print-color-adjust:
+      exact;
+
+    print-color-adjust:
+      exact;
+  }
+
+  .question {
+    page-break-inside:
+      avoid;
+  }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="examHeader">
+
+  <div class="examTitle">
+    ${examTitle}
+  </div>
+
+  <div class="examMeta">
+
+    <span>
+      الصف: ${className}
+    </span>
+
+    <span>
+      المادة: ${subject}
+    </span>
+
+    <span>
+      الزمن: ${duration} دقيقة
+    </span>
+
+  </div>
+
+</div>
+
+
+<div class="studentInfo">
+
+  <div class="studentField">
+    اسم الطالب:
+  </div>
+
+  <div class="studentField">
+    الفصل:
+  </div>
+
+</div>
+
+
+${questionsHTML}
+
+
+<div class="footer">
+  Ahmed.R Exams
+</div>
+
+
+<script>
+
+window.addEventListener(
+  "load",
+  function () {
+
+    setTimeout(
+      function () {
+
+        window.print();
+
+      },
+      500
+    );
+
+  }
+);
+
+window.addEventListener(
+  "afterprint",
+  function () {
+
+    setTimeout(
+      function () {
+
+        window.close();
+
+      },
+      300
+    );
+
+  }
+);
+
+</script>
+
+</body>
+
+</html>
+  `);
+
+  printWindow.document.close();
+
+}
 
 
 // ======================================================
@@ -75,7 +613,7 @@ export function examsListPage() {
   color:#94a3b8;
 ">
 
-عرض وتعديل وحذف وفتح وغلق الامتحانات للطلاب
+عرض وتعديل وحذف وفتح وغلق وتحميل الامتحانات PDF
 
 </p>
 
@@ -192,7 +730,7 @@ export async function loadExamsList() {
 
 <div
   class="examManagementCard"
-  data-exam-id="${examId}"
+  data-exam-id="${escapeHtml(examId)}"
   style="
     background:linear-gradient(135deg,#1e293b,#0f172a);
     border-radius:20px;
@@ -209,7 +747,6 @@ export async function loadExamsList() {
 
 <div>
 
-
 <div style="
   margin-bottom:8px;
 ">
@@ -223,7 +760,7 @@ export async function loadExamsList() {
   font-size:12px;
 ">
 
-${exam.className || "عام"}
+${escapeHtml(exam.className || "عام")}
 
 </span>
 
@@ -237,7 +774,7 @@ ${exam.className || "عام"}
   margin-right:5px;
 ">
 
-${exam.subject || "physics"}
+${escapeHtml(exam.subject || "physics")}
 
 </span>
 
@@ -271,7 +808,7 @@ ${
   margin:5px 0;
 ">
 
-${exam.title || "امتحان بدون اسم"}
+${escapeHtml(exam.title || "امتحان بدون اسم")}
 
 </h3>
 
@@ -282,7 +819,7 @@ ${exam.title || "امتحان بدون اسم"}
 ">
 
 المدة:
-${exam.duration || 0}
+${escapeHtml(exam.duration || 0)}
 دقائق
 
 |
@@ -296,7 +833,6 @@ ${exam.questions?.length || 0}
 </div>
 
 
-
 <div style="
   display:flex;
   gap:10px;
@@ -307,8 +843,8 @@ ${exam.questions?.length || 0}
 <button
   type="button"
   class="toggleExam"
-  data-id="${examId}"
-  data-source="${exam.source}"
+  data-id="${escapeHtml(examId)}"
+  data-source="${escapeHtml(exam.source)}"
   data-open="${isOpen}"
   style="
     background:${isOpen ? "#991b1b" : "#047857"};
@@ -331,11 +867,10 @@ ${
 </button>
 
 
-
 <button
   type="button"
   class="editExam"
-  data-id="${examId}"
+  data-id="${escapeHtml(examId)}"
   style="
     background:#3730a3;
     color:white;
@@ -353,12 +888,32 @@ ${
 </button>
 
 
+<button
+  type="button"
+  class="pdfExam"
+  data-id="${escapeHtml(examId)}"
+  style="
+    background:#b45309;
+    color:white;
+    border:none;
+    padding:8px 14px;
+    border-radius:10px;
+    cursor:pointer;
+    font-family:inherit;
+    font-weight:700;
+  "
+>
+
+📄 PDF
+
+</button>
+
 
 <button
   type="button"
   class="deleteExam"
-  data-id="${examId}"
-  data-source="${exam.source}"
+  data-id="${escapeHtml(examId)}"
+  data-source="${escapeHtml(exam.source)}"
   style="
     background:#991b1b;
     color:white;
@@ -413,7 +968,7 @@ ${
   color:#94a3b8;
 ">
 
-${error?.message || ""}
+${escapeHtml(error?.message || "")}
 
 </span>
 
@@ -443,6 +998,83 @@ document.addEventListener(
 
 
     // ==================================================
+    // PDF
+    // ==================================================
+
+    const pdf =
+      e.target.closest(
+        ".pdfExam"
+      );
+
+    if (pdf) {
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      if (
+        pdf.dataset.busy === "true"
+      ) {
+        return;
+      }
+
+      pdf.dataset.busy = "true";
+
+      const id =
+        pdf.dataset.id;
+
+      const exam =
+        examsCache.find(
+          x =>
+            String(
+              x.firestoreId ||
+              x.id
+            ) ===
+            String(id)
+        );
+
+      if (!exam) {
+
+        pdf.dataset.busy = "false";
+
+        alert(
+          "❌ لم يتم العثور على الامتحان."
+        );
+
+        return;
+      }
+
+      try {
+
+        printExamAsPDF(exam);
+
+      } catch (error) {
+
+        console.error(
+          "PDF EXAM ERROR:",
+          error
+        );
+
+        alert(
+          "❌ حدث خطأ أثناء تجهيز PDF\n\n" +
+          (
+            error?.message ||
+            ""
+          )
+        );
+
+      } finally {
+
+        pdf.dataset.busy = "false";
+
+      }
+
+      return;
+
+    }
+
+
+    // ==================================================
     // TOGGLE OPEN / CLOSE
     // ==================================================
 
@@ -451,14 +1083,7 @@ document.addEventListener(
         ".toggleExam"
       );
 
-
     if (toggle) {
-
-      /*
-       * مهم:
-       * امنع أي Listener آخر على document
-       * من استقبال نفس الضغطة.
-       */
 
       e.preventDefault();
       e.stopPropagation();
@@ -520,10 +1145,6 @@ document.addEventListener(
 
       try {
 
-        // ==============================================
-        // FIREBASE
-        // ==============================================
-
         if (
           source === "firebase"
         ) {
@@ -536,13 +1157,7 @@ document.addEventListener(
             }
           );
 
-        }
-
-        // ==============================================
-        // LOCAL
-        // ==============================================
-
-        else {
+        } else {
 
           let exams =
             JSON.parse(
@@ -589,10 +1204,6 @@ document.addEventListener(
         }
 
 
-        // ==============================================
-        // UPDATE CACHE
-        // ==============================================
-
         examsCache =
           examsCache.map(
             exam => {
@@ -622,10 +1233,6 @@ document.addEventListener(
           );
 
 
-        // ==============================================
-        // UPDATE BUTTON
-        // ==============================================
-
         toggle.dataset.open =
           String(newStatus);
 
@@ -641,10 +1248,6 @@ document.addEventListener(
             ? "🔒 غلق "
             : "🔓 فتح ";
 
-
-        // ==============================================
-        // UPDATE STATUS BADGE
-        // ==============================================
 
         if (status) {
 
@@ -674,20 +1277,6 @@ document.addEventListener(
 
         toggle.dataset.busy =
           "false";
-
-
-        /*
-         * لا يوجد:
-         *
-         * loadExamsList()
-         *
-         * ولا:
-         *
-         * app.innerHTML
-         *
-         *
-         * لذلك الصفحة لن تخرج.
-         */
 
       } catch (error) {
 
@@ -735,7 +1324,6 @@ document.addEventListener(
         "#btnBackToDashboard"
       );
 
-
     if (back) {
 
       e.preventDefault();
@@ -760,7 +1348,6 @@ document.addEventListener(
       e.target.closest(
         ".editExam"
       );
-
 
     if (edit) {
 
@@ -794,6 +1381,9 @@ document.addEventListener(
         app.innerHTML =
           createExamPage();
 
+
+        createExamEvents();
+
       }
 
 
@@ -810,7 +1400,6 @@ document.addEventListener(
       e.target.closest(
         ".deleteExam"
       );
-
 
     if (del) {
 
