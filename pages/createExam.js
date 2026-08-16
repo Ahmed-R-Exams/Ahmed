@@ -348,10 +348,6 @@ export function createExamPage() {
   cursor:pointer;
 }
 
-/* =====================================================
-   IMAGE BOX
-===================================================== */
-
 .question-image-box{
   position:relative;
   display:inline-block;
@@ -369,33 +365,23 @@ export function createExamPage() {
   background:#0a0f1c;
 }
 
-/* زر إلغاء الصورة */
-
 .removeQuestionImage{
   position:absolute;
   top:-9px;
   left:-9px;
-
   width:28px;
   height:28px;
-
   border-radius:50%;
   border:2px solid #fff;
-
   background:var(--fail);
   color:#fff;
-
   font-size:17px;
   font-weight:900;
-
   display:flex;
   align-items:center;
   justify-content:center;
-
   cursor:pointer;
-
   z-index:10;
-
   box-shadow:0 3px 10px rgba(0,0,0,.35);
 }
 
@@ -439,51 +425,37 @@ export function createExamPage() {
 
   </div>
 
-
-  <!-- ================================================== -->
-  <!-- EXAM INFO -->
-  <!-- ================================================== -->
-
   <div class="eb-panel">
 
     <div class="eb-grid2">
 
       <div class="eb-field">
 
-        <label>
-          عنوان الامتحان
-        </label>
+        <label>عنوان الامتحان</label>
 
         <input
           id="examTitle"
           value="${
             isEdit
-              ? escapeHtml(
-                  currentExam?.title || ""
-                )
+              ? escapeHtml(currentExam?.title || "")
               : ""
           }"
-          placeholder="مثال: اختبار الفيزياء الأول"
+          placeholder="مثال: اختبار الفيزياء"
         >
 
       </div>
 
-
       <div class="eb-field">
 
-        <label>
-          المادة
-        </label>
+        <label>المادة</label>
 
         <select id="examSubject">
 
           <option
             value="physics"
             ${
-              isEdit &&
-              String(
-                currentExam?.subject || ""
-              ).toLowerCase() === "physics"
+              !isEdit ||
+              String(currentExam?.subject || "").toLowerCase() === "physics"
                 ? "selected"
                 : ""
             }
@@ -495,9 +467,7 @@ export function createExamPage() {
             value="chemistry"
             ${
               isEdit &&
-              String(
-                currentExam?.subject || ""
-              ).toLowerCase() === "chemistry"
+              String(currentExam?.subject || "").toLowerCase() === "chemistry"
                 ? "selected"
                 : ""
             }
@@ -511,36 +481,19 @@ export function createExamPage() {
 
     </div>
 
-
     <div class="eb-grid2">
 
       <div class="eb-field">
 
-        <label>
-          الصف
-        </label>
+        <label>الصف</label>
 
         <select id="examClass">
 
           <option
-            value="الصف الأول الثانوي"
-            ${
-              isEdit &&
-              currentExam?.className ===
-                "الصف الأول الثانوي"
-                ? "selected"
-                : ""
-            }
-          >
-            الصف الأول الثانوي
-          </option>
-
-          <option
             value="الصف الثاني الثانوي"
             ${
-              isEdit &&
-              currentExam?.className ===
-                "الصف الثاني الثانوي"
+              !isEdit ||
+              currentExam?.className === "الصف الثاني الثانوي"
                 ? "selected"
                 : ""
             }
@@ -552,8 +505,7 @@ export function createExamPage() {
             value="الصف الثالث الثانوي"
             ${
               isEdit &&
-              currentExam?.className ===
-                "الصف الثالث الثانوي"
+              currentExam?.className === "الصف الثالث الثانوي"
                 ? "selected"
                 : ""
             }
@@ -565,12 +517,9 @@ export function createExamPage() {
 
       </div>
 
-
       <div class="eb-field">
 
-        <label>
-          مدة الامتحان بالدقائق
-        </label>
+        <label>مدة الامتحان بالدقائق</label>
 
         <input
           type="number"
@@ -578,9 +527,7 @@ export function createExamPage() {
           min="1"
           value="${
             isEdit
-              ? Number(
-                  currentExam?.duration
-                ) || 60
+              ? Number(currentExam?.duration) || 60
               : 60
           }"
         >
@@ -589,14 +536,11 @@ export function createExamPage() {
 
     </div>
 
-
     <div class="eb-grid2">
 
       <div class="eb-field">
 
-        <label>
-          درجة النجاح
-        </label>
+        <label>درجة النجاح</label>
 
         <input
           type="number"
@@ -604,28 +548,23 @@ export function createExamPage() {
           min="0"
           value="${
             isEdit
-              ? Number(
-                  currentExam?.passingScore
-                ) || 50
+              ? Number(currentExam?.passingScore) || 50
               : 50
           }"
         >
 
       </div>
 
-
       <div class="eb-field">
 
-        <label>
-          تاريخ بداية الامتحان
-        </label>
+        <label>تاريخ بداية الامتحان</label>
 
         <input
           type="datetime-local"
           id="examStartDate"
           value="${
             isEdit
-              ? currentExam?.startDate || ""
+              ? escapeHtml(currentExam?.startDate || "")
               : ""
           }"
         >
@@ -634,19 +573,16 @@ export function createExamPage() {
 
     </div>
 
-
     <div class="eb-field">
 
-      <label>
-        تاريخ نهاية الامتحان
-      </label>
+      <label>تاريخ نهاية الامتحان</label>
 
       <input
         type="datetime-local"
         id="examEndDate"
         value="${
           isEdit
-            ? currentExam?.endDate || ""
+            ? escapeHtml(currentExam?.endDate || "")
             : ""
         }"
       >
@@ -655,18 +591,11 @@ export function createExamPage() {
 
   </div>
 
-
-  <!-- ================================================== -->
-  <!-- QUESTIONS -->
-  <!-- ================================================== -->
-
   <div class="eb-panel">
 
     <div class="eb-qhead">
 
-      <h3>
-        📝 أسئلة الامتحان
-      </h3>
+      <h3>📝 أسئلة الامتحان</h3>
 
       <span>
         أضف الأسئلة وحدد الإجابة الصحيحة
@@ -674,38 +603,29 @@ export function createExamPage() {
 
     </div>
 
-
     <div id="questionsList">
 
       ${
         isEdit &&
-        Array.isArray(
-          currentExam?.questions
-        ) &&
+        Array.isArray(currentExam?.questions) &&
         currentExam.questions.length
 
           ? currentExam.questions
               .map(
                 (q, i) =>
-                  createQuestionTemplate(
-                    i + 1,
-                    q
-                  )
+                  createQuestionTemplate(i + 1, q)
               )
               .join("")
 
           : `
             <div class="eb-empty">
-              <b>
-                لا توجد أسئلة
-              </b>
+              <b>لا توجد أسئلة</b>
               أضف سؤال جديد للبدء
             </div>
           `
       }
 
     </div>
-
 
     <button
       id="btnAddQuestion"
@@ -716,11 +636,6 @@ export function createExamPage() {
     </button>
 
   </div>
-
-
-  <!-- ================================================== -->
-  <!-- SAVE -->
-  <!-- ================================================== -->
 
   <div class="eb-panel">
 
@@ -751,7 +666,6 @@ export function createExamPage() {
 `;
 }
 
-
 // ======================================================
 // QUESTION TEMPLATE
 // ======================================================
@@ -762,9 +676,7 @@ export function createQuestionTemplate(
 ) {
 
   const options =
-    getQuestionOptionsForEditor(
-      question
-    );
+    getQuestionOptionsForEditor(question);
 
   const correctIndex =
     getCorrectIndexForEditor(
@@ -806,9 +718,7 @@ export function createQuestionTemplate(
     data-question-index="${index}"
     ${
       question.id
-        ? `data-question-id="${escapeHtml(
-            question.id
-          )}"`
+        ? `data-question-id="${escapeHtml(question.id)}"`
         : ""
     }
   >
@@ -831,7 +741,6 @@ export function createQuestionTemplate(
 
       </div>
 
-
       <button
         type="button"
         class="removeQuestion"
@@ -841,39 +750,28 @@ export function createQuestionTemplate(
 
     </div>
 
-
     <textarea
       class="q-text"
       placeholder="اكتب نص السؤال هنا..."
     >${escapeHtml(questionText)}</textarea>
 
-
     <select class="q-type-select">
 
       <option
         value="mcq"
-        ${
-          type === "mcq"
-            ? "selected"
-            : ""
-        }
+        ${type === "mcq" ? "selected" : ""}
       >
         اختيار من متعدد
       </option>
 
       <option
         value="essay"
-        ${
-          type === "essay"
-            ? "selected"
-            : ""
-        }
+        ${type === "essay" ? "selected" : ""}
       >
         سؤال مقالي
       </option>
 
     </select>
-
 
     <div
       class="mcq-options"
@@ -914,9 +812,7 @@ export function createQuestionTemplate(
           <input
             type="text"
             class="opt-text"
-            value="${escapeHtml(
-              options[i] || ""
-            )}"
+            value="${escapeHtml(options[i] || "")}"
             placeholder="الإجابة ${letter}"
           >
 
@@ -929,7 +825,6 @@ export function createQuestionTemplate(
 
     </div>
 
-
     <div
       class="essay-note"
       style="${
@@ -940,7 +835,6 @@ export function createQuestionTemplate(
     >
       ✍️ سؤال مقالي — الطالب سيكتب إجابته في مساحة نصية أثناء الامتحان، ويمكن تصحيحه يدويًا بعد التسليم.
     </div>
-
 
     <div class="q-score-row">
 
@@ -957,26 +851,21 @@ export function createQuestionTemplate(
 
     </div>
 
-
     <label class="q-image-label">
       📷 إرفاق صورة للسؤال (اختياري)
     </label>
-
 
     <input
       type="file"
       class="q-image-file"
       accept="image/*"
-      onchange="previewQuestionImage(this)"
     >
-
 
     <input
       type="hidden"
       class="q-image"
       value="${escapeHtml(image)}"
     >
-
 
     ${
       image
@@ -986,7 +875,6 @@ export function createQuestionTemplate(
             <button
               type="button"
               class="removeQuestionImage"
-              onclick="removeQuestionImage(this)"
               title="إلغاء الصورة"
             >
               ×
@@ -994,9 +882,7 @@ export function createQuestionTemplate(
 
             <img
               class="question-image-preview"
-              src="${escapeHtml(
-                getImageSrc(image)
-              )}"
+              src="${escapeHtml(getImageSrc(image))}"
               alt="صورة السؤال"
             >
 
@@ -1010,7 +896,6 @@ export function createQuestionTemplate(
   `;
 }
 
-
 // ======================================================
 // IMAGE PREVIEW
 // ======================================================
@@ -1020,22 +905,24 @@ function previewQuestionImage(input) {
   const card =
     input.closest(".question-card");
 
-  if (!card) {
+  if (!card)
     return;
-  }
 
   const file =
     input.files?.[0];
 
-  if (!file) {
+  if (!file)
     return;
-  }
 
   if (
     !file.type ||
     !file.type.startsWith("image/")
   ) {
+
     input.value = "";
+
+    alert("❌ الملف المختار ليس صورة.");
+
     return;
   }
 
@@ -1047,21 +934,17 @@ function previewQuestionImage(input) {
     const imageData =
       event.target?.result || "";
 
-    if (!imageData) {
+    if (!imageData)
       return;
-    }
 
     const hidden =
       card.querySelector(".q-image");
 
-    if (hidden) {
+    if (hidden)
       hidden.value = imageData;
-    }
 
     let box =
-      card.querySelector(
-        ".question-image-box"
-      );
+      card.querySelector(".question-image-box");
 
     if (!box) {
 
@@ -1083,7 +966,6 @@ function previewQuestionImage(input) {
       <button
         type="button"
         class="removeQuestionImage"
-        onclick="removeQuestionImage(this)"
         title="إلغاء الصورة"
       >
         ×
@@ -1102,7 +984,6 @@ function previewQuestionImage(input) {
   reader.readAsDataURL(file);
 }
 
-
 // ======================================================
 // REMOVE IMAGE
 // ======================================================
@@ -1112,65 +993,38 @@ function removeQuestionImage(button) {
   const card =
     button.closest(".question-card");
 
-  if (!card) {
+  if (!card)
     return;
-  }
 
   const fileInput =
-    card.querySelector(
-      ".q-image-file"
-    );
+    card.querySelector(".q-image-file");
 
   const hidden =
-    card.querySelector(
-      ".q-image"
-    );
+    card.querySelector(".q-image");
 
   const imageBox =
-    card.querySelector(
-      ".question-image-box"
-    );
+    card.querySelector(".question-image-box");
 
-  if (fileInput) {
+  if (fileInput)
     fileInput.value = "";
-  }
 
-  if (hidden) {
+  if (hidden)
     hidden.value = "";
-  }
 
-  if (imageBox) {
+  if (imageBox)
     imageBox.remove();
-  }
 }
 
-
 // ======================================================
-// MAKE IMAGE FUNCTIONS AVAILABLE TO HTML
-// ======================================================
-
-window.previewQuestionImage =
-  previewQuestionImage;
-
-window.removeQuestionImage =
-  removeQuestionImage;
-
-
-// ======================================================
-// NORMALIZE EDITOR OPTIONS
+// NORMALIZE OPTIONS
 // ======================================================
 
-function getQuestionOptionsForEditor(
-  question
-) {
+function getQuestionOptionsForEditor(question) {
 
-  if (!question || typeof question !== "object") {
+  if (!question || typeof question !== "object")
     return ["", "", "", ""];
-  }
 
-  if (
-    Array.isArray(question.options)
-  ) {
+  if (Array.isArray(question.options)) {
 
     return [
       question.options[0] ?? "",
@@ -1181,9 +1035,7 @@ function getQuestionOptionsForEditor(
 
   }
 
-  if (
-    Array.isArray(question.choices)
-  ) {
+  if (Array.isArray(question.choices)) {
 
     return [
       question.choices[0] ?? "",
@@ -1212,8 +1064,7 @@ function getQuestionOptionsForEditor(
 
     return letters.map(
       value =>
-        value === undefined ||
-        value === null
+        value == null
           ? ""
           : String(value)
     );
@@ -1238,8 +1089,7 @@ function getQuestionOptionsForEditor(
 
     return named.map(
       value =>
-        value === undefined ||
-        value === null
+        value == null
           ? ""
           : String(value)
     );
@@ -1264,8 +1114,7 @@ function getQuestionOptionsForEditor(
 
     return numbered.map(
       value =>
-        value === undefined ||
-        value === null
+        value == null
           ? ""
           : String(value)
     );
@@ -1275,9 +1124,8 @@ function getQuestionOptionsForEditor(
   return ["", "", "", ""];
 }
 
-
 // ======================================================
-// NORMALIZE CORRECT ANSWER
+// CORRECT ANSWER
 // ======================================================
 
 function getCorrectIndexForEditor(
@@ -1287,103 +1135,51 @@ function getCorrectIndexForEditor(
 
   let value;
 
-  if (
-    question.correctAnswerIndex !==
-    undefined
-  ) {
+  if (question.correctAnswerIndex !== undefined)
+    value = question.correctAnswerIndex;
 
-    value =
-      question.correctAnswerIndex;
+  else if (question.correctIndex !== undefined)
+    value = question.correctIndex;
 
-  }
-  else if (
-    question.correctIndex !==
-    undefined
-  ) {
+  else if (question.rightIndex !== undefined)
+    value = question.rightIndex;
 
-    value =
-      question.correctIndex;
+  else if (question.correctAnswer !== undefined)
+    value = question.correctAnswer;
 
-  }
-  else if (
-    question.rightIndex !==
-    undefined
-  ) {
+  else if (question.answer !== undefined)
+    value = question.answer;
 
-    value =
-      question.rightIndex;
+  else if (question.correct !== undefined)
+    value = question.correct;
 
-  }
-  else if (
-    question.correctAnswer !==
-    undefined
-  ) {
-
-    value =
-      question.correctAnswer;
-
-  }
-  else if (
-    question.answer !==
-    undefined
-  ) {
-
-    value =
-      question.answer;
-
-  }
-  else if (
-    question.correct !==
-    undefined
-  ) {
-
-    value =
-      question.correct;
-
-  }
-  else {
-
+  else
     return 0;
-
-  }
 
   if (
     typeof value === "number" &&
     Number.isFinite(value)
   ) {
 
-    if (
-      value >= 0 &&
-      value < 4
-    ) {
-
+    if (value >= 0 && value < 4)
       return Math.trunc(value);
 
-    }
-
-    if (
-      value >= 1 &&
-      value <= 4
-    ) {
-
+    if (value >= 1 && value <= 4)
       return Math.trunc(value) - 1;
-
-    }
 
   }
 
   const raw =
-    String(value)
-      .trim();
+    String(value).trim();
 
   const upper =
     raw.toUpperCase();
 
   const letterMap = {
-    A:0,
-    B:1,
-    C:2,
-    D:3
+    A: 0,
+    B: 1,
+    C: 2,
+    D: 3
   };
 
   if (
@@ -1397,13 +1193,8 @@ function getCorrectIndexForEditor(
 
   }
 
-  if (
-    /^[1-4]$/.test(raw)
-  ) {
-
+  if (/^[1-4]$/.test(raw))
     return Number(raw) - 1;
-
-  }
 
   const index =
     options.findIndex(
@@ -1411,20 +1202,11 @@ function getCorrectIndexForEditor(
         String(option).trim() === raw
     );
 
-  if (
-    index >= 0
-  ) {
-
-    return index;
-
-  }
-
-  return 0;
+  return index >= 0 ? index : 0;
 }
 
-
 // ======================================================
-// DETECT QUESTION TYPE
+// QUESTION TYPE
 // ======================================================
 
 function getQuestionTypeForEditor(
@@ -1433,9 +1215,7 @@ function getQuestionTypeForEditor(
 ) {
 
   const rawType =
-    String(
-      question?.type || ""
-    )
+    String(question?.type || "")
       .trim()
       .toLowerCase();
 
@@ -1478,7 +1258,6 @@ function getQuestionTypeForEditor(
     : "mcq";
 }
 
-
 // ======================================================
 // IMAGE SRC
 // ======================================================
@@ -1488,9 +1267,8 @@ function getImageSrc(image) {
   const value =
     String(image || "");
 
-  if (!value) {
+  if (!value)
     return "";
-  }
 
   if (
     value.startsWith("data:") ||
@@ -1506,7 +1284,6 @@ function getImageSrc(image) {
   return "/images/" + value;
 }
 
-
 // ======================================================
 // ESCAPE HTML
 // ======================================================
@@ -1514,25 +1291,9 @@ function getImageSrc(image) {
 function escapeHtml(value) {
 
   return String(value ?? "")
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-    .replace(
-      /</g,
-      "&lt;"
-    )
-    .replace(
-      />/g,
-      "&gt;"
-    )
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-    .replace(
-      /'/g,
-      "&#039;"
-    );
-
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }

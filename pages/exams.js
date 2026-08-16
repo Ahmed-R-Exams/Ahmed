@@ -1,7 +1,12 @@
 // pages/exams.js
 
 import { showExam } from "./exam.js";
-import { getExams } from "../services/examService.js";
+
+import {
+  getExams,
+  getExamByFirestoreId
+} from "../services/examService.js";
+
 
 // ======================================================
 // TEMP EXAMS MEMORY
@@ -10,11 +15,13 @@ import { getExams } from "../services/examService.js";
 window.__studentExamsList =
   window.__studentExamsList || [];
 
+
 // ======================================================
 // EXAMS PAGE
 // ======================================================
 
 export function examsPage() {
+
   const currentClass =
     localStorage.getItem("currentClass") ||
     localStorage.getItem("currentGrade") ||
@@ -24,12 +31,16 @@ export function examsPage() {
     localStorage.getItem("currentSubject") ||
     "physics";
 
+
   setTimeout(() => {
+
     loadStudentExams(
       currentClass,
       currentSubject
     );
+
   }, 0);
+
 
   return `
     <div style="
@@ -58,6 +69,7 @@ export function examsPage() {
           الرئيسية
         </button>
 
+
         <h1 style="
           color:white;
           text-align:center;
@@ -65,6 +77,7 @@ export function examsPage() {
         ">
           قائمة الاختبارات المتاحة
         </h1>
+
 
         <div id="studentFirebaseExams">
 
@@ -90,6 +103,7 @@ export function examsPage() {
   `;
 }
 
+
 // ======================================================
 // LOAD STUDENT EXAMS
 // ======================================================
@@ -98,16 +112,21 @@ async function loadStudentExams(
   currentClass,
   currentSubject
 ) {
+
   const container =
     document.querySelector(
       "#studentFirebaseExams"
     );
 
+
   if (!container) return;
 
+
   try {
+
     const allExams =
       await getExams();
+
 
     const normalize = (value) =>
       String(value || "")
@@ -115,19 +134,24 @@ async function loadStudentExams(
         .toLowerCase()
         .replace(/\s+/g, "");
 
+
     const selectedClass =
       normalize(currentClass);
 
+
     const selectedSubject =
       normalize(currentSubject);
+
 
     const exams =
       Array.isArray(allExams)
         ? allExams
         : [];
 
+
     const filteredExams =
       exams.filter((exam) => {
+
         const examClass =
           normalize(
             exam.className ||
@@ -136,12 +160,14 @@ async function loadStudentExams(
             ""
           );
 
+
         const examSubject =
           normalize(
             exam.subject ||
             exam.sub ||
             "physics"
           );
+
 
         const classMatch =
           !selectedClass ||
@@ -152,6 +178,7 @@ async function loadStudentExams(
             examClass
           );
 
+
         const subjectMatch =
           examSubject ===
             selectedSubject ||
@@ -161,36 +188,57 @@ async function loadStudentExams(
             examSubject === ""
           );
 
+
         return (
           classMatch &&
           subjectMatch
         );
+
       });
 
+
     // ==================================================
-    // STORE EXAMS IN MEMORY
+    // STORE FRESH LIST
     // ==================================================
 
     window.__studentExamsList =
       filteredExams;
 
+
     // ==================================================
     // COMPLETED
     // ==================================================
 
-    const completedExams =
-      JSON.parse(
-        localStorage.getItem(
-          "completedExams"
-        ) || "[]"
-      );
+    let completedExams = [];
+
+    try {
+
+      completedExams =
+        JSON.parse(
+          localStorage.getItem(
+            "completedExams"
+          ) || "[]"
+        );
+
+      if (!Array.isArray(completedExams)) {
+        completedExams = [];
+      }
+
+    } catch {
+
+      completedExams = [];
+
+    }
+
 
     // ==================================================
     // NO EXAMS
     // ==================================================
 
     if (!filteredExams.length) {
+
       container.innerHTML = `
+
         <div style="
           text-align:center;
           padding:50px 20px;
@@ -204,16 +252,20 @@ async function loadStudentExams(
           </h3>
 
         </div>
+
       `;
 
       return;
+
     }
+
 
     // ==================================================
     // EXAMS CARDS
     // ==================================================
 
     container.innerHTML = `
+
       <div style="
         display:grid;
         grid-template-columns:
@@ -223,10 +275,12 @@ async function loadStudentExams(
 
         ${filteredExams
           .map((exam, index) => {
+
             const examId =
               exam.firestoreId ||
               exam.id ||
               `exam_${index}`;
+
 
             const isCompleted =
               completedExams.includes(
@@ -236,6 +290,29 @@ async function loadStudentExams(
                 String(examId)
               );
 
+
+            // ==================================================
+            // FIREBASE PUBLISH STATUS
+            // ==================================================
+
+            const isPublished =
+              exam.isPublished === true ||
+              exam.isPublished === "true";
+
+
+            // ==================================================
+            // MANUAL CLOSE
+            // ==================================================
+
+            const isManuallyClosed =
+              exam.manualClose === true ||
+              exam.manualClose === "true";
+
+
+            // ==================================================
+            // END DATE
+            // ==================================================
+
             const endDateTime =
               exam.endDate
                 ? new Date(
@@ -243,16 +320,25 @@ async function loadStudentExams(
                   ).getTime()
                 : null;
 
+
+            const isExpired =
+              endDateTime &&
+              Date.now() >
+                endDateTime;
+
+
+            // ==================================================
+            // FINAL CLOSED STATE
+            // ==================================================
+
             const isClosed =
-              exam.manualClose === true ||
-              exam.manualClose === "true" ||
-              (
-                endDateTime &&
-                Date.now() >
-                  endDateTime
-              );
+              !isPublished ||
+              isManuallyClosed ||
+              isExpired;
+
 
             return `
+
               <div style="
                 background:#1e293b;
                 padding:22px;
@@ -270,6 +356,7 @@ async function loadStudentExams(
                   }
                 </h3>
 
+
                 <p style="
                   color:#94a3b8;
                 ">
@@ -279,10 +366,12 @@ async function loadStudentExams(
                   }
                 </p>
 
+
                 <p style="
                   color:#94a3b8;
                 ">
                   عدد الأسئلة:
+
                   ${
                     Array.isArray(
                       exam.questions
@@ -290,11 +379,15 @@ async function loadStudentExams(
                       ? exam.questions.length
                       : 0
                   }
+
                 </p>
+
 
                 ${
                   isCompleted
+
                     ? `
+
                       <div style="
                         background:#065f46;
                         padding:12px;
@@ -302,11 +395,17 @@ async function loadStudentExams(
                         text-align:center;
                         color:white;
                       ">
+
                         تم التسليم
+
                       </div>
+
                     `
+
                     : isClosed
+
                     ? `
+
                       <div style="
                         background:#7f1d1d;
                         padding:12px;
@@ -314,14 +413,20 @@ async function loadStudentExams(
                         text-align:center;
                         color:white;
                       ">
+
                         الامتحان مغلق
+
                       </div>
+
                     `
+
                     : `
+
                       <button
                         type="button"
                         class="goToLoginBtn"
                         data-exam-index="${index}"
+
                         style="
                           width:100%;
                           padding:12px;
@@ -334,26 +439,35 @@ async function loadStudentExams(
                           font-weight:bold;
                         "
                       >
+
                         ابدأ الاختبار
+
                       </button>
+
                     `
                 }
 
               </div>
+
             `;
+
           })
           .join("")}
 
       </div>
+
     `;
 
   } catch (error) {
+
     console.error(
       "Student exams Firebase error:",
       error
     );
 
+
     container.innerHTML = `
+
       <div style="
         color:#ef4444;
         padding:30px;
@@ -369,23 +483,31 @@ async function loadStudentExams(
         <p style="
           color:#94a3b8;
         ">
+
           ${
             error?.message ||
             "تأكد من الاتصال بالإنترنت."
           }
+
         </p>
 
       </div>
+
     `;
+
   }
+
 }
+
 
 // ======================================================
 // STUDENT LOGIN PAGE
 // ======================================================
 
 export function studentLoginPage() {
+
   return `
+
     <div style="
       min-height:100vh;
       background:#0f172a;
@@ -409,14 +531,18 @@ export function studentLoginPage() {
         <h2 style="
           color:white;
         ">
+
           تسجيل دخول الطالب
+
         </h2>
+
 
         <input
           id="loginStudentNameInput"
           type="text"
           placeholder="اكتب الاسم الثلاثي"
           autocomplete="off"
+
           style="
             width:100%;
             padding:15px;
@@ -430,9 +556,11 @@ export function studentLoginPage() {
           "
         >
 
+
         <button
           id="submitLoginBtn"
           type="button"
+
           style="
             width:100%;
             padding:15px;
@@ -445,14 +573,19 @@ export function studentLoginPage() {
             font-family:Cairo;
           "
         >
+
           دخول وبدء الاختبار
+
         </button>
 
       </div>
 
     </div>
+
   `;
+
 }
+
 
 // ======================================================
 // EVENTS
@@ -460,11 +593,14 @@ export function studentLoginPage() {
 
 document.addEventListener(
   "click",
-  (e) => {
+  async (e) => {
+
     const app =
       document.querySelector("#app");
 
+
     if (!app) return;
+
 
     // ==================================================
     // BACK HOME
@@ -475,10 +611,15 @@ document.addEventListener(
         "#backToHomeMainBtn"
       );
 
+
     if (backMainBtn) {
+
       window.location.reload();
+
       return;
+
     }
+
 
     // ==================================================
     // START EXAM
@@ -489,66 +630,192 @@ document.addEventListener(
         ".goToLoginBtn"
       );
 
+
     if (loginBtn) {
+
       const index =
         Number(
           loginBtn.dataset.examIndex
         );
 
-      const exam =
+
+      const oldExam =
         window.__studentExamsList?.[
           index
         ];
 
-      if (!exam) {
-        console.error(
-          "EXAM NOT FOUND:",
-          index,
-          window.__studentExamsList
-        );
+
+      if (!oldExam) {
 
         alert(
           "تعذر العثور على بيانات الامتحان."
         );
 
         return;
+
       }
 
-      // نحفظ الامتحان في الذاكرة
+
+      // ==================================================
+      // GET FRESH EXAM FROM FIREBASE
+      // ==================================================
+
+      let exam =
+        oldExam;
+
+
+      try {
+
+        const firestoreId =
+          oldExam.firestoreId ||
+          "";
+
+
+        if (firestoreId) {
+
+          const freshExam =
+            await getExamByFirestoreId(
+              firestoreId
+            );
+
+
+          if (freshExam) {
+
+            exam =
+              freshExam;
+
+          }
+
+        }
+
+      } catch (error) {
+
+        console.error(
+          "FRESH EXAM CHECK ERROR:",
+          error
+        );
+
+      }
+
+
+      // ==================================================
+      // FINAL FIREBASE OPEN CHECK
+      // ==================================================
+
+      const isPublished =
+        exam.isPublished === true ||
+        exam.isPublished === "true";
+
+
+      const isManuallyClosed =
+        exam.manualClose === true ||
+        exam.manualClose === "true";
+
+
+      const endDateTime =
+        exam.endDate
+          ? new Date(
+              exam.endDate
+            ).getTime()
+          : null;
+
+
+      const isExpired =
+        endDateTime &&
+        Date.now() >
+          endDateTime;
+
+
+      if (
+        !isPublished ||
+        isManuallyClosed ||
+        isExpired
+      ) {
+
+        alert(
+          "هذا الامتحان مغلق حاليًا."
+        );
+
+
+        await loadStudentExams(
+          localStorage.getItem(
+            "currentClass"
+          ) ||
+          localStorage.getItem(
+            "currentGrade"
+          ) ||
+          "",
+
+          localStorage.getItem(
+            "currentSubject"
+          ) ||
+          "physics"
+        );
+
+
+        return;
+
+      }
+
+
+      // ==================================================
+      // SAVE FRESH EXAM
+      // ==================================================
+
       window.__selectedExamForLaunch =
         exam;
 
-      // نحتفظ بالمرجع فقط
+
+      window.__studentExamsList[index] =
+        exam;
+
+
       localStorage.setItem(
         "currentSelectedExam",
         JSON.stringify({
+
           id:
-            exam.id || "",
+            exam.id ||
+            "",
+
           firestoreId:
-            exam.firestoreId || "",
+            exam.firestoreId ||
+            "",
+
           title:
             exam.title ||
             exam.name ||
             ""
+
         })
       );
+
 
       app.innerHTML =
         studentLoginPage();
 
+
       setTimeout(() => {
+
         const input =
           document.getElementById(
             "loginStudentNameInput"
           );
 
+
         if (input) {
+
           input.focus();
+
         }
+
       }, 50);
 
+
       return;
+
     }
+
 
     // ==================================================
     // STUDENT LOGIN
@@ -559,39 +826,150 @@ document.addEventListener(
         "#submitLoginBtn"
       );
 
+
     if (submitBtn) {
+
       const input =
         document.getElementById(
           "loginStudentNameInput"
         );
 
+
       if (!input) return;
+
 
       const name =
         input.value.trim();
 
+
       if (!name) {
+
         alert(
           "اكتب اسم الطالب"
         );
 
+
         input.focus();
 
         return;
+
       }
+
 
       let exam =
         window.__selectedExamForLaunch ||
         window.__activeExam ||
         null;
 
+
       if (!exam) {
+
         alert(
           "تعذر العثور على الامتحان، ارجع لقائمة الامتحانات وحاول مرة أخرى."
         );
 
         return;
+
       }
+
+
+      // ==================================================
+      // VERY IMPORTANT:
+      // RE-CHECK FIREBASE BEFORE ACTUAL EXAM
+      // ==================================================
+
+      try {
+
+        const firestoreId =
+          exam.firestoreId ||
+          "";
+
+
+        if (firestoreId) {
+
+          const freshExam =
+            await getExamByFirestoreId(
+              firestoreId
+            );
+
+
+          if (freshExam) {
+
+            exam =
+              freshExam;
+
+            window.__selectedExamForLaunch =
+              freshExam;
+
+          }
+
+        }
+
+      } catch (error) {
+
+        console.error(
+          "FINAL FIREBASE EXAM CHECK ERROR:",
+          error
+        );
+
+
+        alert(
+          "تعذر التأكد من حالة الامتحان. حاول مرة أخرى."
+        );
+
+
+        return;
+
+      }
+
+
+      // ==================================================
+      // FINAL OPEN CHECK
+      // ==================================================
+
+      const isPublished =
+        exam.isPublished === true ||
+        exam.isPublished === "true";
+
+
+      const isManuallyClosed =
+        exam.manualClose === true ||
+        exam.manualClose === "true";
+
+
+      const endDateTime =
+        exam.endDate
+          ? new Date(
+              exam.endDate
+            ).getTime()
+          : null;
+
+
+      const isExpired =
+        endDateTime &&
+        Date.now() >
+          endDateTime;
+
+
+      if (
+        !isPublished ||
+        isManuallyClosed ||
+        isExpired
+      ) {
+
+        alert(
+          "هذا الامتحان مغلق حاليًا."
+        );
+
+
+        window.__selectedExamForLaunch =
+          null;
+
+
+        return;
+
+      }
+
 
       // ==================================================
       // PREVENT RETAKE
@@ -602,7 +980,9 @@ document.addEventListener(
         exam.id ||
         "";
 
+
       try {
+
         const results =
           JSON.parse(
             localStorage.getItem(
@@ -610,30 +990,49 @@ document.addEventListener(
             ) || "[]"
           );
 
+
         const alreadyDone =
           results.some(
             (r) =>
+
               String(
-                r.examId || ""
-              ) === String(examId) &&
+                r.examId ||
+                ""
+              ) ===
               String(
-                r.studentName || ""
-              ).trim() === name
+                examId
+              )
+
+              &&
+
+              String(
+                r.studentName ||
+                ""
+              ).trim() ===
+              name
+
           );
 
+
         if (alreadyDone) {
+
           alert(
             "لقد سبق لك أداء هذا الاختبار"
           );
 
           return;
+
         }
+
       } catch (error) {
+
         console.warn(
           "LOCAL RESULTS CHECK ERROR:",
           error
         );
+
       }
+
 
       // ==================================================
       // SAVE STUDENT
@@ -644,6 +1043,7 @@ document.addEventListener(
         name
       );
 
+
       // ==================================================
       // PASS EXAM TO EXAM PAGE
       // ==================================================
@@ -651,12 +1051,16 @@ document.addEventListener(
       window.__activeExam =
         exam;
 
+
       launchExamView(
         exam
       );
 
+
       return;
+
     }
+
 
     // ==================================================
     // BACK AFTER EXAM
@@ -667,84 +1071,164 @@ document.addEventListener(
         "#backHomeAfterExam"
       );
 
+
     if (backHomeAfterExam) {
+
       localStorage.removeItem(
         "currentSelectedExam"
       );
+
 
       localStorage.removeItem(
         "studentName"
       );
 
+
       window.__activeExam =
         null;
+
 
       window.__selectedExamForLaunch =
         null;
 
+
       window.location.reload();
 
+
       return;
+
     }
+
   }
 );
+
 
 // ======================================================
 // LAUNCH EXAM
 // ======================================================
 
 function launchExamView(exam) {
+
   if (!exam) {
+
     alert(
       "تعذر فتح الامتحان."
     );
 
     return;
+
   }
 
-  // الامتحان الكامل في الذاكرة فقط
+
+  // ==================================================
+  // FINAL SAFETY CHECK
+  // ==================================================
+
+  const isPublished =
+    exam.isPublished === true ||
+    exam.isPublished === "true";
+
+
+  const isManuallyClosed =
+    exam.manualClose === true ||
+    exam.manualClose === "true";
+
+
+  const endDateTime =
+    exam.endDate
+      ? new Date(
+          exam.endDate
+        ).getTime()
+      : null;
+
+
+  const isExpired =
+    endDateTime &&
+    Date.now() >
+      endDateTime;
+
+
+  if (
+    !isPublished ||
+    isManuallyClosed ||
+    isExpired
+  ) {
+
+    alert(
+      "هذا الامتحان مغلق حاليًا."
+    );
+
+    return;
+
+  }
+
+
+  // ==================================================
+  // SAVE ACTIVE EXAM
+  // ==================================================
+
   window.__activeExam =
     exam;
 
-  // مرجع خفيف فقط في localStorage
+
+  // ==================================================
+  // SAVE LIGHT REFERENCE ONLY
+  // ==================================================
+
   localStorage.setItem(
     "currentActiveExamRef",
     JSON.stringify({
+
       firestoreId:
         exam.firestoreId ||
         "",
+
       id:
         exam.id ||
         "",
+
       title:
         exam.title ||
         exam.name ||
         ""
+
     })
   );
 
-  // لا نخزن الامتحان الكامل
+
+  // ==================================================
+  // REMOVE OLD FULL EXAM
+  // ==================================================
+
   localStorage.removeItem(
     "currentActiveExam"
   );
+
 
   const app =
     document.querySelector(
       "#app"
     );
 
+
   if (!app) return;
 
+
   try {
+
     app.innerHTML =
       showExam();
+
   } catch (error) {
+
     console.error(
       "SHOW EXAM ERROR:",
       error
     );
 
+
     app.innerHTML = `
+
       <div style="
         min-height:100vh;
         background:#0f172a;
@@ -764,18 +1248,24 @@ function launchExamView(exam) {
             حدث خطأ أثناء فتح الامتحان
           </h2>
 
+
           <p style="
             color:#94a3b8;
           ">
+
             ${
               error?.message ||
               ""
             }
+
           </p>
 
         </div>
 
       </div>
+
     `;
+
   }
+
 }

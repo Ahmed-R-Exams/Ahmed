@@ -6,6 +6,10 @@ import {
 } from "../services/examService.js";
 
 import {
+  regradeResultsForExam
+} from "../services/resultService.js";
+
+import {
   manageExamsPage
 } from "./manageExams.js";
 
@@ -51,6 +55,7 @@ function cleanOptions(list = []) {
 }
 
 function getQuestionOptions(question = {}) {
+  // 1) options
   if (Array.isArray(question.options)) {
     const options = cleanOptions(question.options);
 
@@ -59,6 +64,7 @@ function getQuestionOptions(question = {}) {
     }
   }
 
+  // 2) choices
   if (Array.isArray(question.choices)) {
     const options = cleanOptions(question.choices);
 
@@ -67,6 +73,7 @@ function getQuestionOptions(question = {}) {
     }
   }
 
+  // 3) A / B / C / D
   const letterOptions = [
     question.A,
     question.B,
@@ -89,6 +96,7 @@ function getQuestionOptions(question = {}) {
     );
   }
 
+  // 4) optionA / optionB / optionC / optionD
   const namedOptions = [
     question.optionA,
     question.optionB,
@@ -182,6 +190,7 @@ function normalizeCorrectIndex(
     return 0;
   }
 
+  // رقم
   if (
     typeof value === "number" &&
     Number.isFinite(value)
@@ -195,6 +204,7 @@ function normalizeCorrectIndex(
       return n;
     }
 
+    // أحيانًا Excel يخزن 1-4
     if (
       n >= 1 &&
       n <= options.length
@@ -206,6 +216,7 @@ function normalizeCorrectIndex(
   const raw = String(value).trim();
   const upper = raw.toUpperCase();
 
+  // A/B/C/D
   const letters = {
     A: 0,
     B: 1,
@@ -222,6 +233,7 @@ function normalizeCorrectIndex(
     return letters[upper];
   }
 
+  // 1/2/3/4
   if (/^[1-4]$/.test(raw)) {
     const n = Number(raw) - 1;
 
@@ -230,6 +242,7 @@ function normalizeCorrectIndex(
     }
   }
 
+  // index مباشر
   if (/^\d+$/.test(raw)) {
     const n = Number(raw);
 
@@ -238,6 +251,7 @@ function normalizeCorrectIndex(
     }
   }
 
+  // الإجابة نفسها كنص
   const index = options.findIndex(
     (option) =>
       String(option).trim() === raw
@@ -258,6 +272,7 @@ function normalizeQuestionType(
   question,
   options
 ) {
+  // وجود اختيارات حقيقية = MCQ
   if (options.length > 0) {
     return "mcq";
   }
@@ -286,6 +301,7 @@ function normalizeQuestionType(
     return "mcq";
   }
 
+  // لو مفيش type واضح
   return "essay";
 }
 
@@ -302,6 +318,10 @@ export function questionHTML(
     question.question ||
     question.title ||
     "";
+
+  // -----------------------------------------------
+  // OPTIONS
+  // -----------------------------------------------
 
   let rawOptions =
     getQuestionOptions(question);
@@ -333,6 +353,10 @@ export function questionHTML(
     ];
   }
 
+  // -----------------------------------------------
+  // CORRECT ANSWER
+  // -----------------------------------------------
+
   const rawCorrect =
     getRawCorrectAnswer(question);
 
@@ -343,6 +367,10 @@ export function questionHTML(
           rawCorrect,
           options
         );
+
+  // -----------------------------------------------
+  // IMAGE
+  // -----------------------------------------------
 
   const image =
     question.image ||
@@ -367,6 +395,10 @@ export function questionHTML(
       >
     `;
   }
+
+  // -----------------------------------------------
+  // HTML
+  // -----------------------------------------------
 
   return `
 <div
@@ -560,6 +592,10 @@ async function collectQuestions() {
         ".editTypeSelect"
       )?.value || "mcq";
 
+    // -----------------------------------------------
+    // OPTIONS
+    // -----------------------------------------------
+
     const options =
       Array.from(
         card.querySelectorAll(
@@ -574,18 +610,27 @@ async function collectQuestions() {
       options.push("");
     }
 
+    // -----------------------------------------------
+    // TYPE
+    // -----------------------------------------------
+
     const hasOptions =
       options.some(
         (option) =>
           String(option).trim() !== ""
       );
 
+    // وجود اختيار واحد على الأقل يعني MCQ
     const type =
       hasOptions
         ? "mcq"
         : selectedType === "essay"
           ? "essay"
           : "mcq";
+
+    // -----------------------------------------------
+    // CORRECT ANSWER
+    // -----------------------------------------------
 
     const selectedRadio =
       card.querySelector(
@@ -611,6 +656,10 @@ async function collectQuestions() {
       }
     }
 
+    // -----------------------------------------------
+    // IMAGE
+    // -----------------------------------------------
+
     const imageInput =
       card.querySelector(
         ".editImageFile"
@@ -635,9 +684,17 @@ async function collectQuestions() {
         );
     }
 
+    // -----------------------------------------------
+    // ID
+    // -----------------------------------------------
+
     const oldId =
       card.dataset.questionId ||
       "";
+
+    // -----------------------------------------------
+    // SCORE
+    // -----------------------------------------------
 
     const score =
       Number(
@@ -645,6 +702,10 @@ async function collectQuestions() {
           ".editScore"
         )?.value
       ) || 1;
+
+    // -----------------------------------------------
+    // FINAL QUESTION
+    // -----------------------------------------------
 
     questions.push({
       id:
@@ -676,6 +737,7 @@ async function collectQuestions() {
       correctAnswerIndex:
         correctIndex,
 
+      // نحفظ الإجابة كنص أيضًا
       answer:
         type === "mcq"
           ? (
@@ -800,6 +862,10 @@ export function editExamEvents(
     "click",
     async (e) => {
 
+      // -----------------------------------------------
+      // BACK
+      // -----------------------------------------------
+
       const back =
         e.target.closest(
           "#backToManageExams"
@@ -824,6 +890,10 @@ export function editExamEvents(
 
         return;
       }
+
+      // -----------------------------------------------
+      // ADD
+      // -----------------------------------------------
 
       const add =
         e.target.closest(
@@ -874,6 +944,10 @@ export function editExamEvents(
 
         return;
       }
+
+      // -----------------------------------------------
+      // DELETE
+      // -----------------------------------------------
 
       const deleteButton =
         e.target.closest(
@@ -926,6 +1000,10 @@ export function editExamEvents(
 
         return;
       }
+
+      // -----------------------------------------------
+      // DUPLICATE
+      // -----------------------------------------------
 
       const duplicateButton =
         e.target.closest(
@@ -983,6 +1061,10 @@ export function editExamEvents(
 
         return;
       }
+
+      // -----------------------------------------------
+      // SAVE
+      // -----------------------------------------------
 
       const save =
         e.target.closest(
@@ -1057,17 +1139,52 @@ export function editExamEvents(
           delete payload.id;
           delete payload.firestoreId;
 
-          await updateExam(
+          const finalId =
             oldExam.firestoreId ||
-            realId,
+            realId;
+
+          await updateExam(
+            finalId,
             payload
           );
+
+          let regradeInfo = {
+            updated: 0,
+            matched: 0
+          };
+
+          try {
+
+            regradeInfo =
+              await regradeResultsForExam(
+                [
+                  finalId,
+                  oldExam.id
+                ],
+                questions,
+                oldExam.title || ""
+              );
+
+            console.log(
+              "REGRADE RESULT:",
+              regradeInfo
+            );
+
+          } catch (regradeError) {
+
+            console.error(
+              "REGRADE ERROR:",
+              regradeError
+            );
+
+          }
 
           save.textContent =
             "✅ تم الحفظ بنجاح";
 
           alert(
-            "✅ تم حفظ تعديلات الامتحان بنجاح"
+            "✅ تم حفظ تعديلات الامتحان بنجاح\n" +
+            `تم العثور على ${regradeInfo.matched} نتيجة مرتبطة، وتم تحديث ${regradeInfo.updated} منها.`
           );
 
           const app =
@@ -1114,6 +1231,10 @@ export function editExamEvents(
     "change",
     async (e) => {
 
+      // -----------------------------------------------
+      // TYPE
+      // -----------------------------------------------
+
       if (
         e.target.matches(
           ".editTypeSelect"
@@ -1128,6 +1249,10 @@ export function editExamEvents(
 
         return;
       }
+
+      // -----------------------------------------------
+      // IMAGE
+      // -----------------------------------------------
 
       if (
         !e.target.matches(

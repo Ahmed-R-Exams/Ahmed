@@ -1,9 +1,22 @@
 // pages/exam.js
 
-import { saveResult, getResults } from "../services/resultService.js";
-import { getExamByFirestoreId } from "../services/examService.js";
-import { startTimer, stopTimer } from "../utils/timer.js";
-import { examSettings } from "../config/settings.js";
+import {
+  saveResult,
+  hasStudentAttemptedExam,
+} from "../services/resultService.js";
+
+import {
+  getExamByFirestoreId,
+} from "../services/examService.js";
+
+import {
+  startTimer,
+  stopTimer,
+} from "../utils/timer.js";
+
+import {
+  examSettings,
+} from "../config/settings.js";
 
 // ======================================================
 // TEACHER SETTINGS
@@ -27,18 +40,31 @@ function readExamSettings() {
 // ======================================================
 
 function injectExamStyles() {
-  if (document.getElementById("examPageStyles")) return;
+  if (
+    document.getElementById(
+      "examPageStyles"
+    )
+  ) {
+    return;
+  }
 
-  const fontLink = document.createElement("link");
+  const fontLink =
+    document.createElement("link");
+
   fontLink.rel = "stylesheet";
+
   fontLink.href =
     "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap";
 
-  document.head.appendChild(fontLink);
+  document.head.appendChild(
+    fontLink
+  );
 
-  const style = document.createElement("style");
+  const style =
+    document.createElement("style");
 
-  style.id = "examPageStyles";
+  style.id =
+    "examPageStyles";
 
   style.textContent = `
     .exam-wrap{
@@ -100,11 +126,6 @@ function injectExamStyles() {
       opacity:.9;
       font-weight:600;
     }
-
-    /* ==================================================
-       EXAM LAYOUT
-       لوحة الأسئلة أصغر + مساحة السؤال أكبر
-       ================================================== */
 
     .exam-layout{
       display:flex;
@@ -502,7 +523,9 @@ function injectExamStyles() {
     }
   `;
 
-  document.head.appendChild(style);
+  document.head.appendChild(
+    style
+  );
 }
 
 // ======================================================
@@ -512,10 +535,24 @@ function injectExamStyles() {
 function shuffleArray(arr) {
   const a = arr.slice();
 
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+  for (
+    let i = a.length - 1;
+    i > 0;
+    i--
+  ) {
+    const j =
+      Math.floor(
+        Math.random() *
+          (i + 1)
+      );
 
-    [a[i], a[j]] = [a[j], a[i]];
+    [
+      a[i],
+      a[j],
+    ] = [
+      a[j],
+      a[i],
+    ];
   }
 
   return a;
@@ -526,11 +563,16 @@ function shuffleArray(arr) {
 // ======================================================
 
 function getQuestionOptions(q) {
-  if (!q || typeof q !== "object") {
+  if (
+    !q ||
+    typeof q !== "object"
+  ) {
     return [];
   }
 
-  if (Array.isArray(q.options)) {
+  if (
+    Array.isArray(q.options)
+  ) {
     return q.options.filter(
       (op) =>
         op !== undefined &&
@@ -539,7 +581,9 @@ function getQuestionOptions(q) {
     );
   }
 
-  if (Array.isArray(q.choices)) {
+  if (
+    Array.isArray(q.choices)
+  ) {
     return q.choices.filter(
       (op) =>
         op !== undefined &&
@@ -601,7 +645,10 @@ function getQuestionOptions(q) {
 // NORMALIZE CORRECT ANSWER
 // ======================================================
 
-function normalizeCorrectAnswer(value, options = []) {
+function normalizeCorrectAnswer(
+  value,
+  options = []
+) {
   if (
     value === undefined ||
     value === null ||
@@ -617,9 +664,11 @@ function normalizeCorrectAnswer(value, options = []) {
     return Math.trunc(value);
   }
 
-  const raw = String(value).trim();
+  const raw =
+    String(value).trim();
 
-  const upper = raw.toUpperCase();
+  const upper =
+    raw.toUpperCase();
 
   const letters = {
     A: 0,
@@ -642,7 +691,8 @@ function normalizeCorrectAnswer(value, options = []) {
   }
 
   if (/^\d+$/.test(raw)) {
-    const n = Number(raw);
+    const n =
+      Number(raw);
 
     if (
       n >= 0 &&
@@ -655,7 +705,8 @@ function normalizeCorrectAnswer(value, options = []) {
   const textIndex =
     options.findIndex(
       (op) =>
-        String(op).trim() === raw
+        String(op).trim() ===
+        raw
     );
 
   if (textIndex !== -1) {
@@ -670,13 +721,15 @@ function normalizeCorrectAnswer(value, options = []) {
 // ======================================================
 
 function normalizeQuestion(q) {
-  const cloned = Object.assign({}, q);
+  const cloned =
+    Object.assign({}, q);
 
   const options =
     getQuestionOptions(q);
 
   if (options.length > 0) {
-    cloned.options = options;
+    cloned.options =
+      options;
 
     cloned.correctAnswerIndex =
       normalizeCorrectAnswer(
@@ -742,16 +795,24 @@ function shuffleQuestionOptions(q) {
   const normalized =
     normalizeQuestion(q);
 
-  if (isEssayQuestion(normalized)) {
+  if (
+    isEssayQuestion(
+      normalized
+    )
+  ) {
     return normalized;
   }
 
-  if (!examSettings.shuffleOptions) {
+  if (
+    !examSettings.shuffleOptions
+  ) {
     return normalized;
   }
 
   const options =
-    getQuestionOptions(normalized);
+    getQuestionOptions(
+      normalized
+    );
 
   const correctIndex =
     getQuestionCorrectAnswer(
@@ -759,23 +820,27 @@ function shuffleQuestionOptions(q) {
     );
 
   const indexed =
-    options.map((op, i) => ({
-      op,
-      i,
-    }));
+    options.map(
+      (op, i) => ({
+        op,
+        i,
+      })
+    );
 
   const shuffled =
     shuffleArray(indexed);
 
   const newOptions =
     shuffled.map(
-      (item) => item.op
+      (item) =>
+        item.op
     );
 
   const newCorrectIndex =
     shuffled.findIndex(
       (item) =>
-        item.i === correctIndex
+        item.i ===
+        correctIndex
     );
 
   const cloned =
@@ -802,7 +867,9 @@ function shuffleQuestionOptions(q) {
 // REMOVE UNDEFINED
 // ======================================================
 
-function stripUndefinedDeep(value) {
+function stripUndefinedDeep(
+  value
+) {
   if (Array.isArray(value)) {
     return value.map(
       (item) =>
@@ -819,7 +886,8 @@ function stripUndefinedDeep(value) {
     Object.keys(value).forEach(
       (key) => {
         if (
-          value[key] === undefined
+          value[key] ===
+          undefined
         ) {
           return;
         }
@@ -850,20 +918,27 @@ function sanitizeKey(str) {
     );
 }
 
-function getAttemptKey(examId) {
+function getAttemptKey(
+  examId
+) {
   return `examAttempt_${sanitizeKey(
     examId
   )}`;
 }
 
-function hasAlreadyAttempted(key) {
+function hasAlreadyAttempted(
+  key
+) {
   return (
-    localStorage.getItem(key) ===
-    "done"
+    localStorage.getItem(
+      key
+    ) === "done"
   );
 }
 
-function markAttempted(key) {
+function markAttempted(
+  key
+) {
   localStorage.setItem(
     key,
     "done"
@@ -874,7 +949,9 @@ function markAttempted(key) {
 // ANTI CHEAT
 // ======================================================
 
-function applyAntiCheat(root) {
+function applyAntiCheat(
+  root
+) {
   const block = (e) =>
     e.preventDefault();
 
@@ -916,9 +993,10 @@ function applyAntiCheat(root) {
   );
 
   const keyBlock = (e) => {
-    const k = (
-      e.key || ""
-    ).toLowerCase();
+    const k =
+      (
+        e.key || ""
+      ).toLowerCase();
 
     const blocked =
       k === "f12" ||
@@ -959,7 +1037,14 @@ async function checkAlreadyAttempted(
   studentName
 ) {
   const attemptKey =
-    getAttemptKey(examId);
+    getAttemptKey(
+      examId ||
+        examTitle
+    );
+
+  // ----------------------------------------------------
+  // أسرع حالة: الجهاز نفسه سبق له أداء الامتحان
+  // ----------------------------------------------------
 
   if (
     hasAlreadyAttempted(
@@ -969,38 +1054,18 @@ async function checkAlreadyAttempted(
     return true;
   }
 
+  // ----------------------------------------------------
+  // Firebase:
+  // بدلاً من getResults() وتحميل كل النتائج،
+  // نبحث فقط داخل الامتحان الحالي.
+  // ----------------------------------------------------
+
   try {
-    const results =
-      await getResults();
-
-    const studentKey =
-      sanitizeKey(studentName);
-
-    return results.some((r) => {
-      if (
-        sanitizeKey(
-          r.studentName
-        ) !== studentKey
-      ) {
-        return false;
-      }
-
-      if (examId) {
-        return (
-          sanitizeKey(
-            r.examId
-          ) ===
-          sanitizeKey(examId)
-        );
-      }
-
-      return (
-        sanitizeKey(
-          r.examTitle
-        ) ===
-        sanitizeKey(examTitle)
-      );
-    });
+    return await hasStudentAttemptedExam(
+      examId,
+      studentName,
+      examTitle
+    );
   } catch (error) {
     console.error(
       "ATTEMPT CHECK ERROR:",
@@ -1165,9 +1230,11 @@ function buildExamTemplate(
                       </span>
 
                       <span>
-                        ${q.question ||
-                        q.text ||
-                        ""}
+                        ${
+                          q.question ||
+                          q.text ||
+                          ""
+                        }
                       </span>
 
                     </h3>
@@ -1277,152 +1344,169 @@ function buildReviewScreen({
   answers,
   settings,
 }) {
-  const rows = questions
-    .map((q, index) => {
-      if (
-        isEssayQuestion(q)
-      ) {
-        return `
-          <div class="exam-q-card">
-
-            <p class="exam-q-counter">
-              سؤال ${index + 1}
-            </p>
-
-            <h3 class="exam-q-title">
-              <span>
-                ${q.question || q.text || ""}
-              </span>
-            </h3>
-
-            <p style="
-              background:#f8fafc;
-              border-radius:12px;
-              padding:12px;
-              white-space:pre-wrap;
-            ">
-              إجابتك:
-              ${answers[index] || "(بدون إجابة)"}
-            </p>
-
-          </div>
-        `;
-      }
-
-      const correctIndex =
-        getQuestionCorrectAnswer(q);
-
-      const studentAnswer =
-        answers[index];
-
-      const isCorrect =
-        studentAnswer ===
-        correctIndex;
-
-      const optionsHTML =
-        getQuestionOptions(q)
-          .map((op, i) => {
-            let bg =
-              "#f8fafc";
-
-            let border =
-              "#eef0f5";
-
-            if (
-              settings.showAnswers &&
-              i === correctIndex
-            ) {
-              bg =
-                "#ecfdf5";
-
-              border =
-                "#6ee7b7";
-            }
-
-            if (
-              i === studentAnswer &&
-              !isCorrect
-            ) {
-              bg =
-                "#fef2f2";
-
-              border =
-                "#fca5a5";
-            }
-
-            if (
-              i === studentAnswer &&
-              isCorrect
-            ) {
-              bg =
-                "#ecfdf5";
-
-              border =
-                "#6ee7b7";
-            }
-
+  const rows =
+    questions
+      .map(
+        (q, index) => {
+          if (
+            isEssayQuestion(q)
+          ) {
             return `
-              <div style="
-                display:flex;
-                align-items:center;
-                gap:10px;
-                padding:10px 14px;
-                margin:6px 0;
-                background:${bg};
-                border:1.5px solid ${border};
-                border-radius:12px;
-                font-size:15px;
-              ">
+              <div class="exam-q-card">
 
-                ${
-                  i === studentAnswer
-                    ? "👉"
-                    : ""
-                }
+                <p class="exam-q-counter">
+                  سؤال ${index + 1}
+                </p>
 
-                <span>
-                  ${op}
-                </span>
+                <h3 class="exam-q-title">
+                  <span>
+                    ${
+                      q.question ||
+                      q.text ||
+                      ""
+                    }
+                  </span>
+                </h3>
+
+                <p style="
+                  background:#f8fafc;
+                  border-radius:12px;
+                  padding:12px;
+                  white-space:pre-wrap;
+                ">
+                  إجابتك:
+                  ${
+                    answers[index] ||
+                    "(بدون إجابة)"
+                  }
+                </p>
 
               </div>
             `;
-          })
-          .join("");
+          }
 
-      return `
-        <div class="exam-q-card">
+          const correctIndex =
+            getQuestionCorrectAnswer(
+              q
+            );
 
-          <p class="exam-q-counter">
-            سؤال ${index + 1}
+          const studentAnswer =
+            answers[index];
 
-            ${
-              settings.showAnswers
-                ? ` — ${
+          const isCorrect =
+            studentAnswer ===
+            correctIndex;
+
+          const optionsHTML =
+            getQuestionOptions(q)
+              .map(
+                (op, i) => {
+                  let bg =
+                    "#f8fafc";
+
+                  let border =
+                    "#eef0f5";
+
+                  if (
+                    settings.showAnswers &&
+                    i === correctIndex
+                  ) {
+                    bg =
+                      "#ecfdf5";
+
+                    border =
+                      "#6ee7b7";
+                  }
+
+                  if (
+                    i === studentAnswer &&
+                    !isCorrect
+                  ) {
+                    bg =
+                      "#fef2f2";
+
+                    border =
+                      "#fca5a5";
+                  }
+
+                  if (
+                    i === studentAnswer &&
                     isCorrect
-                      ? "✅ صحيحة"
-                      : "❌ خاطئة"
-                  }`
-                : ""
-            }
+                  ) {
+                    bg =
+                      "#ecfdf5";
 
-          </p>
+                    border =
+                      "#6ee7b7";
+                  }
 
-          <h3 class="exam-q-title">
+                  return `
+                    <div style="
+                      display:flex;
+                      align-items:center;
+                      gap:10px;
+                      padding:10px 14px;
+                      margin:6px 0;
+                      background:${bg};
+                      border:1.5px solid ${border};
+                      border-radius:12px;
+                      font-size:15px;
+                    ">
 
-            <span>
-              ${q.question ||
-              q.text ||
-              ""}
-            </span>
+                      ${
+                        i ===
+                        studentAnswer
+                          ? "👉"
+                          : ""
+                      }
 
-          </h3>
+                      <span>
+                        ${op}
+                      </span>
 
-          ${optionsHTML}
+                    </div>
+                  `;
+                }
+              )
+              .join("");
 
-        </div>
-      `;
-    })
-    .join("");
+          return `
+            <div class="exam-q-card">
+
+              <p class="exam-q-counter">
+                سؤال ${index + 1}
+
+                ${
+                  settings.showAnswers
+                    ? ` — ${
+                        isCorrect
+                          ? "✅ صحيحة"
+                          : "❌ خاطئة"
+                      }`
+                    : ""
+                }
+
+              </p>
+
+              <h3 class="exam-q-title">
+
+                <span>
+                  ${
+                    q.question ||
+                    q.text ||
+                    ""
+                  }
+                </span>
+
+              </h3>
+
+              ${optionsHTML}
+
+            </div>
+          `;
+        }
+      )
+      .join("");
 
   return `
     <div class="exam-wrap">
@@ -2105,25 +2189,87 @@ export function examPage() {
         examTitle
     );
 
-  setTimeout(
-    async () => {
-      const app =
-        document.querySelector(
-          "#app"
-        );
+  // ====================================================
+  // تجهيز الامتحان مباشرة
+  // ====================================================
 
-      if (!app) {
-        return;
-      }
+  const app =
+    document.querySelector(
+      "#app"
+    );
 
-      const alreadyAttempted =
-        await checkAlreadyAttempted(
+  if (!app) {
+    return `
+      <div class="exam-loading">
+        <div class="spinner"></div>
+        <p>جاري تجهيز الامتحان...</p>
+      </div>
+    `;
+  }
+
+  // ----------------------------------------------------
+  // عرض شاشة التحميل فورًا
+  // ----------------------------------------------------
+
+  app.innerHTML = `
+    <div class="exam-loading">
+
+      <div class="spinner"></div>
+
+      <p>
+        جاري تجهيز الامتحان...
+      </p>
+
+    </div>
+  `;
+
+  // ----------------------------------------------------
+  // تشغيل الطلبات بالتوازي
+  // ----------------------------------------------------
+
+  (async () => {
+    try {
+      // ------------------------------------------------
+      // أهم تعديل:
+      // الامتحان + فحص المحاولة في نفس الوقت
+      // ------------------------------------------------
+
+      const examPromise =
+        examId
+          ? getExamByFirestoreId(
+              examId
+            )
+          : Promise.resolve(
+              legacyExam
+            );
+
+      const attemptPromise =
+        checkAlreadyAttempted(
           examId,
           examTitle,
           studentName
         );
 
-      if (alreadyAttempted) {
+      const [
+        freshExam,
+        alreadyAttempted,
+      ] =
+        await Promise.all([
+          examPromise,
+          attemptPromise,
+        ]);
+
+      // ------------------------------------------------
+      // إذا كان الامتحان موجودًا في Firebase
+      // ------------------------------------------------
+
+      let exam =
+        freshExam ||
+        legacyExam;
+
+      if (
+        alreadyAttempted
+      ) {
         markAttempted(
           attemptKey
         );
@@ -2160,25 +2306,13 @@ export function examPage() {
         return;
       }
 
-      let exam =
-        legacyExam;
-
-      if (examId) {
-        const fresh =
-          await getExamByFirestoreId(
-            examId
-          ).catch(
-            () => null
-          );
-
-        if (fresh) {
-          exam = fresh;
-        }
-      }
+      // ------------------------------------------------
+      // استخراج الأسئلة
+      // ------------------------------------------------
 
       const rawQuestions =
         Array.isArray(
-          exam.questions
+          exam?.questions
         )
           ? exam.questions
           : [];
@@ -2200,8 +2334,49 @@ export function examPage() {
           shuffleQuestionOptions
         );
 
+      // ------------------------------------------------
+      // Settings
+      // ------------------------------------------------
+
       const settings =
         readExamSettings();
+
+      // ------------------------------------------------
+      // لا يوجد أسئلة
+      // ------------------------------------------------
+
+      if (!questions.length) {
+        app.innerHTML = `
+          <div class="exam-locked">
+
+            <div class="icon">
+              ⚠️
+            </div>
+
+            <h2>
+              لا توجد أسئلة في هذا الامتحان
+            </h2>
+
+            <p>
+              تعذر تحميل أسئلة الامتحان.
+              حاول العودة وفتح الامتحان مرة أخرى.
+            </p>
+
+            <button
+              onclick="window.location.reload()"
+            >
+              العودة
+            </button>
+
+          </div>
+        `;
+
+        return;
+      }
+
+      // ------------------------------------------------
+      // بناء الامتحان
+      // ------------------------------------------------
 
       app.innerHTML =
         buildExamTemplate(
@@ -2209,6 +2384,10 @@ export function examPage() {
           studentName,
           questions
         );
+
+      // ------------------------------------------------
+      // تشغيل الامتحان
+      // ------------------------------------------------
 
       wireUpExam({
         studentName,
@@ -2219,9 +2398,57 @@ export function examPage() {
         questions,
         settings,
       });
-    },
-    50
-  );
+    } catch (error) {
+      console.error(
+        "EXAM LOAD ERROR:",
+        error
+      );
+
+      app.innerHTML = `
+        <div class="exam-locked">
+
+          <div class="icon">
+            ⚠️
+          </div>
+
+          <h2>
+            تعذر فتح الامتحان
+          </h2>
+
+          <p>
+            حدث خطأ أثناء تحميل بيانات الامتحان.
+            حاول مرة أخرى.
+          </p>
+
+          <button
+            id="examRetryBtn"
+          >
+            إعادة المحاولة
+          </button>
+
+        </div>
+      `;
+
+      const retryBtn =
+        document.getElementById(
+          "examRetryBtn"
+        );
+
+      if (retryBtn) {
+        retryBtn.addEventListener(
+          "click",
+          () => {
+            window.location.reload();
+          }
+        );
+      }
+    }
+  })();
+
+  // ----------------------------------------------------
+  // مهم:
+  // لا نستخدم setTimeout هنا
+  // ----------------------------------------------------
 
   return `
     <div class="exam-loading">
@@ -2306,7 +2533,9 @@ function isEssayQuestion(q) {
   );
 }
 
-function getQuestionCorrectAnswer(q) {
+function getQuestionCorrectAnswer(
+  q
+) {
   const options =
     getQuestionOptions(q);
 

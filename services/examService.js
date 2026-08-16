@@ -27,10 +27,35 @@ export async function getExams() {
 
     const data = item.data();
 
+    // ==================================================
+    // توحيد حالة الامتحان
+    // ==================================================
+
+    const isPublished =
+      data.isPublished === false ||
+      data.isPublished === "false"
+        ? false
+        : true;
+
+    const manualClose =
+      data.manualClose === true ||
+      data.manualClose === "true";
+
     return {
-      firestoreId: item.id,
-      id: data.id || item.id,
-      ...data
+
+      ...data,
+
+      firestoreId:
+        item.id,
+
+      id:
+        data.id || item.id,
+
+      // الحالة النهائية للامتحان
+      isPublished,
+
+      manualClose
+
     };
 
   });
@@ -48,8 +73,12 @@ export async function addExam(examData = {}) {
   );
 
   return {
-    firestoreId: ref.id,
+
+    firestoreId:
+      ref.id,
+
     ...examData
+
   };
 
 }
@@ -95,9 +124,11 @@ export async function saveExams(exams = []) {
 export async function createExamFromExcel(excelData) {
 
   if (!excelData) {
+
     throw new Error(
       "بيانات Excel غير موجودة."
     );
+
   }
 
 
@@ -340,6 +371,7 @@ export async function getExamByFirestoreId(id) {
     return null;
   }
 
+
   const snap =
     await getDoc(
       doc(
@@ -355,12 +387,26 @@ export async function getExamByFirestoreId(id) {
   }
 
 
+  const data =
+    snap.data();
+
+
   return {
 
     firestoreId:
       snap.id,
 
-    ...snap.data()
+    ...data,
+
+    isPublished:
+      data.isPublished === false ||
+      data.isPublished === "false"
+        ? false
+        : true,
+
+    manualClose:
+      data.manualClose === true ||
+      data.manualClose === "true"
 
   };
 
@@ -373,24 +419,55 @@ export async function getExamById(id) {
 
   if (!id) return null;
 
-  // محاولة القراءة المباشرة أولاً (أسرع وأرخص من تحميل كل الامتحانات)
+
+  // محاولة القراءة المباشرة أولاً
   try {
 
-    const snap = await getDoc(doc(db, EXAMS_COLLECTION, id));
+    const snap =
+      await getDoc(
+        doc(
+          db,
+          EXAMS_COLLECTION,
+          id
+        )
+      );
+
 
     if (snap.exists()) {
+
+      const data =
+        snap.data();
+
+
       return {
-        firestoreId: snap.id,
-        ...snap.data(),
+
+        firestoreId:
+          snap.id,
+
+        ...data,
+
+        isPublished:
+          data.isPublished === false ||
+          data.isPublished === "false"
+            ? false
+            : true,
+
+        manualClose:
+          data.manualClose === true ||
+          data.manualClose === "true"
+
       };
+
     }
 
   } catch (error) {
-    // id قد لا يكون Firestore doc id صالح (مثلاً id قديم أو عنوان الامتحان)
-    // نكمل بالبحث اليدوي بالأسفل بدل رمي الخطأ
+
+    // نكمل بالبحث اليدوي
+
   }
 
-  // fallback: بحث يدوي (لدعم المعرفات القديمة أو البحث بعنوان الامتحان)
+
+  // fallback
   const exams =
     await getExams();
 
@@ -425,9 +502,50 @@ export async function updateExam(
 ) {
 
   if (!id) {
+
     throw new Error(
       "Exam ID is required."
     );
+
+  }
+
+
+  // ==================================================
+  // تحديث حالة الفتح / الغلق
+  // ==================================================
+
+  let updateData = {
+    ...data
+  };
+
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      data,
+      "isPublished"
+    )
+  ) {
+
+    const isOpen =
+      data.isPublished === true ||
+      data.isPublished === "true";
+
+
+    // نخزن الحالتين لضمان توافق
+    // كل أجزاء المشروع
+
+    updateData = {
+
+      ...updateData,
+
+      isPublished:
+        isOpen,
+
+      manualClose:
+        !isOpen
+
+    };
+
   }
 
 
@@ -437,8 +555,22 @@ export async function updateExam(
       EXAMS_COLLECTION,
       id
     ),
-    data
+    updateData
   );
+
+
+  // ==================================================
+  // إرجاع البيانات التي تم حفظها
+  // ==================================================
+
+  return {
+
+    firestoreId:
+      id,
+
+    ...updateData
+
+  };
 
 }
 
@@ -448,9 +580,11 @@ export async function updateExam(
 export async function deleteExam(id) {
 
   if (!id) {
+
     throw new Error(
       "Exam ID is required."
     );
+
   }
 
 

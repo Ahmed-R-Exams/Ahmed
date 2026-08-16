@@ -308,6 +308,11 @@ export async function resultsPage() {
         "filterExam"
       );
 
+    const sortSelect =
+      document.getElementById(
+        "sortResults"
+      );
+
     const statTotal =
       document.getElementById(
         "statTotal"
@@ -322,6 +327,154 @@ export async function resultsPage() {
       document.getElementById(
         "statStudents"
       );
+
+    function getResultPercent(r) {
+      const score =
+        Number(r.score) || 0;
+
+      const total =
+        Number(r.total) || 100;
+
+      return total
+        ? (score / total) * 100
+        : 0;
+    }
+
+    function applySort() {
+      const grid =
+        document.getElementById(
+          "resultsTable"
+        );
+
+      if (!grid) {
+        return;
+      }
+
+      const sortValue =
+        sortSelect?.value ||
+        "recent";
+
+      const cards =
+        [
+          ...grid.querySelectorAll(
+            ".rp-card"
+          )
+        ];
+
+      const withData =
+        cards
+          .map(card => {
+            const result =
+              results.find(
+                r =>
+                  String(r.id) ===
+                  String(
+                    card.dataset
+                      .resultId
+                  )
+              );
+
+            return {
+              card,
+              result
+            };
+          })
+          .filter(
+            item => item.result
+          );
+
+      withData.sort((a, b) => {
+        switch (sortValue) {
+
+          case "scoreDesc":
+            return (
+              getResultPercent(
+                b.result
+              ) -
+              getResultPercent(
+                a.result
+              )
+            );
+
+          case "scoreAsc":
+            return (
+              getResultPercent(
+                a.result
+              ) -
+              getResultPercent(
+                b.result
+              )
+            );
+
+          case "studentAsc":
+            return String(
+              a.result
+                .studentName ||
+                ""
+            ).localeCompare(
+              String(
+                b.result
+                  .studentName ||
+                  ""
+              ),
+              "ar"
+            );
+
+          case "studentDesc":
+            return String(
+              b.result
+                .studentName ||
+                ""
+            ).localeCompare(
+              String(
+                a.result
+                  .studentName ||
+                  ""
+              ),
+              "ar"
+            );
+
+          case "examAsc":
+            return String(
+              a.result
+                .examTitle ||
+                ""
+            ).localeCompare(
+              String(
+                b.result
+                  .examTitle ||
+                  ""
+              ),
+              "ar"
+            );
+
+          case "recent":
+          default:
+            return (
+              (
+                Number(
+                  b.result
+                    .createdAt
+                ) || 0
+              ) -
+              (
+                Number(
+                  a.result
+                    .createdAt
+                ) || 0
+              )
+            );
+        }
+      });
+
+      withData.forEach(
+        item => {
+          grid.appendChild(
+            item.card
+          );
+        }
+      );
+    }
 
     function updateFilter() {
       const text =
@@ -446,6 +599,14 @@ export async function resultsPage() {
     examFilter?.addEventListener(
       "change",
       updateFilter
+    );
+
+    sortSelect?.addEventListener(
+      "change",
+      () => {
+        applySort();
+        updateFilter();
+      }
     );
 
     // ================= TABLE =================
@@ -1008,6 +1169,37 @@ export async function resultsPage() {
               </option>`
           )
           .join("")}
+
+      </select>
+
+      <select
+        id="sortResults"
+        class="rp-select"
+      >
+
+        <option value="recent">
+          🕒 الأحدث أولاً
+        </option>
+
+        <option value="scoreDesc">
+          ⬆️ الأعلى درجة
+        </option>
+
+        <option value="scoreAsc">
+          ⬇️ الأقل درجة
+        </option>
+
+        <option value="studentAsc">
+          🔤 اسم الطالب (أ-ي)
+        </option>
+
+        <option value="studentDesc">
+          🔤 اسم الطالب (ي-أ)
+        </option>
+
+        <option value="examAsc">
+          📚 اسم الامتحان (أ-ي)
+        </option>
 
       </select>
 

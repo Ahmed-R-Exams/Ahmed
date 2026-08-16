@@ -1,48 +1,45 @@
 import {
   getExams,
-  deleteExam
+  deleteExam,
+  updateExam
 } from "../services/examService.js";
-
 
 import {
   createExamPage,
   setExamToEdit
 } from "./createExam.js";
 
-
 import {
   adminPage
 } from "./admin.js";
 
-
-
 let examsCache = [];
 
 
-
-// ===============================
+// ======================================================
 // PAGE
-// ===============================
+// ======================================================
 
-export function examsListPage(){
+export function examsListPage() {
 
-return `
-
+  return `
 
 <div style="margin-bottom:20px;">
 
-<button id="btnBackToDashboard"
-
-style="
-background:rgba(30,41,59,.6);
-color:#cbd5e1;
-border:1px solid rgba(255,255,255,.08);
-padding:10px 18px;
-border-radius:12px;
-font-weight:700;
-cursor:pointer;
-font-family:inherit;
-">
+<button
+  id="btnBackToDashboard"
+  type="button"
+  style="
+    background:rgba(30,41,59,.6);
+    color:#cbd5e1;
+    border:1px solid rgba(255,255,255,.08);
+    padding:10px 18px;
+    border-radius:12px;
+    font-weight:700;
+    cursor:pointer;
+    font-family:inherit;
+  "
+>
 
 ⬅ الرجوع للوحة التحكم
 
@@ -51,48 +48,40 @@ font-family:inherit;
 </div>
 
 
-
-
 <div style="
-background:linear-gradient(135deg,#1e293b,#0f172a);
-border-radius:24px;
-padding:25px 30px;
-display:flex;
-justify-content:space-between;
-align-items:center;
-margin-bottom:30px;
-border:1px solid rgba(255,255,255,.08);
+  background:linear-gradient(135deg,#1e293b,#0f172a);
+  border-radius:24px;
+  padding:25px 30px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:30px;
+  border:1px solid rgba(255,255,255,.08);
 ">
-
 
 <div>
 
 <h1 style="
-color:#f8fafc;
-margin:0;
-font-size:22px;
+  color:#f8fafc;
+  margin:0;
+  font-size:22px;
 ">
 
 إدارة الامتحانات
 
 </h1>
 
-
 <p style="
-color:#94a3b8;
+  color:#94a3b8;
 ">
 
-عرض وتعديل وحذف الامتحانات المنشورة
+عرض وتعديل وحذف وفتح وغلق الامتحانات للطلاب
 
 </p>
 
-
 </div>
 
-
 </div>
-
-
 
 
 <div id="firebaseExamsList">
@@ -101,91 +90,76 @@ color:#94a3b8;
 
 </div>
 
-
 `;
 
 }
 
 
+// ======================================================
+// LOAD EXAMS
+// ======================================================
+
+export async function loadExamsList() {
+
+  const container =
+    document.querySelector(
+      "#firebaseExamsList"
+    );
+
+  if (!container) return;
 
 
+  try {
 
-// ===============================
-// LOAD ALL EXAMS
-// ===============================
-
-export async function loadExamsList(){
+    const firebaseExams =
+      await getExams();
 
 
-const container =
-document.querySelector("#firebaseExamsList");
+    let localExams = [];
+
+    try {
+
+      localExams =
+        JSON.parse(
+          localStorage.getItem(
+            "app_exams"
+          )
+        ) || [];
+
+    } catch {
+
+      localExams = [];
+
+    }
 
 
-if(!container)
-return;
+    examsCache = [
+
+      ...firebaseExams.map(
+        exam => ({
+          ...exam,
+          source: "firebase"
+        })
+      ),
+
+      ...localExams.map(
+        exam => ({
+          ...exam,
+          source: "local"
+        })
+      )
+
+    ];
 
 
+    if (!examsCache.length) {
 
-try{
-
-
-// Firebase
-
-const firebaseExams =
-await getExams();
-
-
-
-// LocalStorage القديمة
-
-let localExams = [];
-
-try{
-
-localExams =
-JSON.parse(
-localStorage.getItem("app_exams")
-)
-||
-[];
-
-}catch{
-
-localExams=[];
-
-}
-
-
-
-// دمج
-
-examsCache = [
-
-...firebaseExams.map(e=>({
-...e,
-source:"firebase"
-})),
-
-...localExams.map(e=>({
-...e,
-source:"local"
-}))
-
-];
-
-
-
-
-
-if(!examsCache.length){
-
-
-container.innerHTML = `
+      container.innerHTML = `
 
 <div style="
-padding:40px;
-text-align:center;
-color:#94a3b8;
+  padding:40px;
+  text-align:center;
+  color:#94a3b8;
 ">
 
 لا توجد امتحانات
@@ -194,45 +168,59 @@ color:#94a3b8;
 
 `;
 
-return;
+      return;
 
-}
-
-
+    }
 
 
-container.innerHTML = examsCache.map(exam=>{
+    container.innerHTML =
+      examsCache
+        .map(
+          (exam) => {
+
+            const isOpen =
+              exam.isPublished !== false &&
+              exam.isPublished !== "false";
 
 
-return `
+            const examId =
+              exam.firestoreId ||
+              exam.id;
 
 
-<div style="
-background:linear-gradient(135deg,#1e293b,#0f172a);
-border-radius:20px;
-padding:22px;
-margin-bottom:15px;
-display:flex;
-justify-content:space-between;
-align-items:center;
-flex-wrap:wrap;
-gap:15px;
-">
+            return `
 
+<div
+  class="examManagementCard"
+  data-exam-id="${examId}"
+  style="
+    background:linear-gradient(135deg,#1e293b,#0f172a);
+    border-radius:20px;
+    padding:22px;
+    margin-bottom:15px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:15px;
+  "
+>
 
 
 <div>
 
 
-<div style="margin-bottom:8px;">
+<div style="
+  margin-bottom:8px;
+">
 
 
 <span style="
-background:#312e81;
-color:#c7d2fe;
-padding:5px 12px;
-border-radius:8px;
-font-size:12px;
+  background:#312e81;
+  color:#c7d2fe;
+  padding:5px 12px;
+  border-radius:8px;
+  font-size:12px;
 ">
 
 ${exam.className || "عام"}
@@ -240,15 +228,13 @@ ${exam.className || "عام"}
 </span>
 
 
-
-
 <span style="
-background:#065f46;
-color:#6ee7b7;
-padding:5px 12px;
-border-radius:8px;
-font-size:12px;
-margin-right:5px;
+  background:#065f46;
+  color:#6ee7b7;
+  padding:5px 12px;
+  border-radius:8px;
+  font-size:12px;
+  margin-right:5px;
 ">
 
 ${exam.subject || "physics"}
@@ -256,15 +242,33 @@ ${exam.subject || "physics"}
 </span>
 
 
+<span
+  class="examStatus"
+  style="
+    background:${isOpen ? "#064e3b" : "#7f1d1d"};
+    color:${isOpen ? "#6ee7b7" : "#fca5a5"};
+    padding:5px 12px;
+    border-radius:8px;
+    font-size:12px;
+    margin-right:5px;
+  "
+>
+
+${
+  isOpen
+    ? "🟢 مفتوح للطلاب"
+    : "🔴 مغلق عن الطلاب"
+}
+
+</span>
+
+
 </div>
 
 
-
-
-
 <h3 style="
-color:white;
-margin:5px 0;
+  color:white;
+  margin:5px 0;
 ">
 
 ${exam.title || "امتحان بدون اسم"}
@@ -272,11 +276,9 @@ ${exam.title || "امتحان بدون اسم"}
 </h3>
 
 
-
-
 <p style="
-color:#94a3b8;
-font-size:13px;
+  color:#94a3b8;
+  font-size:13px;
 ">
 
 المدة:
@@ -291,34 +293,60 @@ ${exam.questions?.length || 0}
 </p>
 
 
-
 </div>
 
 
 
-
-
 <div style="
-display:flex;
-gap:10px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
 ">
+
+
+<button
+  type="button"
+  class="toggleExam"
+  data-id="${examId}"
+  data-source="${exam.source}"
+  data-open="${isOpen}"
+  style="
+    background:${isOpen ? "#991b1b" : "#047857"};
+    color:white;
+    border:none;
+    padding:8px 14px;
+    border-radius:10px;
+    cursor:pointer;
+    font-family:inherit;
+    font-weight:700;
+  "
+>
+
+${
+  isOpen
+    ? "🔒 غلق "
+    : "🔓 فتح "
+}
+
+</button>
 
 
 
 <button
-
-class="editExam"
-
-data-id="${exam.firestoreId || exam.id}"
-
-style="
-background:#3730a3;
-color:white;
-border:none;
-padding:8px 14px;
-border-radius:10px;
-cursor:pointer;
-">
+  type="button"
+  class="editExam"
+  data-id="${examId}"
+  style="
+    background:#3730a3;
+    color:white;
+    border:none;
+    padding:8px 14px;
+    border-radius:10px;
+    cursor:pointer;
+    font-family:inherit;
+    font-weight:700;
+  "
+>
 
 تعديل
 
@@ -326,225 +354,550 @@ cursor:pointer;
 
 
 
-
-
 <button
-
-class="deleteExam"
-
-data-id="${exam.firestoreId || exam.id}"
-
-data-source="${exam.source}"
-
-style="
-background:#991b1b;
-color:white;
-border:none;
-padding:8px 14px;
-border-radius:10px;
-cursor:pointer;
-">
+  type="button"
+  class="deleteExam"
+  data-id="${examId}"
+  data-source="${exam.source}"
+  style="
+    background:#991b1b;
+    color:white;
+    border:none;
+    padding:8px 14px;
+    border-radius:10px;
+    cursor:pointer;
+    font-family:inherit;
+    font-weight:700;
+  "
+>
 
 حذف
 
 </button>
 
 
-
 </div>
 
 
-
 </div>
-
 
 `;
 
-}).join("");
+          }
+        )
+        .join("");
 
 
+  } catch (error) {
 
-}
-catch(error){
+    console.error(
+      "LOAD EXAMS ERROR:",
+      error
+    );
 
 
-console.error(error);
-
-
-container.innerHTML = `
+    container.innerHTML = `
 
 <div style="
-color:#ef4444;
-padding:30px;
+  color:#ef4444;
+  padding:30px;
+  text-align:center;
 ">
 
 حدث خطأ في تحميل الامتحانات
 
+<br>
+
+<span style="
+  font-size:12px;
+  color:#94a3b8;
+">
+
+${error?.message || ""}
+
+</span>
+
 </div>
 
 `;
 
+  }
+
 }
 
 
-}
-
-
-
-
-
-
-// ===============================
+// ======================================================
 // EVENTS
-// ===============================
-
+// ======================================================
 
 document.addEventListener(
-"click",
-async(e)=>{
+  "click",
+  async (e) => {
+
+    const app =
+      document.querySelector(
+        "#app"
+      );
+
+    if (!app) return;
 
 
-const app =
-document.querySelector("#app");
+    // ==================================================
+    // TOGGLE OPEN / CLOSE
+    // ==================================================
+
+    const toggle =
+      e.target.closest(
+        ".toggleExam"
+      );
 
 
-if(!app)
-return;
+    if (toggle) {
+
+      /*
+       * مهم:
+       * امنع أي Listener آخر على document
+       * من استقبال نفس الضغطة.
+       */
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
 
 
+      if (
+        toggle.dataset.busy === "true"
+      ) {
+
+        return;
+
+      }
 
 
-if(
-e.target.closest("#btnBackToDashboard")
-){
-
-app.innerHTML =
-adminPage();
-
-return;
-
-}
+      toggle.dataset.busy =
+        "true";
 
 
+      const id =
+        toggle.dataset.id;
 
 
-
-const edit =
-e.target.closest(".editExam");
-
-
-if(edit){
+      const source =
+        toggle.dataset.source;
 
 
-const id =
-edit.dataset.id;
+      const currentlyOpen =
+        toggle.dataset.open === "true";
 
 
-const exam =
-examsCache.find(
-x =>
-String(x.firestoreId || x.id)
-===
-String(id)
+      const newStatus =
+        !currentlyOpen;
+
+
+      const card =
+        toggle.closest(
+          ".examManagementCard"
+        );
+
+
+      const status =
+        card?.querySelector(
+          ".examStatus"
+        );
+
+
+      const oldText =
+        toggle.textContent;
+
+
+      toggle.disabled =
+        true;
+
+
+      toggle.textContent =
+        "جاري التحديث...";
+
+
+      try {
+
+        // ==============================================
+        // FIREBASE
+        // ==============================================
+
+        if (
+          source === "firebase"
+        ) {
+
+          await updateExam(
+            id,
+            {
+              isPublished:
+                newStatus
+            }
+          );
+
+        }
+
+        // ==============================================
+        // LOCAL
+        // ==============================================
+
+        else {
+
+          let exams =
+            JSON.parse(
+              localStorage.getItem(
+                "app_exams"
+              )
+            ) || [];
+
+
+          exams =
+            exams.map(
+              exam => {
+
+                const examId =
+                  exam.firestoreId ||
+                  exam.id;
+
+
+                if (
+                  String(examId) ===
+                  String(id)
+                ) {
+
+                  return {
+                    ...exam,
+                    isPublished:
+                      newStatus
+                  };
+
+                }
+
+
+                return exam;
+
+              }
+            );
+
+
+          localStorage.setItem(
+            "app_exams",
+            JSON.stringify(exams)
+          );
+
+        }
+
+
+        // ==============================================
+        // UPDATE CACHE
+        // ==============================================
+
+        examsCache =
+          examsCache.map(
+            exam => {
+
+              const examId =
+                exam.firestoreId ||
+                exam.id;
+
+
+              if (
+                String(examId) ===
+                String(id)
+              ) {
+
+                return {
+                  ...exam,
+                  isPublished:
+                    newStatus
+                };
+
+              }
+
+
+              return exam;
+
+            }
+          );
+
+
+        // ==============================================
+        // UPDATE BUTTON
+        // ==============================================
+
+        toggle.dataset.open =
+          String(newStatus);
+
+
+        toggle.style.background =
+          newStatus
+            ? "#991b1b"
+            : "#047857";
+
+
+        toggle.textContent =
+          newStatus
+            ? "🔒 غلق "
+            : "🔓 فتح ";
+
+
+        // ==============================================
+        // UPDATE STATUS BADGE
+        // ==============================================
+
+        if (status) {
+
+          status.style.background =
+            newStatus
+              ? "#064e3b"
+              : "#7f1d1d";
+
+
+          status.style.color =
+            newStatus
+              ? "#6ee7b7"
+              : "#fca5a5";
+
+
+          status.textContent =
+            newStatus
+              ? "🟢 مفتوح للطلاب"
+              : "🔴 مغلق عن الطلاب";
+
+        }
+
+
+        toggle.disabled =
+          false;
+
+
+        toggle.dataset.busy =
+          "false";
+
+
+        /*
+         * لا يوجد:
+         *
+         * loadExamsList()
+         *
+         * ولا:
+         *
+         * app.innerHTML
+         *
+         *
+         * لذلك الصفحة لن تخرج.
+         */
+
+      } catch (error) {
+
+        console.error(
+          "TOGGLE EXAM ERROR:",
+          error
+        );
+
+
+        toggle.disabled =
+          false;
+
+
+        toggle.dataset.busy =
+          "false";
+
+
+        toggle.dataset.open =
+          String(currentlyOpen);
+
+
+        toggle.textContent =
+          oldText;
+
+
+        alert(
+          "حدث خطأ أثناء تغيير حالة الامتحان.\n\n" +
+          (error?.message || "")
+        );
+
+      }
+
+
+      return;
+
+    }
+
+
+    // ==================================================
+    // BACK TO DASHBOARD
+    // ==================================================
+
+    const back =
+      e.target.closest(
+        "#btnBackToDashboard"
+      );
+
+
+    if (back) {
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+
+      app.innerHTML =
+        adminPage();
+
+
+      return;
+
+    }
+
+
+    // ==================================================
+    // EDIT
+    // ==================================================
+
+    const edit =
+      e.target.closest(
+        ".editExam"
+      );
+
+
+    if (edit) {
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+
+      const id =
+        edit.dataset.id;
+
+
+      const exam =
+        examsCache.find(
+          x =>
+            String(
+              x.firestoreId ||
+              x.id
+            ) ===
+            String(id)
+        );
+
+
+      if (exam) {
+
+        setExamToEdit(
+          exam
+        );
+
+
+        app.innerHTML =
+          createExamPage();
+
+      }
+
+
+      return;
+
+    }
+
+
+    // ==================================================
+    // DELETE
+    // ==================================================
+
+    const del =
+      e.target.closest(
+        ".deleteExam"
+      );
+
+
+    if (del) {
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+
+      if (
+        !confirm(
+          "هل تريد حذف الامتحان؟"
+        )
+      ) {
+
+        return;
+
+      }
+
+
+      const id =
+        del.dataset.id;
+
+
+      const source =
+        del.dataset.source;
+
+
+      try {
+
+        if (
+          source === "firebase"
+        ) {
+
+          await deleteExam(
+            id
+          );
+
+        } else {
+
+          let exams =
+            JSON.parse(
+              localStorage.getItem(
+                "app_exams"
+              )
+            ) || [];
+
+
+          exams =
+            exams.filter(
+              exam =>
+                String(
+                  exam.id
+                ) !==
+                String(id)
+            );
+
+
+          localStorage.setItem(
+            "app_exams",
+            JSON.stringify(exams)
+          );
+
+        }
+
+
+        await loadExamsList();
+
+      } catch (error) {
+
+        console.error(
+          "DELETE EXAM ERROR:",
+          error
+        );
+
+
+        alert(
+          "حدث خطأ أثناء حذف الامتحان.\n\n" +
+          (error?.message || "")
+        );
+
+      }
+
+
+      return;
+
+    }
+
+  },
+  true
 );
-
-
-
-if(exam){
-
-
-setExamToEdit(exam);
-
-
-app.innerHTML =
-createExamPage();
-
-
-}
-
-
-return;
-
-
-}
-
-
-
-
-
-
-const del =
-e.target.closest(".deleteExam");
-
-
-
-if(del){
-
-
-if(
-confirm("هل تريد حذف الامتحان؟")
-){
-
-
-const id =
-del.dataset.id;
-
-
-const source =
-del.dataset.source;
-
-
-
-
-if(source==="firebase"){
-
-
-await deleteExam(id);
-
-
-}else{
-
-
-let exams =
-JSON.parse(
-localStorage.getItem("app_exams")
-)
-||
-[];
-
-
-exams =
-exams.filter(
-e =>
-String(e.id)
-!==
-String(id)
-);
-
-
-localStorage.setItem(
-"app_exams",
-JSON.stringify(exams)
-);
-
-
-}
-
-
-
-
-await loadExamsList();
-
-
-}
-
-
-
-return;
-
-
-}
-
-
-
-});
