@@ -619,7 +619,9 @@ export async function resultsPage() {
     if (table) {
       table.onclick =
         async e => {
-          // حذف
+
+          // ================= DELETE =================
+
           const del =
             e.target.closest(
               ".deleteResult"
@@ -638,7 +640,8 @@ export async function resultsPage() {
             return;
           }
 
-          // مشاركة
+          // ================= SHARE =================
+
           const share =
             e.target.closest(
               ".shareResult"
@@ -648,7 +651,8 @@ export async function resultsPage() {
             return;
           }
 
-          // نسخ
+          // ================= COPY =================
+
           const copy =
             e.target.closest(
               ".copyResultLink"
@@ -658,30 +662,106 @@ export async function resultsPage() {
             return;
           }
 
-          // فتح المراجعة
+          // ================= OPEN REVIEW =================
+
           const card =
             e.target.closest(
               ".rp-card"
             );
 
-          if (card) {
-            const result =
-              results.find(
-                r =>
-                  String(r.id) ===
-                  String(
-                    card.dataset
-                      .resultId
-                  )
-              );
-
-            if (result) {
-              app.innerHTML =
-                reviewResultPage(
-                  result
-                );
-            }
+          if (!card) {
+            return;
           }
+
+          const result =
+            results.find(
+              r =>
+                String(r.id) ===
+                String(
+                  card.dataset
+                    .resultId
+                )
+            );
+
+          if (!result) {
+            return;
+          }
+
+          /*
+           * ==================================================
+           * مهم جدًا
+           *
+           * النتيجة القديمة تحتوي على نسخة الأسئلة وقت
+           * دخول الطالب للامتحان.
+           *
+           * هنا نبحث عن الامتحان الحالي من Firestore
+           * ونستبدل questions القديمة بالأسئلة الحالية.
+           *
+           * بالتالي عند تعديل الامتحان:
+           *
+           * الكارت الداخلي للنتيجة
+           * يقرأ النسخة الجديدة.
+           * ==================================================
+           */
+
+          let reviewResult = {
+            ...result
+          };
+
+          const currentExam =
+            exams.find(exam => {
+
+              const currentExamId =
+                exam.firestoreId ||
+                exam.id;
+
+              if (
+                result.examId &&
+                currentExamId
+              ) {
+                return (
+                  String(
+                    currentExamId
+                  ) ===
+                  String(
+                    result.examId
+                  )
+                );
+              }
+
+              return (
+                String(
+                  exam.title || ""
+                ).trim() ===
+                String(
+                  result.examTitle ||
+                  ""
+                ).trim()
+              );
+            });
+
+          if (
+            currentExam &&
+            Array.isArray(
+              currentExam.questions
+            )
+          ) {
+
+            reviewResult.questions =
+              currentExam.questions;
+
+          }
+
+          /*
+           * نمرر ID النتيجة الحقيقي
+           * عشان تعديل الدرجة يروح لنفس document.
+           */
+
+          app.innerHTML =
+            reviewResultPage(
+              reviewResult,
+              result.id
+            );
         };
     }
   }, 50);
