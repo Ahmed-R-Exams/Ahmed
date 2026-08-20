@@ -14,8 +14,28 @@ import {
   where
 } from "firebase/firestore";
 
-const RESULTS_COLLECTION =
-  "results";
+const RESULTS_COLLECTION = "results";
+
+
+// ======================================================
+// NORMALIZE RESULT
+// ======================================================
+
+function normalizeResult(
+  firestoreId,
+  data = {}
+) {
+
+  return {
+    ...data,
+
+    // IMPORTANT:
+    // Firestore ID هو المصدر الوحيد للـ id
+    id: firestoreId,
+
+    firestoreId: firestoreId
+  };
+}
 
 
 // ======================================================
@@ -27,7 +47,6 @@ export async function saveResult(
 ) {
 
   const data = {
-
     ...result,
 
     createdAt:
@@ -35,6 +54,8 @@ export async function saveResult(
       Date.now()
   };
 
+  // لا نعتمد على id الموجود داخل object
+  // لأن Firestore سيعطي document ID جديد.
 
   const ref =
     await addDoc(
@@ -45,17 +66,10 @@ export async function saveResult(
       data
     );
 
-
-  return {
-
-    firestoreId:
-      ref.id,
-
-    id:
-      ref.id,
-
-    ...data
-  };
+  return normalizeResult(
+    ref.id,
+    data
+  );
 }
 
 
@@ -65,32 +79,38 @@ export async function saveResult(
 
 export async function getResults() {
 
-  const snapshot =
-    await getDocs(
-      collection(
-        db,
-        RESULTS_COLLECTION
-      )
+  try {
+
+    const snapshot =
+      await getDocs(
+        collection(
+          db,
+          RESULTS_COLLECTION
+        )
+      );
+
+    return snapshot.docs.map(
+      item =>
+        normalizeResult(
+          item.id,
+          item.data()
+        )
     );
 
+  } catch (error) {
 
-  return snapshot.docs.map(
-    item => ({
+    console.error(
+      "GET RESULTS ERROR:",
+      error
+    );
 
-      firestoreId:
-        item.id,
-
-      id:
-        item.id,
-
-      ...item.data()
-    })
-  );
+    return [];
+  }
 }
 
 
 // ======================================================
-// GET RESULT BY ID
+// GET RESULT BY FIRESTORE ID
 // ======================================================
 
 export async function getResultById(
@@ -101,6 +121,12 @@ export async function getResultById(
     return null;
   }
 
+  const cleanId =
+    String(id).trim();
+
+  if (!cleanId) {
+    return null;
+  }
 
   try {
 
@@ -109,26 +135,18 @@ export async function getResultById(
         doc(
           db,
           RESULTS_COLLECTION,
-          id
+          cleanId
         )
       );
-
 
     if (!snap.exists()) {
       return null;
     }
 
-
-    return {
-
-      firestoreId:
-        snap.id,
-
-      id:
-        snap.id,
-
-      ...snap.data()
-    };
+    return normalizeResult(
+      snap.id,
+      snap.data()
+    );
 
   } catch (error) {
 
@@ -156,11 +174,13 @@ export async function hasStudentAttemptedExam(
     return false;
   }
 
-
   try {
 
     let snapshot = null;
 
+    // --------------------------------------------------
+    // SEARCH BY EXAM ID
+    // --------------------------------------------------
 
     if (examId) {
 
@@ -177,13 +197,15 @@ export async function hasStudentAttemptedExam(
           )
         );
 
-
       snapshot =
         await getDocs(
           examIdQuery
         );
     }
 
+    // --------------------------------------------------
+    // FALLBACK BY TITLE
+    // --------------------------------------------------
 
     if (
       (!snapshot ||
@@ -204,13 +226,11 @@ export async function hasStudentAttemptedExam(
           )
         );
 
-
       snapshot =
         await getDocs(
           titleQuery
         );
     }
-
 
     if (
       !snapshot ||
@@ -220,14 +240,12 @@ export async function hasStudentAttemptedExam(
       return false;
     }
 
-
     const targetStudent =
       String(
         studentName || ""
       )
-      .trim()
-      .toLowerCase();
-
+        .trim()
+        .toLowerCase();
 
     return snapshot.docs.some(
       item => {
@@ -235,15 +253,13 @@ export async function hasStudentAttemptedExam(
         const data =
           item.data();
 
-
         const resultStudent =
           String(
             data.studentName ||
             ""
           )
-          .trim()
-          .toLowerCase();
-
+            .trim()
+            .toLowerCase();
 
         if (
           resultStudent !==
@@ -253,7 +269,6 @@ export async function hasStudentAttemptedExam(
           return false;
         }
 
-
         if (examId) {
 
           const resultExamId =
@@ -261,7 +276,6 @@ export async function hasStudentAttemptedExam(
               data.examId ||
               ""
             );
-
 
           if (
             resultExamId ===
@@ -272,21 +286,21 @@ export async function hasStudentAttemptedExam(
           }
         }
 
-
         if (examTitle) {
 
           return (
             String(
               data.examTitle ||
               ""
-            ).trim() ===
+            )
+              .trim() ===
             String(
               examTitle ||
               ""
-            ).trim()
+            )
+              .trim()
           );
         }
-
 
         return false;
       }
@@ -298,7 +312,6 @@ export async function hasStudentAttemptedExam(
       "CHECK STUDENT ATTEMPT ERROR:",
       error
     );
-
 
     return false;
   }
@@ -321,12 +334,14 @@ export async function updateResult(
     );
   }
 
+  const cleanId =
+    String(id).trim();
 
   await updateDoc(
     doc(
       db,
       RESULTS_COLLECTION,
-      id
+      cleanId
     ),
     data
   );
@@ -348,12 +363,14 @@ export async function deleteResult(
     );
   }
 
+  const cleanId =
+    String(id).trim();
 
   await deleteDoc(
     doc(
       db,
       RESULTS_COLLECTION,
-      id
+      cleanId
     )
   );
 }
@@ -372,7 +389,6 @@ export async function deleteAllResults() {
         RESULTS_COLLECTION
       )
     );
-
 
   for (
     const item
@@ -406,325 +422,32 @@ function getResultQuestionOptions(
     return [];
   }
 
-
   if (
-    Array.isArray(
-      q.options
-    )
+    Array.isArray(q.options)
   ) {
 
-    return q.options.filter(
-      op =>
-        op !== undefined &&
-        op !== null &&
-        String(op).trim() !== ""
-    );
+    return q.options;
   }
-
 
   if (
-    Array.isArray(
-      q.choices
-    )
+    Array.isArray(q.choices)
   ) {
 
-    return q.choices.filter(
-      op =>
-        op !== undefined &&
-        op !== null &&
-        String(op).trim() !== ""
-    );
+    return q.choices;
   }
-
-
-  const letterOptions = [
-
-    q.A,
-    q.B,
-    q.C,
-    q.D
-
-  ];
-
-
-  if (
-    letterOptions.some(
-      op =>
-        op !== undefined &&
-        op !== null &&
-        String(op).trim() !== ""
-    )
-  ) {
-
-    return letterOptions.filter(
-      op =>
-        op !== undefined &&
-        op !== null &&
-        String(op).trim() !== ""
-    );
-  }
-
 
   return [];
 }
 
 
 // ======================================================
-// RAW CORRECT ANSWER
-// ======================================================
-
-function getResultRawCorrectAnswer(
-  q
-) {
-
-  if (
-    q.correctAnswerIndex !==
-    undefined
-  ) {
-
-    return q.correctAnswerIndex;
-  }
-
-
-  if (
-    q.correctIndex !==
-    undefined
-  ) {
-
-    return q.correctIndex;
-  }
-
-
-  if (
-    q.rightIndex !==
-    undefined
-  ) {
-
-    return q.rightIndex;
-  }
-
-
-  if (
-    q.correctAnswer !==
-    undefined
-  ) {
-
-    return q.correctAnswer;
-  }
-
-
-  if (
-    q.answer !==
-    undefined
-  ) {
-
-    return q.answer;
-  }
-
-
-  if (
-    q.correct !==
-    undefined
-  ) {
-
-    return q.correct;
-  }
-
-
-  return undefined;
-}
-
-
-// ======================================================
-// NORMALIZE CORRECT INDEX
-// ======================================================
-
-function normalizeResultCorrectIndex(
-  value,
-  options = []
-) {
-
-  if (
-    value === undefined ||
-    value === null ||
-    value === ""
-  ) {
-
-    return -1;
-  }
-
-
-  if (
-    typeof value === "number" &&
-    Number.isFinite(value)
-  ) {
-
-    return Math.trunc(
-      value
-    );
-  }
-
-
-  const raw =
-    String(value).trim();
-
-
-  const upper =
-    raw.toUpperCase();
-
-
-  const letters = {
-
-    A: 0,
-    B: 1,
-    C: 2,
-    D: 3
-
-  };
-
-
-  if (
-    Object.prototype.hasOwnProperty.call(
-      letters,
-      upper
-    )
-  ) {
-
-    return letters[upper];
-  }
-
-
-  if (
-    /^[1-4]$/.test(
-      raw
-    )
-  ) {
-
-    return (
-      Number(raw) - 1
-    );
-  }
-
-
-  if (
-    /^\d+$/.test(
-      raw
-    )
-  ) {
-
-    const n =
-      Number(raw);
-
-
-    if (
-      n >= 0 &&
-      n < options.length
-    ) {
-
-      return n;
-    }
-  }
-
-
-  const textIndex =
-    options.findIndex(
-      op =>
-        String(op).trim() ===
-        raw
-    );
-
-
-  if (
-    textIndex !== -1
-  ) {
-
-    return textIndex;
-  }
-
-
-  return -1;
-}
-
-
-// ======================================================
-// ESSAY
-// ======================================================
-
-function isResultQuestionEssay(
-  q
-) {
-
-  const options =
-    getResultQuestionOptions(
-      q
-    );
-
-
-  if (
-    options.length > 0
-  ) {
-
-    return false;
-  }
-
-
-  const type =
-    String(
-      q?.type || ""
-    )
-    .toLowerCase()
-    .trim();
-
-
-  return (
-
-    type.includes("essay") ||
-    type.includes("مقال") ||
-    type.includes("written") ||
-    type.includes("text") ||
-    !type
-
-  );
-}
-
-
-// ======================================================
-// SCORE
-// ======================================================
-
-function getResultQuestionScore(
-  q
-) {
-
-  const score =
-    Number(
-      q?.score ||
-      q?.maxScore ||
-      q?.points ||
-      q?.grade ||
-      1
-    );
-
-
-  return Number.isFinite(
-    score
-  )
-    ? score
-    : 1;
-}
-
-
-// ======================================================
-// RECALCULATE
-// ======================================================
-// هذه الدالة مستقلة عن حفظ الامتحان.
-// فشلها لا يمنع حفظ الامتحان.
+// RECALCULATE RESULTS
 // ======================================================
 
 export async function recalculateResultsForExam(
   examId,
-  examTitle,
-  updatedQuestions = []
+  examQuestions = [],
+  examTitle = ""
 ) {
 
   if (
@@ -737,11 +460,11 @@ export async function recalculateResultsForExam(
     };
   }
 
-
   if (
     !Array.isArray(
-      updatedQuestions
-    )
+      examQuestions
+    ) ||
+    !examQuestions.length
   ) {
 
     return {
@@ -749,12 +472,10 @@ export async function recalculateResultsForExam(
     };
   }
 
-
   const questionsById =
     new Map();
 
-
-  updatedQuestions.forEach(
+  examQuestions.forEach(
     q => {
 
       if (
@@ -769,11 +490,9 @@ export async function recalculateResultsForExam(
         );
       }
 
-
       if (
         q &&
-        q.firestoreId !==
-          undefined &&
+        q.firestoreId !== undefined &&
         q.firestoreId !== null
       ) {
 
@@ -787,7 +506,6 @@ export async function recalculateResultsForExam(
     }
   );
 
-
   if (
     !questionsById.size
   ) {
@@ -797,10 +515,8 @@ export async function recalculateResultsForExam(
     };
   }
 
-
   let snapshot =
     null;
-
 
   try {
 
@@ -819,13 +535,11 @@ export async function recalculateResultsForExam(
           )
         );
 
-
       snapshot =
         await getDocs(
           examIdQuery
         );
     }
-
 
     if (
       (!snapshot ||
@@ -846,7 +560,6 @@ export async function recalculateResultsForExam(
           )
         );
 
-
       snapshot =
         await getDocs(
           titleQuery
@@ -855,18 +568,15 @@ export async function recalculateResultsForExam(
 
   } catch (error) {
 
-    console.warn(
+    console.error(
       "RECALCULATE RESULTS FETCH ERROR:",
       error
     );
 
-
     return {
-      updated: 0,
-      error
+      updated: 0
     };
   }
-
 
   if (
     !snapshot ||
@@ -878,266 +588,132 @@ export async function recalculateResultsForExam(
     };
   }
 
-
-  let updatedCount =
-    0;
-
+  let updated = 0;
 
   for (
-    const docItem
+    const item
     of snapshot.docs
   ) {
 
-    try {
-
-      const result =
-        docItem.data();
-
-
-      const snapshotQuestions =
-        Array.isArray(
-          result.questions
-        )
-          ? result.questions
-          : [];
-
-
-      const answers =
-        Array.isArray(
-          result.answers
-        )
-          ? result.answers
-          : [];
-
-
-      if (
-        !snapshotQuestions.length
-      ) {
-
-        continue;
-      }
-
-
-      let newScore = 0;
-
-      let newTotal = 0;
-
-      let touchedAnyQuestion =
-        false;
-
-
-      snapshotQuestions.forEach(
-        (snapQ, index) => {
-
-          const qId =
-            snapQ &&
-            snapQ.id !==
-              undefined &&
-            snapQ.id !==
-              null
-              ? String(
-                  snapQ.id
-                )
-              : null;
-
-
-          if (!qId) {
-            return;
-          }
-
-
-          const updatedQ =
-            questionsById.get(
-              qId
-            );
-
-
-          if (!updatedQ) {
-            return;
-          }
-
-
-          touchedAnyQuestion =
-            true;
-
-
-          const qScore =
-            getResultQuestionScore(
-              updatedQ
-            );
-
-
-          newTotal +=
-            qScore;
-
-
-          if (
-            isResultQuestionEssay(
-              updatedQ
-            )
-          ) {
-
-            return;
-          }
-
-
-          const oldOptions =
-            getResultQuestionOptions(
-              snapQ
-            );
-
-
-          const selectedIndex =
-            answers[index];
-
-
-          const selectedText =
-            typeof selectedIndex ===
-              "number" &&
-            selectedIndex >= 0 &&
-            oldOptions[
-              selectedIndex
-            ] !== undefined
-
-              ? String(
-                  oldOptions[
-                    selectedIndex
-                  ]
-                ).trim()
-
-              : null;
-
-
-          if (
-            selectedText ===
-            null
-          ) {
-
-            return;
-          }
-
-
-          const newOptions =
-            getResultQuestionOptions(
-              updatedQ
-            );
-
-
-          const newCorrectIndex =
-            normalizeResultCorrectIndex(
-              getResultRawCorrectAnswer(
-                updatedQ
-              ),
-              newOptions
-            );
-
-
-          const newCorrectText =
-            newCorrectIndex >= 0 &&
-            newOptions[
-              newCorrectIndex
-            ] !== undefined
-
-              ? String(
-                  newOptions[
-                    newCorrectIndex
-                  ]
-                ).trim()
-
-              : null;
-
-
-          if (
-            newCorrectText !==
-              null &&
-            selectedText ===
-              newCorrectText
-          ) {
-
-            newScore +=
-              qScore;
-          }
-
-        }
+    const result =
+      normalizeResult(
+        item.id,
+        item.data()
       );
 
+    const answers =
+      Array.isArray(
+        result.answers
+      )
+        ? result.answers
+        : [];
 
-      if (
-        !touchedAnyQuestion
-      ) {
+    let score = 0;
+    let total = 0;
 
-        continue;
-      }
+    examQuestions.forEach(
+      (q, index) => {
 
+        const type =
+          String(
+            q?.type || ""
+          ).toLowerCase();
 
-      if (
-        newScore ===
+        if (
+          type.includes("essay")
+        ) {
+
+          const max =
+            Number(
+              q.maxScore ||
+              q.grade ||
+              q.points ||
+              1
+            );
+
+          total += max;
+
+          const essayGrade =
+            Number(
+              result.essayGrades?.[
+                index
+              ] || 0
+            );
+
+          score +=
+            Math.max(
+              0,
+              Math.min(
+                essayGrade,
+                max
+              )
+            );
+
+          return;
+        }
+
+        const qScore =
           Number(
-            result.score
+            q?.score || 1
+          );
+
+        total += qScore;
+
+        const studentAnswer =
+          Number(
+            answers[index]
+          );
+
+        const correctAnswer =
+          Number(
+            q?.correctAnswerIndex ??
+            q?.correctAnswer ??
+            q?.rightIndex
+          );
+
+        if (
+          Number.isFinite(
+            studentAnswer
           ) &&
-        newTotal ===
-          Number(
-            result.total
-          )
-      ) {
+          Number.isFinite(
+            correctAnswer
+          ) &&
+          studentAnswer ===
+            correctAnswer
+        ) {
 
-        continue;
+          score += qScore;
+        }
       }
+    );
 
-
-      const newPercentage =
-        newTotal
-          ? Math.round(
-              (
-                newScore /
-                newTotal
-              ) * 100
-            )
-          : 0;
-
+    try {
 
       await updateDoc(
         doc(
           db,
           RESULTS_COLLECTION,
-          docItem.id
+          item.id
         ),
         {
-
-          score:
-            newScore,
-
-          total:
-            newTotal,
-
-          percentage:
-            newPercentage,
-
-          recalculatedAt:
-            Date.now()
-
+          score,
+          total
         }
       );
 
-
-      updatedCount++;
+      updated++;
 
     } catch (error) {
 
-      console.warn(
-        "RECALCULATE SINGLE RESULT ERROR:",
-        docItem.id,
+      console.error(
+        "UPDATE RESULT ERROR:",
+        item.id,
         error
       );
-
-      // لا نرمي الخطأ.
-      // حفظ الامتحان مستقل.
     }
   }
 
-
   return {
-    updated:
-      updatedCount
+    updated
   };
 }

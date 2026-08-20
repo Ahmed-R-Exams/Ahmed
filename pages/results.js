@@ -14,32 +14,90 @@ import { reviewResultPage } from "./reviewResult.js";
 
 import { exportResultsExcel } from "../utils/exportResults.js";
 
+
+// ======================================================
+// RESULTS PAGE
+// ======================================================
+
 export async function resultsPage() {
-  const resultsData = await getResults();
 
-  const results = Array.isArray(resultsData)
-    ? resultsData
-    : [];
+  const resultsData =
+    await getResults();
 
-  const examsData = await getExams();
+  const results =
+    Array.isArray(resultsData)
+      ? resultsData
+      : [];
 
-  const exams = Array.isArray(examsData)
-    ? examsData
-    : [];
+
+  const examsData =
+    await getExams();
+
+  const exams =
+    Array.isArray(examsData)
+      ? examsData
+      : [];
+
+
+  // ====================================================
+  // NORMALIZE RESULT IDS
+  // ====================================================
+
+  const normalizedResults =
+    results.map((r, index) => {
+
+      return {
+        ...r,
+
+        // مهم جداً:
+        // نستخدم id الحقيقي فقط.
+        // لا نستخدم index كـ id.
+
+        id:
+          r?.id !== undefined &&
+          r?.id !== null
+            ? String(r.id)
+            : (
+                r?.firestoreId !== undefined &&
+                r?.firestoreId !== null
+                  ? String(r.firestoreId)
+                  : ""
+              ),
+
+        studentName:
+          r?.studentName || "طالب",
+
+        examTitle:
+          r?.examTitle || "امتحان"
+      };
+
+    });
+
+
+  // ====================================================
+  // STUDENTS
+  // ====================================================
 
   const students = [
     ...new Set(
-      results.map(
-        r => r.studentName || "Unknown"
+      normalizedResults.map(
+        r => r.studentName
       )
     )
   ];
 
+
+  // ====================================================
+  // STATISTICS
+  // ====================================================
+
   const totalSubmissions =
-    results.length;
+    normalizedResults.length;
+
 
   const passedCount =
-    results.filter(r => {
+    normalizedResults.filter(r => {
+
       const total =
         Number(r.total) || 100;
 
@@ -47,83 +105,155 @@ export async function resultsPage() {
         Number(r.score) || 0;
 
       return (
+        total > 0 &&
         (score / total) * 100 >= 50
       );
+
     }).length;
+
 
   const successRate =
     totalSubmissions
       ? Math.round(
-          (passedCount /
-            totalSubmissions) *
-            100
+          (
+            passedCount /
+            totalSubmissions
+          ) * 100
         )
       : 0;
 
+
+  // ====================================================
+  // EVENT SETUP
+  // ====================================================
+
   setTimeout(() => {
+
     const app =
       document.querySelector("#app");
 
-    // ================= BACK =================
+
+    // ==================================================
+    // BACK
+    // ==================================================
 
     const back =
       document.getElementById(
         "backAdmin"
       );
 
+
     if (back) {
+
       back.onclick = () => {
-        app.innerHTML =
-          adminPage();
+
+        if (app) {
+          app.innerHTML =
+            adminPage();
+        }
+
       };
+
     }
 
-    // ================= REFRESH =================
+
+    // ==================================================
+    // REFRESH
+    // ==================================================
 
     const refresh =
       document.getElementById(
         "refreshResults"
       );
 
+
     if (refresh) {
-      refresh.onclick = async () => {
-        app.innerHTML =
-          await resultsPage();
-      };
+
+      refresh.onclick =
+        async () => {
+
+          refresh.disabled = true;
+
+          try {
+
+            if (app) {
+
+              app.innerHTML =
+                await resultsPage();
+
+            }
+
+          } finally {
+
+            refresh.disabled = false;
+
+          }
+
+        };
+
     }
 
-    // ================= EXCEL =================
+
+    // ==================================================
+    // EXCEL
+    // ==================================================
 
     const exportExcel =
       document.getElementById(
         "exportExcelResults"
       );
 
+
     if (exportExcel) {
+
       exportExcel.onclick =
         async () => {
+
           exportExcel.disabled =
             true;
 
           try {
+
             await exportResultsExcel();
+
+          } catch (error) {
+
+            console.error(
+              "Excel export error:",
+              error
+            );
+
+            alert(
+              "حدث خطأ أثناء تصدير ملف Excel"
+            );
+
           } finally {
+
             exportExcel.disabled =
               false;
+
           }
+
         };
+
     }
 
-    // ================= DELETE ALL =================
+
+    // ==================================================
+    // DELETE ALL
+    // ==================================================
 
     const deleteAll =
       document.getElementById(
         "deleteAllResults"
       );
 
+
     if (deleteAll) {
+
       deleteAll.onclick =
         async () => {
+
           if (
             !confirm(
               "حذف كل النتائج؟"
@@ -132,24 +262,53 @@ export async function resultsPage() {
             return;
           }
 
-          await deleteAllResults();
 
-          app.innerHTML =
-            await resultsPage();
+          try {
+
+            await deleteAllResults();
+
+
+            if (app) {
+
+              app.innerHTML =
+                await resultsPage();
+
+            }
+
+          } catch (error) {
+
+            console.error(
+              "Delete all results error:",
+              error
+            );
+
+            alert(
+              "حدث خطأ أثناء حذف النتائج"
+            );
+
+          }
+
         };
+
     }
 
-    // ================= PRINT REPORT =================
+
+    // ==================================================
+    // PRINT REPORT
+    // ==================================================
 
     const reportBtn =
       document.getElementById(
         "studentReport"
       );
 
+
     if (reportBtn) {
-      reportBtn.onclick = () => {
-        const visibleCards =
-          [
+
+      reportBtn.onclick =
+        () => {
+
+          const visibleCards = [
             ...document.querySelectorAll(
               "#resultsTable .rp-card"
             )
@@ -159,349 +318,525 @@ export async function resultsPage() {
               "none"
           );
 
-        const selectedResults =
-          visibleCards
-            .map(card =>
-              results.find(
-                r =>
-                  String(r.id) ===
-                  String(
-                    card.dataset
-                      .resultId
-                  )
-              )
-            )
-            .filter(Boolean);
 
-        if (
-          !selectedResults.length
-        ) {
-          alert(
-            "لا توجد نتائج للطباعة"
+          const selectedResults =
+            visibleCards
+              .map(card => {
+
+                const cardId =
+                  String(
+                    card.dataset.resultId ||
+                    ""
+                  );
+
+
+                return normalizedResults.find(
+                  r =>
+                    String(r.id) ===
+                    cardId
+                );
+
+              })
+              .filter(Boolean);
+
+
+          if (
+            !selectedResults.length
+          ) {
+
+            alert(
+              "لا توجد نتائج للطباعة"
+            );
+
+            return;
+
+          }
+
+
+          printStudentReport(
+            "كشف نتائج الطلاب",
+            selectedResults
           );
 
-          return;
-        }
+        };
 
-        printStudentReport(
-          "كشف نتائج الطلاب",
-          selectedResults
-        );
-      };
     }
 
-    // ================= SHARE RESULT =================
+
+    // ==================================================
+    // SHARE RESULT
+    // ==================================================
 
     document
       .querySelectorAll(
         ".shareResult"
       )
       .forEach(button => {
-        button.onclick = e => {
-          e.stopPropagation();
 
-          const resultId =
-            button.dataset.result;
+        button.onclick =
+          e => {
 
-          const result =
-            results.find(
-              r =>
-                String(r.id) ===
-                String(resultId)
+            e.stopPropagation();
+
+
+            const resultId =
+              normalizeId(
+                button.dataset.result
+              );
+
+
+            if (!resultId) {
+
+              alert(
+                "خطأ: لا يوجد رقم للنتيجة"
+              );
+
+              return;
+
+            }
+
+
+            // ==========================================
+            // FIND EXACT RESULT
+            // ==========================================
+
+            const result =
+              normalizedResults.find(
+                r =>
+                  normalizeId(r.id) ===
+                  resultId
+              );
+
+
+            if (!result) {
+
+              alert(
+                "تعذر العثور على النتيجة"
+              );
+
+              return;
+
+            }
+
+
+            // ==========================================
+            // BUILD EXACT SHARE URL
+            // ==========================================
+
+            const shareUrl =
+              buildResultShareUrl(
+                resultId
+              );
+
+
+            const student =
+              result.studentName ||
+              "الطالب";
+
+
+            const exam =
+              result.examTitle ||
+              "الامتحان";
+
+
+            const score =
+              Number(
+                result.score
+              ) || 0;
+
+
+            const total =
+              Number(
+                result.total
+              ) || 0;
+
+
+            const percent =
+              total > 0
+                ? Math.round(
+                    (
+                      score /
+                      total
+                    ) * 100
+                  )
+                : 0;
+
+
+            const message =
+              `📊 نتيجة الطالب ${student}\n\n` +
+              `📚 الامتحان: ${exam}\n\n` +
+              `📈 الدرجة: ${score}/${total}\n` +
+              `📊 النسبة: ${percent}%\n\n` +
+              `🔗 مشاهدة النتيجة كاملة:\n` +
+              `${shareUrl}`;
+
+
+            const whatsappUrl =
+              `https://wa.me/?text=${encodeURIComponent(
+                message
+              )}`;
+
+
+            window.open(
+              whatsappUrl,
+              "_blank"
             );
 
-          if (!result) {
-            alert(
-              "تعذر العثور على النتيجة"
-            );
+          };
 
-            return;
-          }
-
-          const shareUrl =
-            buildResultShareUrl(
-              result.id
-            );
-
-          const student =
-            result.studentName ||
-            "الطالب";
-
-          const exam =
-            result.examTitle ||
-            "الامتحان";
-
-          /*
-           * الرابط هنا URL كامل حقيقي
-           * وليس Hash.
-           *
-           * مثال:
-           * https://site.com/?result=ABC123
-           *
-           * وده الشكل الذي تتعرف عليه
-           * تطبيقات المراسلة كرابط قابل للضغط.
-           */
-
-          const message =
-            `📊 نتيجة الطالب ${student}\n\n` +
-            `📚 الامتحان: ${exam}\n\n` +
-            `يمكنك مشاهدة تفاصيل النتيجة كاملة من الرابط التالي:\n\n` +
-            `${shareUrl}`;
-
-          const whatsappUrl =
-            `https://wa.me/?text=${encodeURIComponent(
-              message
-            )}`;
-
-          window.open(
-            whatsappUrl,
-            "_blank"
-          );
-        };
       });
 
-    // ================= COPY RESULT LINK =================
+
+    // ==================================================
+    // COPY RESULT LINK
+    // ==================================================
 
     document
       .querySelectorAll(
         ".copyResultLink"
       )
       .forEach(button => {
-        button.onclick = async e => {
-          e.stopPropagation();
 
-          const resultId =
-            button.dataset.result;
+        button.onclick =
+          async e => {
 
-          const shareUrl =
-            buildResultShareUrl(
-              resultId
-            );
+            e.stopPropagation();
 
-          try {
-            await navigator.clipboard.writeText(
-              shareUrl
-            );
 
-            const oldText =
-              button.textContent;
+            const resultId =
+              normalizeId(
+                button.dataset.result
+              );
 
-            button.textContent =
-              "✅ تم نسخ الرابط";
 
-            setTimeout(() => {
+            if (!resultId) {
+
+              alert(
+                "خطأ: لا يوجد رقم للنتيجة"
+              );
+
+              return;
+
+            }
+
+
+            // ==========================================
+            // MAKE SURE RESULT REALLY EXISTS
+            // ==========================================
+
+            const result =
+              normalizedResults.find(
+                r =>
+                  normalizeId(r.id) ===
+                  resultId
+              );
+
+
+            if (!result) {
+
+              alert(
+                "تعذر العثور على النتيجة"
+              );
+
+              return;
+
+            }
+
+
+            const shareUrl =
+              buildResultShareUrl(
+                resultId
+              );
+
+
+            try {
+
+              await navigator.clipboard.writeText(
+                shareUrl
+              );
+
+
+              const oldText =
+                button.textContent;
+
+
               button.textContent =
-                oldText;
-            }, 1800);
-          } catch {
-            prompt(
-              "انسخ رابط النتيجة:",
-              shareUrl
-            );
-          }
-        };
+                "✅ تم نسخ الرابط";
+
+
+              setTimeout(() => {
+
+                button.textContent =
+                  oldText;
+
+              }, 1800);
+
+
+            } catch {
+
+              prompt(
+                "انسخ رابط النتيجة:",
+                shareUrl
+              );
+
+            }
+
+          };
+
       });
 
-    // ================= FILTERS =================
+
+    // ==================================================
+    // FILTERS
+    // ==================================================
 
     const search =
       document.getElementById(
         "searchStudent"
       );
 
+
     const studentFilter =
       document.getElementById(
         "filterStudent"
       );
+
 
     const examFilter =
       document.getElementById(
         "filterExam"
       );
 
+
     const sortSelect =
       document.getElementById(
         "sortResults"
       );
+
 
     const statTotal =
       document.getElementById(
         "statTotal"
       );
 
+
     const statRate =
       document.getElementById(
         "statRate"
       );
+
 
     const statStudents =
       document.getElementById(
         "statStudents"
       );
 
+
     function getResultPercent(r) {
+
       const score =
         Number(r.score) || 0;
+
 
       const total =
         Number(r.total) || 100;
 
+
       return total
-        ? (score / total) * 100
+        ? (
+            score /
+            total
+          ) * 100
         : 0;
+
     }
 
+
+    // ==================================================
+    // SORT
+    // ==================================================
+
     function applySort() {
+
       const grid =
         document.getElementById(
           "resultsTable"
         );
 
+
       if (!grid) {
         return;
       }
+
 
       const sortValue =
         sortSelect?.value ||
         "recent";
 
-      const cards =
-        [
-          ...grid.querySelectorAll(
-            ".rp-card"
-          )
-        ];
+
+      const cards = [
+        ...grid.querySelectorAll(
+          ".rp-card"
+        )
+      ];
+
 
       const withData =
         cards
           .map(card => {
+
             const result =
-              results.find(
+              normalizedResults.find(
                 r =>
-                  String(r.id) ===
-                  String(
-                    card.dataset
-                      .resultId
+                  normalizeId(r.id) ===
+                  normalizeId(
+                    card.dataset.resultId
                   )
               );
+
 
             return {
               card,
               result
             };
+
           })
           .filter(
-            item => item.result
+            item =>
+              item.result
           );
 
-      withData.sort((a, b) => {
-        switch (sortValue) {
 
-          case "scoreDesc":
-            return (
-              getResultPercent(
-                b.result
-              ) -
-              getResultPercent(
-                a.result
-              )
-            );
+      withData.sort(
+        (a, b) => {
 
-          case "scoreAsc":
-            return (
-              getResultPercent(
-                a.result
-              ) -
-              getResultPercent(
-                b.result
-              )
-            );
+          switch (sortValue) {
 
-          case "studentAsc":
-            return String(
-              a.result
-                .studentName ||
-                ""
-            ).localeCompare(
-              String(
-                b.result
-                  .studentName ||
-                  ""
-              ),
-              "ar"
-            );
+            case "scoreDesc":
 
-          case "studentDesc":
-            return String(
-              b.result
-                .studentName ||
-                ""
-            ).localeCompare(
-              String(
-                a.result
-                  .studentName ||
-                  ""
-              ),
-              "ar"
-            );
-
-          case "examAsc":
-            return String(
-              a.result
-                .examTitle ||
-                ""
-            ).localeCompare(
-              String(
-                b.result
-                  .examTitle ||
-                  ""
-              ),
-              "ar"
-            );
-
-          case "recent":
-          default:
-            return (
-              (
-                Number(
+              return (
+                getResultPercent(
                   b.result
-                    .createdAt
-                ) || 0
-              ) -
-              (
-                Number(
+                ) -
+                getResultPercent(
                   a.result
-                    .createdAt
-                ) || 0
-              )
-            );
+                )
+              );
+
+
+            case "scoreAsc":
+
+              return (
+                getResultPercent(
+                  a.result
+                ) -
+                getResultPercent(
+                  b.result
+                )
+              );
+
+
+            case "studentAsc":
+
+              return String(
+                a.result.studentName ||
+                ""
+              ).localeCompare(
+                String(
+                  b.result.studentName ||
+                  ""
+                ),
+                "ar"
+              );
+
+
+            case "studentDesc":
+
+              return String(
+                b.result.studentName ||
+                ""
+              ).localeCompare(
+                String(
+                  a.result.studentName ||
+                  ""
+                ),
+                "ar"
+              );
+
+
+            case "examAsc":
+
+              return String(
+                a.result.examTitle ||
+                ""
+              ).localeCompare(
+                String(
+                  b.result.examTitle ||
+                  ""
+                ),
+                "ar"
+              );
+
+
+            case "recent":
+            default:
+
+              return (
+                (
+                  Number(
+                    b.result.createdAt
+                  ) || 0
+                ) -
+                (
+                  Number(
+                    a.result.createdAt
+                  ) || 0
+                )
+              );
+
+          }
+
         }
-      });
+      );
+
 
       withData.forEach(
         item => {
+
           grid.appendChild(
             item.card
           );
+
         }
       );
+
     }
 
+
+    // ==================================================
+    // FILTER
+    // ==================================================
+
     function updateFilter() {
+
       const text =
         (
-          search?.value || ""
+          search?.value ||
+          ""
         )
           .toLowerCase()
           .trim();
+
 
       const student =
         studentFilter?.value ||
         "";
 
+
       const exam =
         examFilter?.value ||
         "";
+
 
       const cards = [
         ...document.querySelectorAll(
@@ -509,12 +844,15 @@ export async function resultsPage() {
         )
       ];
 
+
       cards.forEach(card => {
+
         const studentName =
           (
             card.dataset.student ||
             ""
           ).toLowerCase();
+
 
         const examName =
           (
@@ -522,22 +860,28 @@ export async function resultsPage() {
             ""
           ).toLowerCase();
 
+
         const okSearch =
           !text ||
           studentName.includes(
             text
           ) ||
-          examName.includes(text);
+          examName.includes(
+            text
+          );
+
 
         const okStudent =
           !student ||
           card.dataset.student ===
             student;
 
+
         const okExam =
           !exam ||
           card.dataset.exam ===
             exam;
+
 
         card.style.display =
           okSearch &&
@@ -545,7 +889,9 @@ export async function resultsPage() {
           okExam
             ? "block"
             : "none";
+
       });
+
 
       const visibleCards =
         cards.filter(
@@ -554,8 +900,10 @@ export async function resultsPage() {
             "none"
         );
 
+
       const visibleTotal =
         visibleCards.length;
+
 
       const visiblePassed =
         visibleCards.filter(
@@ -564,14 +912,17 @@ export async function resultsPage() {
             "fail"
         ).length;
 
+
       const visibleRate =
         visibleTotal
           ? Math.round(
-              (visiblePassed /
-                visibleTotal) *
-                100
+              (
+                visiblePassed /
+                visibleTotal
+              ) * 100
             )
           : 0;
+
 
       const visibleStudents =
         new Set(
@@ -581,126 +932,281 @@ export async function resultsPage() {
           )
         ).size;
 
+
       if (statTotal) {
+
         statTotal.textContent =
           visibleTotal;
+
       }
+
 
       if (statRate) {
+
         statRate.textContent =
           `${visibleRate}%`;
+
       }
+
 
       if (statStudents) {
+
         statStudents.textContent =
           visibleStudents;
+
       }
+
     }
 
-    search?.addEventListener(
-      "input",
-      updateFilter
-    );
 
-    studentFilter?.addEventListener(
-      "change",
-      updateFilter
-    );
+    if (search) {
 
-    examFilter?.addEventListener(
-      "change",
-      updateFilter
-    );
+      search.addEventListener(
+        "input",
+        updateFilter
+      );
 
-    sortSelect?.addEventListener(
-      "change",
-      () => {
-        applySort();
-        updateFilter();
-      }
-    );
+    }
 
-    // ================= TABLE =================
+
+    if (studentFilter) {
+
+      studentFilter.addEventListener(
+        "change",
+        updateFilter
+      );
+
+    }
+
+
+    if (examFilter) {
+
+      examFilter.addEventListener(
+        "change",
+        updateFilter
+      );
+
+    }
+
+
+    if (sortSelect) {
+
+      sortSelect.addEventListener(
+        "change",
+        () => {
+
+          applySort();
+
+          updateFilter();
+
+        }
+      );
+
+    }
+
+
+    // ==================================================
+    // RESULTS CARDS
+    // ==================================================
 
     const table =
       document.getElementById(
         "resultsTable"
       );
 
+
     if (table) {
+
       table.onclick =
         async e => {
 
-          // ================= DELETE =================
+
+          // ============================================
+          // DELETE
+          // ============================================
 
           const del =
             e.target.closest(
               ".deleteResult"
             );
 
+
           if (del) {
+
             e.stopPropagation();
 
-            await deleteResult(
-              del.dataset.result
-            );
 
-            app.innerHTML =
-              await resultsPage();
+            const resultId =
+              normalizeId(
+                del.dataset.result
+              );
+
+
+            if (!resultId) {
+
+              alert(
+                "رقم النتيجة غير موجود"
+              );
+
+              return;
+
+            }
+
+
+            if (
+              !confirm(
+                "حذف هذه النتيجة؟"
+              )
+            ) {
+
+              return;
+
+            }
+
+
+            try {
+
+              await deleteResult(
+                resultId
+              );
+
+
+              if (app) {
+
+                app.innerHTML =
+                  await resultsPage();
+
+              }
+
+            } catch (error) {
+
+              console.error(
+                "Delete result error:",
+                error
+              );
+
+              alert(
+                "حدث خطأ أثناء حذف النتيجة"
+              );
+
+            }
+
 
             return;
+
           }
 
-          // ================= SHARE =================
+
+          // ============================================
+          // SHARE
+          // ============================================
 
           const share =
             e.target.closest(
               ".shareResult"
             );
 
+
           if (share) {
+
+            e.stopPropagation();
+
             return;
+
           }
 
-          // ================= COPY =================
+
+          // ============================================
+          // COPY
+          // ============================================
 
           const copy =
             e.target.closest(
               ".copyResultLink"
             );
 
+
           if (copy) {
+
+            e.stopPropagation();
+
             return;
+
           }
 
-          // ================= OPEN REVIEW =================
+
+          // ============================================
+          // CARD
+          // ============================================
 
           const card =
             e.target.closest(
               ".rp-card"
             );
 
+
           if (!card) {
             return;
           }
 
-          const result =
-            results.find(
-              r =>
-                String(r.id) ===
-                String(
-                  card.dataset
-                    .resultId
-                )
+
+          const resultId =
+            normalizeId(
+              card.dataset.resultId
             );
 
-          if (!result) {
+
+          if (!resultId) {
+
+            console.error(
+              "Result card has no result ID"
+            );
+
             return;
+
           }
+
+
+          // ============================================
+          // EXACT RESULT
+          // ============================================
+
+          const result =
+            normalizedResults.find(
+              r =>
+                normalizeId(r.id) ===
+                resultId
+            );
+
+
+          if (!result) {
+
+            console.error(
+              "Result not found:",
+              resultId
+            );
+
+            alert(
+              "تعذر العثور على بيانات النتيجة"
+            );
+
+            return;
+
+          }
+
+
+          // ============================================
+          // COPY RESULT
+          // ============================================
 
           let reviewResult = {
             ...result
           };
+
+
+          // ============================================
+          // FIND EXAM
+          // ============================================
 
           const currentExam =
             exams.find(exam => {
@@ -709,19 +1215,23 @@ export async function resultsPage() {
                 exam.firestoreId ||
                 exam.id;
 
+
               if (
                 result.examId &&
                 currentExamId
               ) {
+
                 return (
-                  String(
+                  normalizeId(
                     currentExamId
                   ) ===
-                  String(
+                  normalizeId(
                     result.examId
                   )
                 );
+
               }
+
 
               return (
                 String(
@@ -732,34 +1242,83 @@ export async function resultsPage() {
                   ""
                 ).trim()
               );
+
             });
 
-          if (
-            currentExam &&
-            Array.isArray(
-              currentExam.questions
-            )
-          ) {
-            reviewResult.questions =
-              currentExam.questions;
+
+          // ================================================
+// IMPORTANT:
+// استخدم نسخة الأسئلة المحفوظة داخل النتيجة أولاً.
+// لا تستبدلها بالامتحان الحالي.
+//
+// السبب:
+// الطالب قد يكون حل الامتحان قبل تعديل السؤال.
+// لذلك يجب أن تتم المراجعة بنفس نسخة السؤال
+// التي كانت موجودة وقت أداء الامتحان.
+//
+// currentExam.questions = FALLBACK فقط
+// ================================================
+
+if (
+  !Array.isArray(reviewResult.questions) ||
+  reviewResult.questions.length === 0
+) {
+
+  if (
+    currentExam &&
+    Array.isArray(currentExam.questions)
+  ) {
+
+    reviewResult.questions =
+      currentExam.questions;
+
+  }
+
+}
+
+
+          // ============================================
+          // OPEN REVIEW
+          // ============================================
+
+          if (app) {
+
+            app.innerHTML =
+              reviewResultPage(
+                reviewResult,
+                resultId
+              );
+
           }
 
-          app.innerHTML =
-            reviewResultPage(
-              reviewResult,
-              result.id
-            );
         };
+
     }
+
   }, 50);
 
+
+  // ====================================================
+  // HTML
+  // ====================================================
+
   return `
-  <div class="rp" dir="rtl" lang="ar">
+
+  <div
+    class="rp"
+    dir="rtl"
+    lang="ar"
+  >
 
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700;800&family=Tajawal:wght@400;500;700&family=JetBrains+Mono:wght@500;600&display=swap');
+
+      @import url(
+        'https://fonts.googleapis.com/css2?family=Cairo:wght@700;800&family=Tajawal:wght@400;500;700&family=JetBrains+Mono:wght@500;600&display=swap'
+      );
+
 
       .rp{
+
         --ink-950:#0a0f1c;
         --ink-900:#111a2e;
         --ink-800:#1a2440;
@@ -772,23 +1331,41 @@ export async function resultsPage() {
         --warn:#f0a63a;
         --fail:#ef4a63;
 
-        font-family:'Tajawal',sans-serif;
-        color:var(--paper);
+        font-family:
+          'Tajawal',
+          sans-serif;
+
+        color:
+          var(--paper);
+
       }
+
 
       .rp *{
         box-sizing:border-box;
       }
 
+
       .rp-hero{
+
         position:relative;
+
         overflow:hidden;
+
         background:
+
           radial-gradient(
-            600px 200px at 15% 0%,
-            rgba(232,179,76,.14),
+            600px 200px
+            at 15% 0%,
+            rgba(
+              232,
+              179,
+              76,
+              .14
+            ),
             transparent 60%
           ),
+
           linear-gradient(
             150deg,
             #0a0f1c,
@@ -796,336 +1373,714 @@ export async function resultsPage() {
             #1c2a52
           );
 
-        border:1px solid var(--line);
-        border-radius:22px;
-        padding:30px 32px;
-        margin-bottom:24px;
+        border:
+          1px solid
+          var(--line);
+
+        border-radius:
+          22px;
+
+        padding:
+          30px 32px;
+
+        margin-bottom:
+          24px;
+
       }
+
 
       .rp-hero-top{
+
         display:flex;
+
         align-items:center;
-        justify-content:space-between;
+
+        justify-content:
+          space-between;
+
         gap:16px;
+
         flex-wrap:wrap;
-        margin-bottom:22px;
+
+        margin-bottom:
+          22px;
+
       }
+
 
       .rp-back{
+
         display:inline-flex;
+
         align-items:center;
+
         gap:8px;
-        padding:10px 18px;
-        border-radius:12px;
-        border:1px solid var(--line);
-        background:var(--ink-800);
-        color:var(--paper);
-        font-family:'Tajawal',sans-serif;
+
+        padding:
+          10px 18px;
+
+        border-radius:
+          12px;
+
+        border:
+          1px solid
+          var(--line);
+
+        background:
+          var(--ink-800);
+
+        color:
+          var(--paper);
+
+        font-family:
+          'Tajawal',
+          sans-serif;
+
         font-weight:500;
+
         font-size:14px;
+
         cursor:pointer;
+
       }
+
 
       .rp-title{
+
         display:flex;
-        align-items:baseline;
+
+        align-items:
+          baseline;
+
         gap:12px;
+
       }
+
 
       .rp-title h1{
-        font-family:'Cairo',sans-serif;
+
+        font-family:
+          'Cairo',
+          sans-serif;
+
         font-weight:800;
+
         font-size:26px;
+
         margin:0;
+
       }
+
 
       .rp-title span{
-        color:var(--muted);
+
+        color:
+          var(--muted);
+
         font-size:13px;
+
       }
+
 
       .rp-stats{
+
         display:grid;
+
         grid-template-columns:
-          repeat(auto-fit,minmax(150px,1fr));
+          repeat(
+            auto-fit,
+            minmax(
+              150px,
+              1fr
+            )
+          );
+
         gap:14px;
+
       }
+
 
       .rp-stat{
-        background:var(--ink-900);
-        border:1px solid var(--line);
-        border-radius:14px;
-        padding:14px 16px;
+
+        background:
+          var(--ink-900);
+
+        border:
+          1px solid
+          var(--line);
+
+        border-radius:
+          14px;
+
+        padding:
+          14px 16px;
+
       }
+
 
       .rp-stat b{
+
         display:block;
-        font-family:'JetBrains Mono',monospace;
+
+        font-family:
+          'JetBrains Mono',
+          monospace;
+
         font-size:24px;
-        color:var(--gold);
+
+        color:
+          var(--gold);
+
       }
+
 
       .rp-stat span{
+
         font-size:12.5px;
-        color:var(--muted);
+
+        color:
+          var(--muted);
+
       }
+
 
       .rp-toolbar{
+
         display:flex;
+
         gap:12px;
+
         flex-wrap:wrap;
+
         margin-bottom:26px;
+
       }
+
 
       .rp-search{
+
         flex:1;
+
         min-width:220px;
-        padding:13px 16px;
-        border-radius:12px;
-        border:1px solid var(--line);
-        background:var(--ink-900);
-        color:var(--paper);
-        font-family:'Tajawal',sans-serif;
+
+        padding:
+          13px 16px;
+
+        border-radius:
+          12px;
+
+        border:
+          1px solid
+          var(--line);
+
+        background:
+          var(--ink-900);
+
+        color:
+          var(--paper);
+
+        font-family:
+          'Tajawal',
+          sans-serif;
+
         font-size:14px;
+
       }
+
 
       .rp-select{
-        padding:13px 14px;
-        border-radius:12px;
-        border:1px solid var(--line);
-        background:var(--ink-900);
-        color:var(--paper);
-        font-family:'Tajawal',sans-serif;
+
+        padding:
+          13px 14px;
+
+        border-radius:
+          12px;
+
+        border:
+          1px solid
+          var(--line);
+
+        background:
+          var(--ink-900);
+
+        color:
+          var(--paper);
+
+        font-family:
+          'Tajawal',
+          sans-serif;
+
         font-size:14px;
+
         cursor:pointer;
+
       }
+
 
       .rp-btn{
-        padding:13px 18px;
-        border-radius:12px;
-        border:1px solid var(--line);
-        background:var(--ink-800);
-        color:var(--paper);
-        font-family:'Tajawal',sans-serif;
+
+        padding:
+          13px 18px;
+
+        border-radius:
+          12px;
+
+        border:
+          1px solid
+          var(--line);
+
+        background:
+          var(--ink-800);
+
+        color:
+          var(--paper);
+
+        font-family:
+          'Tajawal',
+          sans-serif;
+
         font-weight:500;
+
         font-size:14px;
+
         cursor:pointer;
+
         white-space:nowrap;
+
       }
 
+
       .rp-btn-primary{
+
         background:
           linear-gradient(
             135deg,
             #2b5cff,
             #5b7dff
           );
-        border-color:transparent;
+
+        border-color:
+          transparent;
+
       }
 
-      .rp-btn-whatsapp{
-        background:
-          linear-gradient(
-            135deg,
-            #16a34a,
-            #22c55e
-          );
-        border-color:transparent;
-        color:white;
-      }
-
-      .rp-btn-copy{
-        background:#334155;
-      }
 
       .rp-btn-danger{
+
         background:
           linear-gradient(
             135deg,
             #c81e3a,
             #ef4a63
           );
-        border-color:transparent;
+
+        border-color:
+          transparent;
+
       }
+
 
       .rp-grid{
+
         display:grid;
+
         grid-template-columns:
-          repeat(auto-fit,minmax(280px,1fr));
+          repeat(
+            auto-fit,
+            minmax(
+              280px,
+              1fr
+            )
+          );
+
         gap:18px;
+
       }
+
 
       .rp-card{
+
         position:relative;
-        background:var(--ink-900);
-        border:1px solid var(--line);
-        border-inline-start:4px solid var(--line);
-        border-radius:18px;
-        padding:22px;
+
+        background:
+          var(--ink-900);
+
+        border:
+          1px solid
+          var(--line);
+
+        border-inline-start:
+          4px solid
+          var(--line);
+
+        border-radius:
+          18px;
+
+        padding:
+          22px;
+
         cursor:pointer;
+
       }
+
 
       .rp-card:hover{
-        border-color:var(--gold);
+
+        border-color:
+          var(--gold);
+
       }
+
 
       .rp-card[data-tier="good"]{
-        border-inline-start-color:var(--pass);
+
+        border-inline-start-color:
+          var(--pass);
+
       }
+
 
       .rp-card[data-tier="pass"]{
-        border-inline-start-color:var(--warn);
+
+        border-inline-start-color:
+          var(--warn);
+
       }
+
 
       .rp-card[data-tier="fail"]{
-        border-inline-start-color:var(--fail);
+
+        border-inline-start-color:
+          var(--fail);
+
       }
+
 
       .rp-stamp{
+
         position:absolute;
+
         top:16px;
-        inset-inline-end:16px;
+
+        inset-inline-end:
+          16px;
+
         width:64px;
+
         height:64px;
-        border-radius:50%;
-        border:2px dashed var(--line);
+
+        border-radius:
+          50%;
+
+        border:
+          2px dashed
+          var(--line);
+
         display:flex;
-        flex-direction:column;
+
+        flex-direction:
+          column;
+
         align-items:center;
+
         justify-content:center;
-        transform:rotate(-8deg);
-        font-family:'Cairo',sans-serif;
+
+        transform:
+          rotate(-8deg);
+
+        font-family:
+          'Cairo',
+          sans-serif;
+
         pointer-events:none;
+
       }
+
 
       .rp-stamp b{
-        font-family:'JetBrains Mono',monospace;
+
+        font-family:
+          'JetBrains Mono',
+          monospace;
+
         font-size:15px;
+
       }
+
 
       .rp-stamp span{
+
         font-size:9px;
+
         font-weight:700;
+
       }
 
-      .rp-card[data-tier="good"] .rp-stamp{
-        border-color:var(--pass);
-        color:var(--pass);
+
+      .rp-card[data-tier="good"]
+      .rp-stamp{
+
+        border-color:
+          var(--pass);
+
+        color:
+          var(--pass);
+
       }
 
-      .rp-card[data-tier="pass"] .rp-stamp{
-        border-color:var(--warn);
-        color:var(--warn);
+
+      .rp-card[data-tier="pass"]
+      .rp-stamp{
+
+        border-color:
+          var(--warn);
+
+        color:
+          var(--warn);
+
       }
 
-      .rp-card[data-tier="fail"] .rp-stamp{
-        border-color:var(--fail);
-        color:var(--fail);
+
+      .rp-card[data-tier="fail"]
+      .rp-stamp{
+
+        border-color:
+          var(--fail);
+
+        color:
+          var(--fail);
+
       }
 
-      #resultsTable .rp-card h3{
-        font-family:'Cairo',sans-serif;
+
+      #resultsTable
+      .rp-card h3{
+
+        font-family:
+          'Cairo',
+          sans-serif;
+
         font-weight:700;
+
         font-size:17px;
-        margin:0 0 6px;
-        padding-inline-end:74px;
-        color:var(--paper)!important;
+
+        margin:
+          0 0 6px;
+
+        padding-inline-end:
+          74px;
+
+        color:
+          var(--paper)!important;
+
       }
+
 
       .rp-card .rp-exam{
-        color:var(--muted);
+
+        color:
+          var(--muted);
+
         font-size:13.5px;
-        margin:0 0 14px;
+
+        margin:
+          0 0 14px;
+
       }
+
 
       .rp-card .rp-score{
-        font-family:'JetBrains Mono',monospace;
+
+        font-family:
+          'JetBrains Mono',
+          monospace;
+
         font-size:14px;
-        color:var(--paper);
-        background:var(--ink-800);
+
+        color:
+          var(--paper);
+
+        background:
+          var(--ink-800);
+
         display:inline-block;
-        padding:4px 10px;
-        border-radius:8px;
-        margin-bottom:16px;
+
+        padding:
+          4px 10px;
+
+        border-radius:
+          8px;
+
+        margin-bottom:
+          16px;
+
       }
+
 
       .rp-actions{
+
         display:grid;
-        grid-template-columns:1fr 1fr;
+
+        grid-template-columns:
+          1fr 1fr;
+
         gap:8px;
+
         margin-top:4px;
+
       }
+
 
       .rp-action{
+
         width:100%;
+
         padding:9px;
+
         border-radius:10px;
+
         cursor:pointer;
-        font-family:'Tajawal',sans-serif;
+
+        font-family:
+          'Tajawal',
+          sans-serif;
+
         font-size:13px;
+
         font-weight:700;
-        border:1px solid var(--line);
+
+        border:
+          1px solid
+          var(--line);
+
         color:white;
+
       }
 
+
       .rp-action.shareResult{
+
         background:
           linear-gradient(
             135deg,
             #15803d,
             #22c55e
           );
+
       }
+
 
       .rp-action.copyResultLink{
+
         background:#334155;
+
       }
+
 
       .rp-delete{
+
         display:block;
+
         width:100%;
+
         margin-top:8px;
+
         padding:9px;
+
         background:transparent;
-        color:var(--fail);
-        border:1px solid var(--fail);
+
+        color:
+          var(--fail);
+
+        border:
+          1px solid
+          var(--fail);
+
         border-radius:10px;
+
         cursor:pointer;
-        font-family:'Tajawal',sans-serif;
+
+        font-family:
+          'Tajawal',
+          sans-serif;
+
         font-size:13px;
+
       }
+
 
       .rp-empty{
+
         text-align:center;
-        padding:60px 20px;
-        color:var(--muted);
-        border:1px dashed var(--line);
-        border-radius:18px;
-        grid-column:1 / -1;
+
+        padding:
+          60px 20px;
+
+        color:
+          var(--muted);
+
+        border:
+          1px dashed
+          var(--line);
+
+        border-radius:
+          18px;
+
+        grid-column:
+          1 / -1;
+
       }
+
 
       .rp-empty b{
+
         display:block;
-        font-family:'Cairo',sans-serif;
+
+        font-family:
+          'Cairo',
+          sans-serif;
+
         font-size:18px;
-        color:var(--paper);
+
+        color:
+          var(--paper);
+
         margin-bottom:6px;
+
       }
+
 
       @media(max-width:520px){
+
         .rp-hero{
+
           padding:22px;
+
         }
+
 
         .rp-title h1{
+
           font-size:21px;
+
         }
 
+
         .rp-actions{
-          grid-template-columns:1fr;
+
+          grid-template-columns:
+            1fr;
+
         }
+
       }
+
     </style>
+
+
+    <!-- ================================================= -->
+    <!-- HERO -->
+    <!-- ================================================= -->
 
     <div class="rp-hero">
 
@@ -1134,9 +2089,11 @@ export async function resultsPage() {
         <button
           id="backAdmin"
           class="rp-back"
+          type="button"
         >
           ⬅ العودة للوحة التحكم
         </button>
+
 
         <div class="rp-title">
 
@@ -1152,38 +2109,55 @@ export async function resultsPage() {
 
       </div>
 
+
       <div class="rp-stats">
 
         <div class="rp-stat">
+
           <b id="statTotal">
             ${totalSubmissions}
           </b>
+
           <span>
             عدد التسليمات
           </span>
+
         </div>
 
+
         <div class="rp-stat">
+
           <b id="statRate">
             ${successRate}%
           </b>
+
           <span>
             نسبة النجاح
           </span>
+
         </div>
 
+
         <div class="rp-stat">
+
           <b id="statStudents">
             ${students.length}
           </b>
+
           <span>
             عدد الطلاب
           </span>
+
         </div>
 
       </div>
 
     </div>
+
+
+    <!-- ================================================= -->
+    <!-- TOOLBAR -->
+    <!-- ================================================= -->
 
     <div class="rp-toolbar">
 
@@ -1192,6 +2166,7 @@ export async function resultsPage() {
         class="rp-search"
         placeholder="🔍 بحث عن طالب أو امتحان"
       >
+
 
       <select
         id="filterStudent"
@@ -1215,6 +2190,7 @@ export async function resultsPage() {
 
       </select>
 
+
       <select
         id="filterExam"
         class="rp-select"
@@ -1231,13 +2207,15 @@ export async function resultsPage() {
                 e.title || ""
               )}">
                 ${escapeHTML(
-                  e.title || "امتحان"
+                  e.title ||
+                  "امتحان"
                 )}
               </option>`
           )
           .join("")}
 
       </select>
+
 
       <select
         id="sortResults"
@@ -1270,35 +2248,48 @@ export async function resultsPage() {
 
       </select>
 
+
       <button
         id="refreshResults"
         class="rp-btn"
+        type="button"
       >
         🔄 تحديث
       </button>
 
+
       <button
         id="exportExcelResults"
         class="rp-btn"
+        type="button"
       >
         📊 تصدير Excel
       </button>
 
+
       <button
         id="studentReport"
         class="rp-btn rp-btn-primary"
+        type="button"
       >
         📄 طباعة كشف
       </button>
 
+
       <button
         id="deleteAllResults"
         class="rp-btn rp-btn-danger"
+        type="button"
       >
         🗑 حذف الكل
       </button>
 
     </div>
+
+
+    <!-- ================================================= -->
+    <!-- RESULTS -->
+    <!-- ================================================= -->
 
     <div
       id="resultsTable"
@@ -1306,49 +2297,85 @@ export async function resultsPage() {
     >
 
       ${
-        results.length
-          ? results
-              .map(r => {
+        normalizedResults.length
 
-                const score =
-                  Number(r.score) || 0;
+          ?
 
-                const total =
-                  Number(r.total) || 100;
+          normalizedResults
+            .map(r => {
 
-                const percent =
-                  Math.round(
-                    (score / total) *
-                      100
-                  );
+              const score =
+                Number(r.score) || 0;
 
-                const tier =
-                  percent >= 70
-                    ? "good"
-                    : percent >= 50
-                    ? "pass"
-                    : "fail";
 
-                const stampLabel =
-                  percent >= 50
-                    ? "ناجح"
-                    : "راسب";
+              const total =
+                Number(r.total) || 100;
 
-                return `
+
+              const percent =
+                total > 0
+                  ? Math.round(
+                      (
+                        score /
+                        total
+                      ) * 100
+                    )
+                  : 0;
+
+
+              const tier =
+                percent >= 70
+                  ? "good"
+                  : percent >= 50
+                  ? "pass"
+                  : "fail";
+
+
+              const stampLabel =
+                percent >= 50
+                  ? "ناجح"
+                  : "راسب";
+
+
+              // =========================================
+              // VERY IMPORTANT
+              // =========================================
+              // هذا هو الـ ID الحقيقي للنتيجة.
+              // كل شيء يستخدمه:
+              //
+              // data-result-id
+              // data-result
+              // share URL
+              //
+              // نفس القيمة بالضبط.
+              // =========================================
+
+              const resultId =
+                normalizeId(
+                  r.id
+                );
+
+
+              return `
 
                 <div
                   class="menu-card rp-card"
+
                   data-tier="${tier}"
+
                   data-result-id="${escapeHTML(
-                    r.id
+                    resultId
                   )}"
+
                   data-student="${escapeHTML(
-                    r.studentName || ""
+                    r.studentName
                   )}"
+
                   data-exam="${escapeHTML(
-                    r.examTitle || ""
+                    r.examTitle
                   )}"
                 >
+
 
                   <div class="rp-stamp">
 
@@ -1362,82 +2389,137 @@ export async function resultsPage() {
 
                   </div>
 
+
                   <h3>
+
                     👨‍🎓
+
                     ${escapeHTML(
-                      r.studentName ||
-                        "طالب"
+                      r.studentName
                     )}
+
                   </h3>
 
+
                   <p class="rp-exam">
+
                     📚
+
                     ${escapeHTML(
-                      r.examTitle ||
-                        "امتحان"
+                      r.examTitle
                     )}
+
                   </p>
 
+
                   <div class="rp-score">
-                    ${score} / ${total}
+
+                    ${score}
+                    /
+                    ${total}
+
                   </div>
+
 
                   <div class="rp-actions">
 
+
                     <button
                       type="button"
+
                       class="rp-action shareResult"
+
                       data-result="${escapeHTML(
-                        r.id
+                        resultId
                       )}"
                     >
                       📤 إرسال للطالب
                     </button>
 
+
                     <button
                       type="button"
+
                       class="rp-action copyResultLink"
+
                       data-result="${escapeHTML(
-                        r.id
+                        resultId
                       )}"
                     >
                       🔗 نسخ الرابط
                     </button>
 
+
                   </div>
+
 
                   <button
                     type="button"
+
                     class="deleteResult rp-delete"
+
                     data-result="${escapeHTML(
-                      r.id
+                      resultId
                     )}"
                   >
                     حذف
                   </button>
 
+
                 </div>
 
               `;
-              })
-              .join("")
-          : `
+
+            })
+            .join("")
+
+
+          :
+
+          `
+
             <div class="rp-empty">
 
               <b>
                 لا توجد نتائج حتى الآن
               </b>
 
-              نتائج الطلاب هتظهر هنا بعد تسليم الامتحانات
+              نتائج الطلاب هتظهر هنا
+              بعد تسليم الامتحانات
 
             </div>
+
           `
+
       }
 
     </div>
 
   </div>
+
   `;
+
+}
+
+
+// ======================================================
+// NORMALIZE ID
+// ======================================================
+
+function normalizeId(value) {
+
+  if (
+    value === undefined ||
+    value === null
+  ) {
+
+    return "";
+
+  }
+
+
+  return String(value).trim();
+
 }
 
 
@@ -1445,18 +2527,56 @@ export async function resultsPage() {
 // SHARE URL
 // ======================================================
 
-function buildResultShareUrl(resultId) {
-  const url = new URL(
-    window.location.origin +
-      window.location.pathname
-  );
+function buildResultShareUrl(
+  resultId
+) {
+
+  const cleanId =
+    normalizeId(
+      resultId
+    );
+
+
+  if (!cleanId) {
+
+    return "";
+
+  }
+
+
+  /*
+   * مهم جداً:
+   *
+   * الرابط يحتوي على الـ ID الحقيقي
+   * للنتيجة الموجودة في Firestore.
+   *
+   * مثال:
+   *
+   * https://site.com/?result=ABC123
+   *
+   */
+
+
+  const url =
+    new URL(
+      window.location.href
+    );
+
+
+  // إزالة أي parameters قديمة
+  // حتى لا يحصل تعارض.
+
+  url.search = "";
+
 
   url.searchParams.set(
     "result",
-    String(resultId)
+    cleanId
   );
 
+
   return url.toString();
+
 }
 
 
@@ -1465,23 +2585,48 @@ function buildResultShareUrl(resultId) {
 // ======================================================
 
 function escapeHTML(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+
+  return String(
+    value ?? ""
+  )
+
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+
+    .replace(
+      /</g,
+      "&lt;"
+    )
+
+    .replace(
+      />/g,
+      "&gt;"
+    )
+
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
 }
 
 
 // ======================================================
-// PRINT
+// PRINT REPORT
 // ======================================================
 
 function printStudentReport(
   title,
   studentResults
 ) {
+
   const win =
     window.open(
       "",
@@ -1489,41 +2634,57 @@ function printStudentReport(
       "width=900,height=700"
     );
 
+
   if (!win) {
+
     alert(
       "يرجى السماح بفتح النوافذ المنبثقة."
     );
 
     return;
+
   }
+
 
   const total =
     studentResults.reduce(
       (a, r) =>
         a +
-        (Number(r.total) ||
-          100),
+        (
+          Number(
+            r.total
+          ) || 100
+        ),
       0
     );
+
 
   const score =
     studentResults.reduce(
       (a, r) =>
         a +
-        (Number(r.score) ||
-          0),
+        (
+          Number(
+            r.score
+          ) || 0
+        ),
       0
     );
+
 
   const avg =
     total
       ? Math.round(
-          (score / total) *
-            100
+          (
+            score /
+            total
+          ) * 100
         )
       : 0;
 
+
   win.document.write(`
+
     <html>
 
     <head>
@@ -1532,54 +2693,96 @@ function printStudentReport(
         ${escapeHTML(title)}
       </title>
 
+
       <style>
 
         @import url(
           'https://fonts.googleapis.com/css2?family=Cairo:wght@700;800&family=Tajawal:wght@400;500&display=swap'
         );
 
+
         body{
-          font-family:'Tajawal',Arial,sans-serif;
+
+          font-family:
+            'Tajawal',
+            Arial,
+            sans-serif;
+
           direction:rtl;
+
           padding:40px;
+
           color:#111827;
+
         }
+
 
         h2{
-          font-family:'Cairo',sans-serif;
+
+          font-family:
+            'Cairo',
+            sans-serif;
+
           text-align:center;
+
         }
+
 
         .sub{
+
           text-align:center;
+
           color:#6b7280;
+
         }
 
+
         table{
+
           width:100%;
-          border-collapse:collapse;
+
+          border-collapse:
+            collapse;
+
           margin-top:25px;
+
         }
+
 
         th,
         td{
-          border:1px solid #d1d5db;
+
+          border:
+            1px solid
+            #d1d5db;
+
           padding:10px;
+
           text-align:center;
+
         }
+
 
         th{
+
           background:#111827;
+
           color:#fff;
+
         }
 
-        tr:nth-child(even) td{
+
+        tr:nth-child(even)
+        td{
+
           background:#f9fafb;
+
         }
 
       </style>
 
     </head>
+
 
     <body>
 
@@ -1587,63 +2790,107 @@ function printStudentReport(
         ${escapeHTML(title)}
       </h2>
 
+
       <p class="sub">
+
         النسبة العامة:
         ${avg}%
+
       </p>
+
 
       <table>
 
         <tr>
-          <th>الطالب</th>
-          <th>الامتحان</th>
-          <th>الدرجة</th>
-          <th>النسبة</th>
+
+          <th>
+            الطالب
+          </th>
+
+          <th>
+            الامتحان
+          </th>
+
+          <th>
+            الدرجة
+          </th>
+
+          <th>
+            النسبة
+          </th>
+
         </tr>
+
 
         ${studentResults
           .map(r => {
 
+            const rTotal =
+              Number(
+                r.total
+              ) || 100;
+
+
+            const rScore =
+              Number(
+                r.score
+              ) || 0;
+
+
             const percent =
-              Math.round(
-                (Number(
-                  r.score || 0
-                ) /
-                  Number(
-                    r.total || 100
-                  )) *
-                  100
-              );
+              rTotal > 0
+                ? Math.round(
+                    (
+                      rScore /
+                      rTotal
+                    ) * 100
+                  )
+                : 0;
+
 
             return `
+
               <tr>
 
                 <td>
+
                   ${escapeHTML(
                     r.studentName ||
-                      ""
+                    ""
                   )}
+
                 </td>
 
+
                 <td>
+
                   ${escapeHTML(
                     r.examTitle ||
-                      "امتحان"
+                    "امتحان"
                   )}
+
                 </td>
 
+
                 <td>
-                  ${r.score || 0}
+
+                  ${rScore}
                   /
-                  ${r.total || 0}
+                  ${rTotal}
+
                 </td>
 
+
                 <td>
+
                   ${percent}%
+
                 </td>
 
               </tr>
+
             `;
+
           })
           .join("")}
 
@@ -1652,11 +2899,16 @@ function printStudentReport(
     </body>
 
     </html>
+
   `);
+
 
   win.document.close();
 
+
   win.focus();
 
+
   win.print();
+
 }
