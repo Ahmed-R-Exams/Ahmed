@@ -1,13 +1,36 @@
 // pages/admin.js
 
-import { manageExamsPage } from "./manageExams.js";
-import { manageExamsEvents } from "./manageExamsEvents.js";
-import { teacherBoardsPage } from "./TeacherBoards.js";
-import { resultsPage } from "./results.js";
-import { homePage } from "./home.js";
+import {
+  manageExamsPage
+} from "./manageExams.js";
 
-import { signOut } from "firebase/auth";
-import { auth } from "../firebase.js";
+import {
+  manageExamsEvents
+} from "./manageExamsEvents.js";
+
+import {
+  teacherBoardsPage
+} from "./TeacherBoards.js";
+
+import {
+  resultsPage
+} from "./results.js";
+
+import {
+  homePage
+} from "./home.js";
+
+import {
+  signOut
+} from "firebase/auth";
+
+import {
+  auth
+} from "../firebase.js";
+
+import {
+  openExamsList
+} from "./appRouter.js";
 
 
 // ======================================================
@@ -19,14 +42,26 @@ export function adminPage() {
   return `
 
 <div style="
-  background:linear-gradient(135deg,#090d16,#1e293b);
+  background:linear-gradient(
+    135deg,
+    #090d16,
+    #1e293b
+  );
+
   padding:50px 40px;
+
   border-radius:32px;
+
   color:white;
+
   margin-bottom:45px;
+
   display:flex;
+
   justify-content:space-between;
+
   align-items:center;
+
   flex-wrap:wrap;
 ">
 
@@ -36,13 +71,17 @@ export function adminPage() {
       color:white;
       margin:0;
     ">
+
       مرحباً بك، أستاذ أحمد 👨‍🏫
+
     </h1>
 
     <p style="
       color:#94a3b8;
     ">
+
       Ahmed.R Physics Platform
+
     </p>
 
   </div>
@@ -50,13 +89,16 @@ export function adminPage() {
 
   <button
     id="backHome"
+    type="button"
     style="
       padding:14px 25px;
       border-radius:16px;
       cursor:pointer;
     "
   >
+
     🚪 الرئيسية
+
   </button>
 
 </div>
@@ -66,16 +108,15 @@ export function adminPage() {
   class="cards"
   style="
     display:grid;
-    grid-template-columns:repeat(
-      auto-fit,
-      minmax(340px,1fr)
-    );
+    grid-template-columns:
+      repeat(
+        auto-fit,
+        minmax(340px,1fr)
+      );
     gap:30px;
   "
 >
 
-
-  <!-- إدارة الامتحانات -->
 
   <div
     class="menu-card"
@@ -95,8 +136,6 @@ export function adminPage() {
   </div>
 
 
-  <!-- السبورات والملفات -->
-
   <div
     class="menu-card"
     id="cardManageTeacherBoards"
@@ -114,8 +153,6 @@ export function adminPage() {
 
   </div>
 
-
-  <!-- النتائج -->
 
   <div
     class="menu-card"
@@ -143,15 +180,17 @@ export function adminPage() {
 
 
 // ======================================================
-// ADMIN EVENTS
+// EVENTS
 // ======================================================
 
 document.addEventListener(
   "click",
-  async (e) => {
+  async e => {
 
     const app =
-      document.querySelector("#app");
+      document.querySelector(
+        "#app"
+      );
 
     if (!app) return;
 
@@ -161,12 +200,15 @@ document.addEventListener(
     // ==================================================
 
     if (
-      e.target.closest("#cardManageExams")
+      e.target.closest(
+        "#cardManageExams"
+      )
     ) {
 
       try {
 
         app.innerHTML = `
+
           <div style="
             min-height:300px;
             display:flex;
@@ -176,13 +218,13 @@ document.addEventListener(
             font-family:Cairo,sans-serif;
             text-align:center;
           ">
+
             ⏳ جاري تحميل إدارة الامتحانات...
+
           </div>
+
         `;
 
-
-        // مهم جدًا:
-        // manageExamsPage ترجع Promise
 
         const html =
           await manageExamsPage();
@@ -191,8 +233,6 @@ document.addEventListener(
         app.innerHTML =
           html;
 
-
-        // تشغيل أحداث صفحة إدارة الامتحانات
 
         manageExamsEvents();
 
@@ -220,14 +260,17 @@ document.addEventListener(
             </h3>
 
             <p>
+
               ${escapeHtml(
                 error?.message ||
                 "خطأ غير معروف"
               )}
+
             </p>
 
             <button
               id="adminErrorBack"
+              type="button"
               style="
                 margin-top:20px;
                 padding:12px 25px;
@@ -236,7 +279,9 @@ document.addEventListener(
                 cursor:pointer;
               "
             >
+
               ⬅ رجوع
+
             </button>
 
           </div>
@@ -251,7 +296,7 @@ document.addEventListener(
 
 
     // ==================================================
-    // إدارة السبورات والملفات
+    // إدارة السبورات
     // ==================================================
 
     if (
@@ -263,6 +308,7 @@ document.addEventListener(
       try {
 
         app.innerHTML = `
+
           <div style="
             min-height:300px;
             display:flex;
@@ -271,17 +317,13 @@ document.addEventListener(
             color:white;
             font-family:Cairo,sans-serif;
           ">
+
             ⏳ جاري تحميل السبورات...
+
           </div>
+
         `;
 
-
-        /*
-         * لو teacherBoardsPage أصبحت async
-         * الكود ده يشتغل معها أيضًا.
-         *
-         * ولو كانت sync، await لن يسبب مشكلة.
-         */
 
         const html =
           await teacherBoardsPage();
@@ -314,10 +356,12 @@ document.addEventListener(
             </h3>
 
             <p>
+
               ${escapeHtml(
                 error?.message ||
                 "خطأ غير معروف"
               )}
+
             </p>
 
           </div>
@@ -368,11 +412,11 @@ document.addEventListener(
           html;
 
       }
-      catch (err) {
+      catch (error) {
 
         console.error(
           "RESULTS ERROR:",
-          err
+          error
         );
 
 
@@ -393,13 +437,42 @@ document.addEventListener(
             <br>
 
             ${escapeHtml(
-              err?.message ||
+              error?.message ||
               "خطأ غير معروف"
             )}
 
           </div>
 
         `;
+
+      }
+
+      return;
+
+    }
+
+
+    // ==================================================
+    // زر القائمة
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#btnExamsList"
+      )
+    ) {
+
+      try {
+
+        await openExamsList();
+
+      }
+      catch (error) {
+
+        console.error(
+          "OPEN EXAMS LIST ERROR:",
+          error
+        );
 
       }
 
@@ -431,19 +504,23 @@ document.addEventListener(
     // ==================================================
 
     if (
-      e.target.closest("#backHome")
+      e.target.closest(
+        "#backHome"
+      )
     ) {
 
       try {
 
-        await signOut(auth);
+        await signOut(
+          auth
+        );
 
       }
-      catch (err) {
+      catch (error) {
 
         console.error(
-          "Sign out error:",
-          err
+          "SIGN OUT ERROR:",
+          error
         );
 
       }
@@ -478,12 +555,14 @@ export function adminEvents() {}
 
 
 // ======================================================
-// ESCAPE HTML
+// ESCAPE
 // ======================================================
 
 function escapeHtml(value) {
 
-  return String(value ?? "")
+  return String(
+    value ?? ""
+  )
     .replace(
       /&/g,
       "&amp;"

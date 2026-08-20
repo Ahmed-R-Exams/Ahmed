@@ -1,45 +1,106 @@
 import "./style.css";
 
-import { homePage } from "./pages/home.js";
-import { classesPage } from "./pages/classes.js";
-import { subjectPage } from "./pages/subject.js";
-import { physicsPage } from "./pages/physics.js";
-import { boardsPage } from "./pages/boards.js";
-import { filesPage } from "./pages/files.js";
+import {
+  homePage
+} from "./pages/home.js";
 
-import { examsPage } from "./pages/exams.js";
-import { showExam } from "./pages/exam.js";
+import {
+  classesPage
+} from "./pages/classes.js";
 
-import { teacherBoardsPage } from "./pages/TeacherBoards.js";
-import { adminPage } from "./pages/admin.js";
+import {
+  physicsPage
+} from "./pages/physics.js";
+
+import {
+  boardsPage
+} from "./pages/boards.js";
+
+import {
+  filesPage
+} from "./pages/files.js";
+
+import {
+  examsPage
+} from "./pages/exams.js";
+
+import {
+  showExam
+} from "./pages/exam.js";
+
+import {
+  teacherBoardsPage
+} from "./pages/TeacherBoards.js";
+
+import {
+  adminPage
+} from "./pages/admin.js";
 
 import {
   teacherLoginPage,
   teacherLoginEvents
 } from "./pages/teacherLoginModal.js";
 
-import { teacherSettingsPage } from "./pages/teacherSettings.js";
-import { teacherSettingsEvents } from "./pages/teacherSettingsEvents.js";
-import { resultsEvents } from "./pages/resultsEvents.js";
+import {
+  teacherSettingsPage
+} from "./pages/teacherSettings.js";
 
-import { manageExamsEvents } from "./pages/manageExamsEvents.js";
-import { createExamPage } from "./pages/createExam.js";
+import {
+  teacherSettingsEvents
+} from "./pages/teacherSettingsEvents.js";
 
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./firebase.js";
+import {
+  resultsEvents
+} from "./pages/resultsEvents.js";
 
-import { loadExamsList } from "./pages/examsList.js";
-import { resultsPage } from "./pages/results.js";
+import {
+  manageExamsEvents
+} from "./pages/manageExamsEvents.js";
 
-import { getResultById } from "./services/resultService.js";
-import { reviewResultPage } from "./pages/reviewResult.js";
+import {
+  createExamPage
+} from "./pages/createExam.js";
 
-const app =
-  document.querySelector("#app");
+import {
+  onAuthStateChanged
+} from "firebase/auth";
+
+import {
+  auth
+} from "./firebase.js";
+
+import {
+  resultsPage
+} from "./pages/results.js";
+
+import {
+  getResultById
+} from "./services/resultService.js";
+
+import {
+  reviewResultPage
+} from "./pages/reviewResult.js";
+
+import {
+  openAdminPage,
+  openExamsList,
+  openCreateExamPage,
+  backToAdmin
+} from "./pages/appRouter.js";
 
 
 // ======================================================
-// SHARED RESULT LINK
+// APP
+// ======================================================
+
+const app =
+  document.querySelector(
+    "#app"
+  );
+
+
+// ======================================================
+// SHARED RESULT
 // ======================================================
 
 function getSharedResultId() {
@@ -49,44 +110,41 @@ function getSharedResultId() {
       window.location.href
     );
 
-  // ----------------------------------------------------
-  // الرابط الجديد:
-  //
-  // https://site.com/?result=ABC123
-  //
-  // ----------------------------------------------------
 
   const queryResult =
     url.searchParams.get(
       "result"
     );
 
+
   if (queryResult) {
+
     return queryResult;
+
   }
 
-  // ----------------------------------------------------
-  // دعم الرابط القديم:
-  //
-  // https://site.com/#result=ABC123
-  //
-  // ----------------------------------------------------
 
   const hash =
     url.hash || "";
+
 
   const match =
     hash.match(
       /(?:^#|&)result=([^&]+)/
     );
 
+
   if (match) {
+
     return decodeURIComponent(
       match[1]
     );
+
   }
 
+
   return null;
+
 }
 
 
@@ -101,6 +159,7 @@ const sharedResultId =
 if (sharedResultId) {
 
   app.innerHTML = `
+
     <div style="
       padding:60px 20px;
       text-align:center;
@@ -108,9 +167,13 @@ if (sharedResultId) {
       font-family:'Tajawal',Arial,sans-serif;
       direction:rtl;
     ">
+
       جاري تحميل النتيجة...
+
     </div>
+
   `;
+
 
   (async () => {
 
@@ -121,6 +184,7 @@ if (sharedResultId) {
           sharedResultId
         );
 
+
       if (result) {
 
         app.innerHTML =
@@ -128,9 +192,11 @@ if (sharedResultId) {
             result
           );
 
-      } else {
+      }
+      else {
 
         app.innerHTML = `
+
           <div style="
             padding:60px 20px;
             text-align:center;
@@ -138,6 +204,7 @@ if (sharedResultId) {
             font-family:'Tajawal',Arial,sans-serif;
             direction:rtl;
           ">
+
             تعذر العثور على النتيجة المطلوبة.
 
             <br>
@@ -146,21 +213,28 @@ if (sharedResultId) {
               color:#94a3b8;
               font-size:13px;
             ">
+
               الرابط غير صحيح أو تم حذف النتيجة.
+
             </span>
+
           </div>
+
         `;
 
       }
 
-    } catch (error) {
+    }
+    catch (error) {
 
       console.error(
         "LOAD SHARED RESULT ERROR:",
         error
       );
 
+
       app.innerHTML = `
+
         <div style="
           padding:60px 20px;
           text-align:center;
@@ -168,15 +242,19 @@ if (sharedResultId) {
           font-family:'Tajawal',Arial,sans-serif;
           direction:rtl;
         ">
+
           حدث خطأ أثناء تحميل النتيجة.
+
         </div>
+
       `;
 
     }
 
   })();
 
-} else {
+}
+else {
 
   app.innerHTML =
     homePage();
@@ -190,30 +268,23 @@ if (sharedResultId) {
 
 onAuthStateChanged(
   auth,
-  (user) => {
-
-    /*
-     * لو ده رابط نتيجة مشاركة:
-     * لا نخلي Auth يستبدل صفحة النتيجة
-     * بلوحة تحكم المعلم.
-     */
+  user => {
 
     if (
       user &&
       !sharedResultId
     ) {
 
-      app.innerHTML =
-        adminPage();
+      openAdminPage();
 
     }
 
   },
-  (err) => {
+  error => {
 
     console.error(
       "Firebase auth error:",
-      err
+      error
     );
 
   }
@@ -221,15 +292,15 @@ onAuthStateChanged(
 
 
 // ======================================================
-// EVENTS
+// MAIN NAVIGATION
 // ======================================================
 
 document.addEventListener(
   "click",
-  async (e) => {
+  async e => {
 
     // ==================================================
-    // HOME
+    // HOME / STUDENT
     // ==================================================
 
     if (
@@ -245,6 +316,7 @@ document.addEventListener(
         classesPage();
 
       return;
+
     }
 
 
@@ -265,10 +337,10 @@ document.addEventListener(
         auth.currentUser
       ) {
 
-        app.innerHTML =
-          adminPage();
+        openAdminPage();
 
-      } else {
+      }
+      else {
 
         app.innerHTML =
           teacherLoginPage();
@@ -278,6 +350,7 @@ document.addEventListener(
       }
 
       return;
+
     }
 
 
@@ -295,6 +368,7 @@ document.addEventListener(
         physicsPage();
 
       return;
+
     }
 
 
@@ -318,11 +392,12 @@ document.addEventListener(
         examsPage();
 
       return;
+
     }
 
 
     // ==================================================
-    // DIRECT OPEN EXAM
+    // DIRECT EXAM
     // ==================================================
 
     if (
@@ -335,6 +410,7 @@ document.addEventListener(
         showExam();
 
       return;
+
     }
 
 
@@ -352,6 +428,7 @@ document.addEventListener(
         await boardsPage();
 
       return;
+
     }
 
 
@@ -369,6 +446,7 @@ document.addEventListener(
         await filesPage();
 
       return;
+
     }
 
 
@@ -382,12 +460,75 @@ document.addEventListener(
       )
     ) {
 
-      app.innerHTML =
-        manageExamsPage();
+      try {
 
-      manageExamsEvents();
+        app.innerHTML = `
+
+          <div style="
+            padding:50px;
+            text-align:center;
+            color:white;
+            direction:rtl;
+          ">
+
+            ⏳ جاري تحميل إدارة الامتحانات...
+
+          </div>
+
+        `;
+
+
+        const module =
+          await import(
+            "./pages/manageExams.js"
+          );
+
+
+        const html =
+          await module.manageExamsPage();
+
+
+        app.innerHTML =
+          html;
+
+
+        manageExamsEvents();
+
+      }
+      catch (error) {
+
+        console.error(
+          "MANAGE EXAMS ERROR:",
+          error
+        );
+
+
+        app.innerHTML = `
+
+          <div style="
+            padding:50px;
+            color:#ef4444;
+            text-align:center;
+            direction:rtl;
+          ">
+
+            حدث خطأ أثناء تحميل إدارة الامتحانات.
+
+            <br><br>
+
+            ${escapeHtml(
+              error?.message ||
+              "خطأ غير معروف"
+            )}
+
+          </div>
+
+        `;
+
+      }
 
       return;
+
     }
 
 
@@ -401,10 +542,10 @@ document.addEventListener(
       )
     ) {
 
-      app.innerHTML =
-        createExamPage();
+      openCreateExamPage();
 
       return;
+
     }
 
 
@@ -418,9 +559,22 @@ document.addEventListener(
       )
     ) {
 
-      loadExamsList();
+      try {
+
+        await openExamsList();
+
+      }
+      catch (error) {
+
+        console.error(
+          "OPEN EXAMS LIST ERROR:",
+          error
+        );
+
+      }
 
       return;
+
     }
 
 
@@ -438,6 +592,7 @@ document.addEventListener(
         teacherBoardsPage();
 
       return;
+
     }
 
 
@@ -457,6 +612,7 @@ document.addEventListener(
       teacherSettingsEvents();
 
       return;
+
     }
 
 
@@ -470,12 +626,25 @@ document.addEventListener(
       )
     ) {
 
-      app.innerHTML =
-        await resultsPage();
+      try {
 
-      resultsEvents();
+        app.innerHTML =
+          await resultsPage();
+
+        resultsEvents();
+
+      }
+      catch (error) {
+
+        console.error(
+          "RESULTS ERROR:",
+          error
+        );
+
+      }
 
       return;
+
     }
 
 
@@ -489,10 +658,10 @@ document.addEventListener(
       )
     ) {
 
-      app.innerHTML =
-        adminPage();
+      backToAdmin();
 
       return;
+
     }
 
 
@@ -513,7 +682,41 @@ document.addEventListener(
         classesPage();
 
       return;
+
     }
 
   }
 );
+
+
+// ======================================================
+// ESCAPE
+// ======================================================
+
+function escapeHtml(value) {
+
+  return String(
+    value ?? ""
+  )
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
+}

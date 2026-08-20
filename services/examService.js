@@ -5,12 +5,15 @@ import { db } from "../firebase.js";
 import {
   collection,
   getDocs,
+  getDocsFromServer,
   addDoc,
   doc,
   updateDoc,
   deleteDoc,
   getDoc,
-  writeBatch
+  getDocFromServer,
+  writeBatch,
+  deleteField
 } from "firebase/firestore";
 
 const EXAMS_COLLECTION = "exams";
@@ -21,7 +24,10 @@ const QUESTIONS_COLLECTION = "questions";
 // HELPERS
 // ======================================================
 
-function normalizeExamData(data = {}, firestoreId = null) {
+function normalizeExamData(
+  data = {},
+  firestoreId = null
+) {
 
   const isPublished =
     data.isPublished === false ||
@@ -38,7 +44,9 @@ function normalizeExamData(data = {}, firestoreId = null) {
     ...data,
 
     firestoreId:
-      firestoreId || data.firestoreId || "",
+      firestoreId ||
+      data.firestoreId ||
+      "",
 
     id:
       data.id ||
@@ -55,63 +63,70 @@ function normalizeExamData(data = {}, firestoreId = null) {
 
 
 // ======================================================
-// GET QUESTIONS FROM SUBCOLLECTION
+// GET QUESTIONS
 // ======================================================
 
-async function getExamQuestions(firestoreId) {
+async function getExamQuestions(
+  firestoreId
+) {
 
   if (!firestoreId) {
     return [];
   }
 
+  const questionsRef =
+    collection(
+      db,
+      EXAMS_COLLECTION,
+      firestoreId,
+      QUESTIONS_COLLECTION
+    );
+
+  let snapshot;
+
   try {
 
-    const questionsRef =
-      collection(
-        db,
-        EXAMS_COLLECTION,
-        firestoreId,
-        QUESTIONS_COLLECTION
+    // إجبار القراءة من السيرفر
+    snapshot =
+      await getDocsFromServer(
+        questionsRef
       );
 
-    const snapshot =
-      await getDocs(questionsRef);
+  }
+  catch (error) {
 
-    return snapshot.docs
-      .map(item => {
-
-        return {
-
-          firestoreId:
-            item.id,
-
-          ...item.data()
-
-        };
-
-      })
-      .sort((a, b) => {
-
-        const orderA =
-          Number(a.order ?? 0);
-
-        const orderB =
-          Number(b.order ?? 0);
-
-        return orderA - orderB;
-
-      });
-
-  } catch (error) {
-
-    console.error(
-      "خطأ أثناء تحميل أسئلة الامتحان:",
+    console.warn(
+      "⚠️ SERVER QUESTIONS READ FAILED - USING NORMAL READ:",
       error
     );
 
-    return [];
+    snapshot =
+      await getDocs(
+        questionsRef
+      );
 
   }
+
+  return snapshot.docs
+    .map(item => ({
+
+      firestoreId:
+        item.id,
+
+      ...item.data()
+
+    }))
+    .sort((a, b) => {
+
+      const orderA =
+        Number(a.order ?? 0);
+
+      const orderB =
+        Number(b.order ?? 0);
+
+      return orderA - orderB;
+
+    });
 
 }
 
@@ -120,7 +135,9 @@ async function getExamQuestions(firestoreId) {
 // DELETE ALL QUESTIONS
 // ======================================================
 
-async function deleteExamQuestions(firestoreId) {
+async function deleteExamQuestions(
+  firestoreId
+) {
 
   if (!firestoreId) {
     return;
@@ -134,29 +151,46 @@ async function deleteExamQuestions(firestoreId) {
       QUESTIONS_COLLECTION
     );
 
-  const snapshot =
-    await getDocs(questionsRef);
+  let snapshot;
+
+  try {
+
+    snapshot =
+      await getDocsFromServer(
+        questionsRef
+      );
+
+  }
+  catch {
+
+    snapshot =
+      await getDocs(
+        questionsRef
+      );
+
+  }
 
   if (!snapshot.size) {
     return;
   }
 
-
-  // Firestore Batch maximum = 500 operations
   let batch =
     writeBatch(db);
 
   let counter = 0;
 
+  for (
+    const questionDoc
+    of snapshot.docs
+  ) {
 
-  for (const questionDoc of snapshot.docs) {
-
-    batch.delete(questionDoc.ref);
+    batch.delete(
+      questionDoc.ref
+    );
 
     counter++;
 
-
-    if (counter === 500) {
+    if (counter === 450) {
 
       await batch.commit();
 
@@ -169,7 +203,6 @@ async function deleteExamQuestions(firestoreId) {
 
   }
 
-
   if (counter > 0) {
 
     await batch.commit();
@@ -180,7 +213,28 @@ async function deleteExamQuestions(firestoreId) {
 
 
 // ======================================================
-// SAVE QUESTIONS AS SUBCOLLECTION
+// CLEAN QUESTION DATA
+// ======================================================
+
+function cleanQuestionData(
+  question = {},
+  order = 0
+) {
+
+  const data = {
+    ...question,
+    order
+  };
+
+  delete data.firestoreId;
+
+  return data;
+
+}
+
+
+// ======================================================
+// SAVE QUESTIONS
 // ======================================================
 
 async function saveExamQuestions(
@@ -197,7 +251,6 @@ async function saveExamQuestions(
 
   }
 
-
   const questionsRef =
     collection(
       db,
@@ -206,16 +259,12 @@ async function saveExamQuestions(
       QUESTIONS_COLLECTION
     );
 
-
   const savedQuestions = [];
 
-
-  // Firestore batch maximum 500 writes
   let batch =
     writeBatch(db);
 
   let counter = 0;
-
 
   for (
     let index = 0;
@@ -226,12 +275,19 @@ async function saveExamQuestions(
     const question =
       questions[index];
 
-
-    const questionId =
+    let questionId =
       question.firestoreId ||
       question.id ||
-      `question-${index + 1}`;
+      "";
 
+    if (!questionId) {
+
+      questionId =
+        doc(
+          questionsRef
+        ).id;
+
+    }
 
     const questionRef =
       doc(
@@ -239,29 +295,16 @@ async function saveExamQuestions(
         String(questionId)
       );
 
-
-    const questionData = {
-
-      ...question,
-
-      firestoreId:
-        undefined,
-
-      order:
+    const questionData =
+      cleanQuestionData(
+        question,
         index
-
-    };
-
-
-    // حذف الحقل undefined
-    delete questionData.firestoreId;
-
+      );
 
     batch.set(
       questionRef,
       questionData
     );
-
 
     savedQuestions.push({
 
@@ -272,11 +315,9 @@ async function saveExamQuestions(
 
     });
 
-
     counter++;
 
-
-    if (counter === 500) {
+    if (counter === 450) {
 
       await batch.commit();
 
@@ -289,13 +330,11 @@ async function saveExamQuestions(
 
   }
 
-
   if (counter > 0) {
 
     await batch.commit();
 
   }
-
 
   return savedQuestions;
 
@@ -308,14 +347,48 @@ async function saveExamQuestions(
 
 export async function getExams() {
 
-  const snapshot =
-    await getDocs(
-      collection(
-        db,
-        EXAMS_COLLECTION
-      )
+  console.log(
+    "🔥 GET EXAMS - SERVER"
+  );
+
+  const examsRef =
+    collection(
+      db,
+      EXAMS_COLLECTION
     );
 
+  let snapshot;
+
+  try {
+
+    // ==================================================
+    // أهم تعديل
+    // ==================================================
+
+    snapshot =
+      await getDocsFromServer(
+        examsRef
+      );
+
+  }
+  catch (error) {
+
+    console.warn(
+      "⚠️ SERVER READ FAILED - USING NORMAL FIRESTORE READ:",
+      error
+    );
+
+    snapshot =
+      await getDocs(
+        examsRef
+      );
+
+  }
+
+  console.log(
+    "🔥 FIRESTORE DOCUMENTS:",
+    snapshot.docs.length
+  );
 
   const exams =
     await Promise.all(
@@ -326,39 +399,21 @@ export async function getExams() {
           const data =
             item.data();
 
+          const subQuestions =
+            await getExamQuestions(
+              item.id
+            );
 
-          let questions = [];
-
-
-          // ==================================================
-          // NEW SYSTEM
-          // Questions stored in subcollection
-          // ==================================================
-
-          if (
-            !Array.isArray(data.questions)
-          ) {
-
-            questions =
-              await getExamQuestions(
-                item.id
-              );
-
-          }
-
-
-          // ==================================================
-          // OLD SYSTEM
-          // Keep compatibility with existing exams
-          // ==================================================
-
-          else {
-
-            questions =
-              data.questions;
-
-          }
-
+          const questions =
+            subQuestions.length > 0
+              ? subQuestions
+              : (
+                  Array.isArray(
+                    data.questions
+                  )
+                    ? data.questions
+                    : []
+                );
 
           return {
 
@@ -382,6 +437,10 @@ export async function getExams() {
 
     );
 
+  console.log(
+    "✅ EXAMS LOADED:",
+    exams.length
+  );
 
   return exams;
 
@@ -407,11 +466,6 @@ export async function addExam(
 
   }
 
-
-  // ==================================================
-  // استخراج الأسئلة خارج Document الامتحان
-  // ==================================================
-
   const questions =
     Array.isArray(
       examData.questions
@@ -419,24 +473,18 @@ export async function addExam(
       ? examData.questions
       : [];
 
-
-  // لا تحفظ questions داخل exam document
   const examDocument = {
-
     ...examData,
 
     questionsCount:
       questions.length
-
   };
-
 
   delete examDocument.questions;
 
-
-  // ==================================================
-  // إنشاء Exam Document
-  // ==================================================
+  console.log(
+    "🔥 ADD EXAM TO FIRESTORE"
+  );
 
   const ref =
     await addDoc(
@@ -447,10 +495,10 @@ export async function addExam(
       examDocument
     );
 
-
-  // ==================================================
-  // حفظ الأسئلة في Subcollection
-  // ==================================================
+  console.log(
+    "✅ EXAM DOCUMENT CREATED:",
+    ref.id
+  );
 
   if (questions.length > 0) {
 
@@ -460,7 +508,6 @@ export async function addExam(
     );
 
   }
-
 
   return {
 
@@ -487,7 +534,9 @@ export async function saveExam(
   exam
 ) {
 
-  return addExam(exam);
+  return addExam(
+    exam
+  );
 
 }
 
@@ -506,21 +555,23 @@ export async function saveExams(
 
   }
 
-
   const saved = [];
 
-
   for (
-    const exam of exams
+    const exam
+    of exams
   ) {
 
     const result =
-      await addExam(exam);
+      await addExam(
+        exam
+      );
 
-    saved.push(result);
+    saved.push(
+      result
+    );
 
   }
-
 
   return saved;
 
@@ -528,7 +579,7 @@ export async function saveExams(
 
 
 // ======================================================
-// CREATE ONE EXAM FROM EXCEL
+// CREATE EXAM FROM EXCEL
 // ======================================================
 
 export async function createExamFromExcel(
@@ -543,14 +594,8 @@ export async function createExamFromExcel(
 
   }
 
-
   let examData = {};
   let questions = [];
-
-
-  // ==================================================
-  // Excel data already converted
-  // ==================================================
 
   if (
     !Array.isArray(excelData) &&
@@ -568,13 +613,6 @@ export async function createExamFromExcel(
         : [];
 
   }
-
-
-  // ==================================================
-  // Backward compatibility
-  // array = questions
-  // ==================================================
-
   else if (
     Array.isArray(excelData)
   ) {
@@ -584,7 +622,6 @@ export async function createExamFromExcel(
 
   }
 
-
   if (!questions.length) {
 
     throw new Error(
@@ -592,11 +629,6 @@ export async function createExamFromExcel(
     );
 
   }
-
-
-  // ==================================================
-  // NORMALIZE QUESTIONS
-  // ==================================================
 
   questions =
     questions.map(
@@ -608,23 +640,16 @@ export async function createExamFromExcel(
           )
             ? question.options
             : [
-
                 question.A || "",
-
                 question.B || "",
-
                 question.C || "",
-
                 question.D || ""
-
               ];
-
 
         let correctIndex =
           Number(
             question.correctAnswerIndex
           );
-
 
         if (
           !Number.isInteger(
@@ -641,7 +666,6 @@ export async function createExamFromExcel(
 
         }
 
-
         if (
           !Number.isInteger(
             correctIndex
@@ -653,7 +677,6 @@ export async function createExamFromExcel(
           correctIndex = 0;
 
         }
-
 
         return {
 
@@ -671,6 +694,12 @@ export async function createExamFromExcel(
             question.title ||
             question.text ||
             question.question ||
+            "",
+
+          question:
+            question.question ||
+            question.text ||
+            question.title ||
             "",
 
           image:
@@ -700,11 +729,6 @@ export async function createExamFromExcel(
 
       }
     );
-
-
-  // ==================================================
-  // CREATE ONE EXAM
-  // ==================================================
 
   const exam = {
 
@@ -769,17 +793,9 @@ export async function createExamFromExcel(
 
   };
 
-
-  // ==================================================
-  // SAVE
-  // addExam الآن يفصل questions تلقائيًا
-  // ==================================================
-
-  const saved =
-    await addExam(exam);
-
-
-  return saved;
+  return addExam(
+    exam
+  );
 
 }
 
@@ -798,16 +814,32 @@ export async function getExamByFirestoreId(
 
   }
 
+  let snap;
 
-  const snap =
-    await getDoc(
-      doc(
-        db,
-        EXAMS_COLLECTION,
-        id
-      )
-    );
+  try {
 
+    snap =
+      await getDocFromServer(
+        doc(
+          db,
+          EXAMS_COLLECTION,
+          id
+        )
+      );
+
+  }
+  catch {
+
+    snap =
+      await getDoc(
+        doc(
+          db,
+          EXAMS_COLLECTION,
+          id
+        )
+      );
+
+  }
 
   if (!snap.exists()) {
 
@@ -815,43 +847,24 @@ export async function getExamByFirestoreId(
 
   }
 
-
   const data =
     snap.data();
 
+  const subQuestions =
+    await getExamQuestions(
+      snap.id
+    );
 
-  let questions = [];
-
-
-  // ==================================================
-  // NEW SYSTEM
-  // ==================================================
-
-  if (
-    !Array.isArray(
-      data.questions
-    )
-  ) {
-
-    questions =
-      await getExamQuestions(
-        snap.id
-      );
-
-  }
-
-
-  // ==================================================
-  // OLD SYSTEM
-  // ==================================================
-
-  else {
-
-    questions =
-      data.questions;
-
-  }
-
+  const questions =
+    subQuestions.length > 0
+      ? subQuestions
+      : (
+          Array.isArray(
+            data.questions
+          )
+            ? data.questions
+            : []
+        );
 
   return {
 
@@ -890,32 +903,21 @@ export async function getExamById(
 
   }
 
-
-  // ==================================================
-  // DIRECT FIRESTORE ID
-  // ==================================================
-
   try {
 
-    const snap =
-      await getDoc(
-        doc(
-          db,
-          EXAMS_COLLECTION,
-          id
-        )
+    const exam =
+      await getExamByFirestoreId(
+        id
       );
 
+    if (exam) {
 
-    if (snap.exists()) {
-
-      return getExamByFirestoreId(
-        snap.id
-      );
+      return exam;
 
     }
 
-  } catch (error) {
+  }
+  catch (error) {
 
     console.warn(
       "Direct exam lookup failed:",
@@ -924,20 +926,12 @@ export async function getExamById(
 
   }
 
-
-  // ==================================================
-  // FALLBACK
-  // ==================================================
-
   const exams =
     await getExams();
 
-
   return (
-
     exams.find(
       exam =>
-
         String(
           exam.firestoreId
         ) === String(id) ||
@@ -947,11 +941,8 @@ export async function getExamById(
         ) === String(id) ||
 
         exam.title === id
-
-    )
-
-    || null
-
+    ) ||
+    null
   );
 
 }
@@ -974,7 +965,6 @@ export async function updateExam(
 
   }
 
-
   if (
     !data ||
     typeof data !== "object"
@@ -986,17 +976,11 @@ export async function updateExam(
 
   }
 
-
-  // ==================================================
-  // QUESTIONS
-  // ==================================================
-
   const hasQuestions =
     Object.prototype.hasOwnProperty.call(
       data,
       "questions"
     );
-
 
   const questions =
     hasQuestions &&
@@ -1006,25 +990,16 @@ export async function updateExam(
       ? data.questions
       : null;
 
-
-  // ==================================================
-  // DOCUMENT DATA
-  // ==================================================
-
-  let updateData = {
-
+  const updateData = {
     ...data
-
   };
 
-
-  // لا تحفظ questions داخل Exam Document
   delete updateData.questions;
 
+  delete updateData.firestoreId;
 
-  // ==================================================
-  // تحديث حالة الفتح / الغلق
-  // ==================================================
+  updateData.questions =
+    deleteField();
 
   if (
     Object.prototype.hasOwnProperty.call(
@@ -1037,41 +1012,27 @@ export async function updateExam(
       data.isPublished === true ||
       data.isPublished === "true";
 
+    updateData.isPublished =
+      isOpen;
 
-    updateData = {
+    updateData.published =
+      isOpen;
 
-      ...updateData,
-
-      isPublished:
-        isOpen,
-
-      manualClose:
-        !isOpen
-
-    };
+    updateData.manualClose =
+      !isOpen;
 
   }
 
-
-  // ==================================================
-  // تحديث عدد الأسئلة
-  // ==================================================
-
-  if (
-    Array.isArray(
-      questions
-    )
-  ) {
+  if (Array.isArray(questions)) {
 
     updateData.questionsCount =
       questions.length;
 
   }
 
-
-  // ==================================================
-  // UPDATE EXAM DOCUMENT
-  // ==================================================
+  // ====================================================
+  // UPDATE MAIN DOCUMENT
+  // ====================================================
 
   await updateDoc(
     doc(
@@ -1082,33 +1043,248 @@ export async function updateExam(
     updateData
   );
 
+  // ====================================================
+  // NO QUESTIONS
+  // ====================================================
 
-  // ==================================================
-  // UPDATE QUESTIONS
-  // ==================================================
+  if (!Array.isArray(questions)) {
 
-  if (
-    Array.isArray(
-      questions
-    )
-  ) {
+    return {
 
-    await deleteExamQuestions(
-      id
-    );
+      firestoreId:
+        id,
 
+      ...updateData
 
-    await saveExamQuestions(
-      id,
-      questions
-    );
+    };
 
   }
 
+  // ====================================================
+  // QUESTIONS
+  // ====================================================
 
-  // ==================================================
-  // RETURN
-  // ==================================================
+  const questionsRef =
+    collection(
+      db,
+      EXAMS_COLLECTION,
+      id,
+      QUESTIONS_COLLECTION
+    );
+
+  let currentSnapshot;
+
+  try {
+
+    currentSnapshot =
+      await getDocsFromServer(
+        questionsRef
+      );
+
+  }
+  catch {
+
+    currentSnapshot =
+      await getDocs(
+        questionsRef
+      );
+
+  }
+
+  const currentQuestions =
+    currentSnapshot.docs.map(
+      item => ({
+
+        firestoreId:
+          item.id,
+
+        ...item.data()
+
+      })
+    );
+
+  const currentIds =
+    new Set(
+      currentQuestions.map(
+        q =>
+          String(
+            q.firestoreId
+          )
+      )
+    );
+
+  const usedIds =
+    new Set();
+
+  const savedQuestions = [];
+
+  let batch =
+    writeBatch(db);
+
+  let counter = 0;
+
+  // ====================================================
+  // UPDATE / CREATE QUESTIONS
+  // ====================================================
+
+  for (
+    let index = 0;
+    index < questions.length;
+    index++
+  ) {
+
+    const question =
+      questions[index];
+
+    let questionId =
+      question.firestoreId ||
+      question.id ||
+      "";
+
+    if (
+      !questionId ||
+      !currentIds.has(
+        String(questionId)
+      )
+    ) {
+
+      const oldByIndex =
+        currentQuestions[index];
+
+      if (
+        oldByIndex &&
+        !usedIds.has(
+          String(
+            oldByIndex.firestoreId
+          )
+        )
+      ) {
+
+        questionId =
+          oldByIndex.firestoreId;
+
+      }
+
+    }
+
+    if (
+      !questionId ||
+      usedIds.has(
+        String(questionId)
+      )
+    ) {
+
+      questionId =
+        doc(
+          questionsRef
+        ).id;
+
+    }
+
+    questionId =
+      String(
+        questionId
+      );
+
+    usedIds.add(
+      questionId
+    );
+
+    const questionRef =
+      doc(
+        questionsRef,
+        questionId
+      );
+
+    const questionData =
+      cleanQuestionData(
+        question,
+        index
+      );
+
+    batch.set(
+      questionRef,
+      questionData
+    );
+
+    savedQuestions.push({
+
+      ...questionData,
+
+      firestoreId:
+        questionId
+
+    });
+
+    counter++;
+
+    if (counter === 450) {
+
+      await batch.commit();
+
+      batch =
+        writeBatch(db);
+
+      counter = 0;
+
+    }
+
+  }
+
+  // ====================================================
+  // DELETE REMOVED QUESTIONS
+  // ====================================================
+
+  for (
+    const oldQuestion
+    of currentQuestions
+  ) {
+
+    const oldId =
+      String(
+        oldQuestion.firestoreId
+      );
+
+    if (
+      !usedIds.has(oldId)
+    ) {
+
+      batch.delete(
+        doc(
+          questionsRef,
+          oldId
+        )
+      );
+
+      counter++;
+
+      if (counter === 450) {
+
+        await batch.commit();
+
+        batch =
+          writeBatch(db);
+
+        counter = 0;
+
+      }
+
+    }
+
+  }
+
+  if (counter > 0) {
+
+    await batch.commit();
+
+  }
+
+  console.log(
+    "✅ UPDATE EXAM COMPLETE:",
+    id,
+    "questions:",
+    savedQuestions.length
+  );
 
   return {
 
@@ -1117,11 +1293,11 @@ export async function updateExam(
 
     ...updateData,
 
-    ...(Array.isArray(questions)
-      ? {
-          questions
-        }
-      : {})
+    questions:
+      savedQuestions,
+
+    questionsCount:
+      savedQuestions.length
 
   };
 
@@ -1144,19 +1320,9 @@ export async function deleteExam(
 
   }
 
-
-  // ==================================================
-  // DELETE QUESTIONS FIRST
-  // ==================================================
-
   await deleteExamQuestions(
     id
   );
-
-
-  // ==================================================
-  // DELETE EXAM DOCUMENT
-  // ==================================================
 
   await deleteDoc(
     doc(
