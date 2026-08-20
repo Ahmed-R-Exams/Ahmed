@@ -231,10 +231,21 @@ export async function resultsPage() {
             result.examTitle ||
             "الامتحان";
 
+          /*
+           * الرابط هنا URL كامل حقيقي
+           * وليس Hash.
+           *
+           * مثال:
+           * https://site.com/?result=ABC123
+           *
+           * وده الشكل الذي تتعرف عليه
+           * تطبيقات المراسلة كرابط قابل للضغط.
+           */
+
           const message =
             `📊 نتيجة الطالب ${student}\n\n` +
             `📚 الامتحان: ${exam}\n\n` +
-            `يمكنك مشاهدة تفاصيل النتيجة كاملة من الرابط التالي:\n` +
+            `يمكنك مشاهدة تفاصيل النتيجة كاملة من الرابط التالي:\n\n` +
             `${shareUrl}`;
 
           const whatsappUrl =
@@ -687,23 +698,6 @@ export async function resultsPage() {
             return;
           }
 
-          /*
-           * ==================================================
-           * مهم جدًا
-           *
-           * النتيجة القديمة تحتوي على نسخة الأسئلة وقت
-           * دخول الطالب للامتحان.
-           *
-           * هنا نبحث عن الامتحان الحالي من Firestore
-           * ونستبدل questions القديمة بالأسئلة الحالية.
-           *
-           * بالتالي عند تعديل الامتحان:
-           *
-           * الكارت الداخلي للنتيجة
-           * يقرأ النسخة الجديدة.
-           * ==================================================
-           */
-
           let reviewResult = {
             ...result
           };
@@ -746,16 +740,9 @@ export async function resultsPage() {
               currentExam.questions
             )
           ) {
-
             reviewResult.questions =
               currentExam.questions;
-
           }
-
-          /*
-           * نمرر ID النتيجة الحقيقي
-           * عشان تعديل الدرجة يروح لنفس document.
-           */
 
           app.innerHTML =
             reviewResultPage(
@@ -1453,25 +1440,25 @@ export async function resultsPage() {
   `;
 }
 
+
 // ======================================================
 // SHARE URL
 // ======================================================
 
 function buildResultShareUrl(resultId) {
-  const url =
-    new URL(
-      window.location.href
-    );
+  const url = new URL(
+    window.location.origin +
+      window.location.pathname
+  );
 
-  url.search = "";
-
-  url.hash =
-    `result=${encodeURIComponent(
-      resultId
-    )}`;
+  url.searchParams.set(
+    "result",
+    String(resultId)
+  );
 
   return url.toString();
 }
+
 
 // ======================================================
 // ESCAPE HTML
@@ -1485,6 +1472,7 @@ function escapeHTML(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+
 
 // ======================================================
 // PRINT

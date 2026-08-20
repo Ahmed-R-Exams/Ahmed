@@ -25,7 +25,7 @@ import { resultsEvents } from "./pages/resultsEvents.js";
 import { manageExamsEvents } from "./pages/manageExamsEvents.js";
 import { createExamPage } from "./pages/createExam.js";
 
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase.js";
 
 import { loadExamsList } from "./pages/examsList.js";
@@ -34,26 +34,69 @@ import { resultsPage } from "./pages/results.js";
 import { getResultById } from "./services/resultService.js";
 import { reviewResultPage } from "./pages/reviewResult.js";
 
-const app = document.querySelector("#app");
+const app =
+  document.querySelector("#app");
 
 
-// ================= SHARED RESULT LINK =================
-// لو اللينك فيه #result=ID (لينك نتيجة طالب اتبعت له)،
-// نعرض نتيجته مباشرة بدل الصفحة الرئيسية.
+// ======================================================
+// SHARED RESULT LINK
+// ======================================================
 
 function getSharedResultId() {
-  const hash = window.location.hash || "";
-  const match = hash.match(/result=([^&]+)/);
 
-  return match ? decodeURIComponent(match[1]) : null;
+  const url =
+    new URL(
+      window.location.href
+    );
+
+  // ----------------------------------------------------
+  // الرابط الجديد:
+  //
+  // https://site.com/?result=ABC123
+  //
+  // ----------------------------------------------------
+
+  const queryResult =
+    url.searchParams.get(
+      "result"
+    );
+
+  if (queryResult) {
+    return queryResult;
+  }
+
+  // ----------------------------------------------------
+  // دعم الرابط القديم:
+  //
+  // https://site.com/#result=ABC123
+  //
+  // ----------------------------------------------------
+
+  const hash =
+    url.hash || "";
+
+  const match =
+    hash.match(
+      /(?:^#|&)result=([^&]+)/
+    );
+
+  if (match) {
+    return decodeURIComponent(
+      match[1]
+    );
+  }
+
+  return null;
 }
 
-const sharedResultId = getSharedResultId();
+
+const sharedResultId =
+  getSharedResultId();
 
 
-// ================= START =================
-
-// اعرض الصفحة فورًا كأول خطوة (بدل ما تفضل فاضية لو Firebase اتأخر أو اتحظر)
+// ======================================================
+// START
+// ======================================================
 
 if (sharedResultId) {
 
@@ -73,11 +116,17 @@ if (sharedResultId) {
 
     try {
 
-      const result = await getResultById(sharedResultId);
+      const result =
+        await getResultById(
+          sharedResultId
+        );
 
       if (result) {
 
-        app.innerHTML = reviewResultPage(result);
+        app.innerHTML =
+          reviewResultPage(
+            result
+          );
 
       } else {
 
@@ -90,8 +139,13 @@ if (sharedResultId) {
             direction:rtl;
           ">
             تعذر العثور على النتيجة المطلوبة.
+
             <br>
-            <span style="color:#94a3b8;font-size:13px;">
+
+            <span style="
+              color:#94a3b8;
+              font-size:13px;
+            ">
               الرابط غير صحيح أو تم حذف النتيجة.
             </span>
           </div>
@@ -101,7 +155,10 @@ if (sharedResultId) {
 
     } catch (error) {
 
-      console.error("LOAD SHARED RESULT ERROR:", error);
+      console.error(
+        "LOAD SHARED RESULT ERROR:",
+        error
+      );
 
       app.innerHTML = `
         <div style="
@@ -121,263 +178,342 @@ if (sharedResultId) {
 
 } else {
 
-  app.innerHTML = homePage();
+  app.innerHTML =
+    homePage();
 
 }
 
-// Firebase Auth بيحافظ على جلسة المعلم بنفسه (حتى بعد refresh)، فمجرد ما
-// يتأكد إن فيه مستخدم مسجّل دخول فعليًا هيعرض لوحة التحكم تلقائيًا.
-// لكن لو الرابط ده رابط نتيجة مشاركة لطالب، منسيبوش الأوث يستبدلها.
+
+// ======================================================
+// FIREBASE AUTH
+// ======================================================
 
 onAuthStateChanged(
   auth,
   (user) => {
-    if (user && !sharedResultId) {
-      app.innerHTML = adminPage();
+
+    /*
+     * لو ده رابط نتيجة مشاركة:
+     * لا نخلي Auth يستبدل صفحة النتيجة
+     * بلوحة تحكم المعلم.
+     */
+
+    if (
+      user &&
+      !sharedResultId
+    ) {
+
+      app.innerHTML =
+        adminPage();
+
     }
+
   },
   (err) => {
-    console.error("Firebase auth error:", err);
+
+    console.error(
+      "Firebase auth error:",
+      err
+    );
+
   }
 );
 
 
+// ======================================================
+// EVENTS
+// ======================================================
 
-// ================= EVENTS =================
+document.addEventListener(
+  "click",
+  async (e) => {
 
-document.addEventListener("click", async (e) => {
+    // ==================================================
+    // HOME
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#startBtn"
+      ) ||
+      e.target.closest(
+        "#studentLogin"
+      )
+    ) {
+
+      app.innerHTML =
+        classesPage();
+
+      return;
+    }
 
 
-// HOME
+    // ==================================================
+    // TEACHER LOGIN
+    // ==================================================
 
-if(
-  e.target.closest("#startBtn") ||
-  e.target.closest("#studentLogin")
-){
+    if (
+      e.target.closest(
+        "#teacherLogin"
+      ) ||
+      e.target.closest(
+        "#adminBtn"
+      )
+    ) {
 
-  app.innerHTML = classesPage();
+      if (
+        auth.currentUser
+      ) {
 
-  return;
+        app.innerHTML =
+          adminPage();
 
-}
+      } else {
+
+        app.innerHTML =
+          teacherLoginPage();
+
+        teacherLoginEvents();
+
+      }
+
+      return;
+    }
 
 
+    // ==================================================
+    // PHYSICS
+    // ==================================================
 
-// TEACHER LOGIN
+    if (
+      e.target.closest(
+        "#physicsBtn"
+      )
+    ) {
 
-if(
-  e.target.closest("#teacherLogin") ||
-  e.target.closest("#adminBtn")
-){
+      app.innerHTML =
+        physicsPage();
 
-  if(
-    auth.currentUser
-  ){
+      return;
+    }
 
-    app.innerHTML = adminPage();
 
-  }else{
+    // ==================================================
+    // EXAMS
+    // ==================================================
 
-    app.innerHTML = teacherLoginPage();
+    if (
+      e.target.closest(
+        "#openExams"
+      ) ||
+      e.target.closest(
+        "#examBtn"
+      ) ||
+      e.target.closest(
+        "#btnExams"
+      )
+    ) {
 
-    teacherLoginEvents();
+      app.innerHTML =
+        examsPage();
+
+      return;
+    }
+
+
+    // ==================================================
+    // DIRECT OPEN EXAM
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#startExam"
+      )
+    ) {
+
+      app.innerHTML =
+        showExam();
+
+      return;
+    }
+
+
+    // ==================================================
+    // BOARDS
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#boardsBtn"
+      )
+    ) {
+
+      app.innerHTML =
+        await boardsPage();
+
+      return;
+    }
+
+
+    // ==================================================
+    // FILES
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#filesBtn"
+      )
+    ) {
+
+      app.innerHTML =
+        await filesPage();
+
+      return;
+    }
+
+
+    // ==================================================
+    // MANAGE EXAMS
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#manageExamsBtn"
+      )
+    ) {
+
+      app.innerHTML =
+        manageExamsPage();
+
+      manageExamsEvents();
+
+      return;
+    }
+
+
+    // ==================================================
+    // CREATE EXAM
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#btnCreateExam"
+      )
+    ) {
+
+      app.innerHTML =
+        createExamPage();
+
+      return;
+    }
+
+
+    // ==================================================
+    // EXAMS LIST
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#btnExamsList"
+      )
+    ) {
+
+      loadExamsList();
+
+      return;
+    }
+
+
+    // ==================================================
+    // TEACHER BOARDS
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#manageBoardsBtn"
+      )
+    ) {
+
+      app.innerHTML =
+        teacherBoardsPage();
+
+      return;
+    }
+
+
+    // ==================================================
+    // SETTINGS
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#teacherSettingsBtn"
+      )
+    ) {
+
+      app.innerHTML =
+        teacherSettingsPage();
+
+      teacherSettingsEvents();
+
+      return;
+    }
+
+
+    // ==================================================
+    // RESULTS
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#resultsBtn"
+      )
+    ) {
+
+      app.innerHTML =
+        await resultsPage();
+
+      resultsEvents();
+
+      return;
+    }
+
+
+    // ==================================================
+    // BACK ADMIN
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#btnBackToAdmin"
+      )
+    ) {
+
+      app.innerHTML =
+        adminPage();
+
+      return;
+    }
+
+
+    // ==================================================
+    // BACK
+    // ==================================================
+
+    if (
+      e.target.closest(
+        "#backBtn"
+      ) ||
+      e.target.closest(
+        "#btnBack"
+      )
+    ) {
+
+      app.innerHTML =
+        classesPage();
+
+      return;
+    }
 
   }
-
-  return;
-
-}
-
-
-
-// PHYSICS
-
-if(
-  e.target.closest("#physicsBtn")
-){
-
-  app.innerHTML = physicsPage();
-
-  return;
-
-}
-
-
-
-// EXAMS
-
-if(
-  e.target.closest("#openExams") ||
-  e.target.closest("#examBtn") ||
-  e.target.closest("#btnExams")
-){
-
-  app.innerHTML = examsPage();
-
-  return;
-
-}
-
-
-
-// DIRECT OPEN EXAM
-
-if(
-  e.target.closest("#startExam")
-){
-
-  app.innerHTML = showExam();
-
-  return;
-
-}
-
-
-
-// BOARDS
-
-if(
-  e.target.closest("#boardsBtn")
-){
-
-  app.innerHTML = await boardsPage();
-
-  return;
-
-}
-
-
-
-// FILES
-
-if(
-  e.target.closest("#filesBtn")
-){
-
-  app.innerHTML = await filesPage();
-
-  return;
-
-}
-
-
-
-// MANAGE EXAMS
-
-if(
-  e.target.closest("#manageExamsBtn")
-){
-
-  app.innerHTML = manageExamsPage();
-
-  manageExamsEvents();
-
-  return;
-
-}
-
-
-
-// CREATE EXAM
-
-if(
-  e.target.closest("#btnCreateExam")
-){
-
-  app.innerHTML = createExamPage();
-
-  return;
-
-}
-
-
-
-// EXAMS LIST
-
-if(
-  e.target.closest("#btnExamsList")
-){
-
-  loadExamsList();
-
-  return;
-
-}
-
-
-
-// TEACHER BOARDS
-
-if(
-  e.target.closest("#manageBoardsBtn")
-){
-
-  app.innerHTML = teacherBoardsPage();
-
-  return;
-
-}
-
-
-
-// SETTINGS
-
-if(
-  e.target.closest("#teacherSettingsBtn")
-){
-
-  app.innerHTML = teacherSettingsPage();
-
-  teacherSettingsEvents();
-
-  return;
-
-}
-
-
-
-// RESULTS
-
-if(
-  e.target.closest("#resultsBtn")
-){
-
-  app.innerHTML = resultsPage();
-
-  resultsEvents();
-
-  return;
-
-}
-
-
-
-// BACK ADMIN
-
-if(
-  e.target.closest("#btnBackToAdmin")
-){
-
-  app.innerHTML = adminPage();
-
-  return;
-
-}
-
-
-
-// BACK
-
-if(
-  e.target.closest("#backBtn") ||
-  e.target.closest("#btnBack")
-){
-
-  app.innerHTML = classesPage();
-
-  return;
-
-}
-
-
-});
+);

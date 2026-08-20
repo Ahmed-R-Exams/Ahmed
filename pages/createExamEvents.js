@@ -24,7 +24,18 @@ import {
   clearEditingExam
 } from "./createExam.js";
 
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from "firebase/storage";
+
+import {
+  storage
+} from "../firebase.js";
+
 let eventsAttached = false;
+
 
 // ======================================================
 // RENUMBER QUESTIONS
@@ -55,7 +66,8 @@ function renumberQuestions() {
       card.querySelector(".question-number");
 
     if (numberElement)
-      numberElement.textContent = number;
+      numberElement.textContent =
+        number;
 
     const title =
       card.querySelector(
@@ -77,6 +89,7 @@ function renumberQuestions() {
 
   });
 }
+
 
 // ======================================================
 // QUESTION TYPE
@@ -111,29 +124,261 @@ function updateQuestionType(card) {
       isEssay ? "" : "none";
 }
 
+
 // ======================================================
-// READ IMAGE
+// PREVIEW IMAGE
 // ======================================================
 
-function readFileAsDataURL(file) {
+function previewImage(card, src) {
 
-  return new Promise(
-    (resolve, reject) => {
+  if (!card || !src)
+    return;
 
-      const reader =
-        new FileReader();
+  let box =
+    card.querySelector(
+      ".question-image-box"
+    );
 
-      reader.onload =
-        () => resolve(reader.result);
+  if (!box) {
 
-      reader.onerror =
-        reject;
+    box =
+      document.createElement("div");
 
-      reader.readAsDataURL(file);
+    box.className =
+      "question-image-box";
 
+    const input =
+      card.querySelector(
+        ".q-image-file"
+      );
+
+    if (input) {
+
+      input.insertAdjacentElement(
+        "afterend",
+        box
+      );
+
+    }
+
+  }
+
+  if (!box)
+    return;
+
+  box.innerHTML = `
+
+    <button
+      type="button"
+      class="removeQuestionImage"
+      title="إلغاء الصورة"
+    >
+      ×
+    </button>
+
+    <img
+      class="question-image-preview"
+      src="${src}"
+      alt="صورة السؤال"
+    >
+
+  `;
+}
+
+
+// ======================================================
+// UPLOAD IMAGE TO FIREBASE STORAGE
+// ======================================================
+
+async function uploadQuestionImage(
+  file,
+  examId,
+  questionId,
+  index
+) {
+
+  if (!file)
+    return "";
+
+  const safeExamId =
+    String(examId || "new-exam")
+      .replace(/[^a-zA-Z0-9_-]/g, "_");
+
+  const safeQuestionId =
+    String(
+      questionId ||
+      `${Date.now()}-${index}`
+    )
+      .replace(/[^a-zA-Z0-9_-]/g, "_");
+
+  const extension =
+    (
+      file.name?.split(".").pop() ||
+      "jpg"
+    )
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
+  const fileName =
+    `${safeQuestionId}_${Date.now()}.${extension || "jpg"}`;
+
+  const storageRef =
+    ref(
+      storage,
+      `exam-images/${safeExamId}/${fileName}`
+    );
+
+  await uploadBytes(
+    storageRef,
+    file,
+    {
+      contentType:
+        file.type ||
+        "image/jpeg"
+    }
+  );
+
+  return await getDownloadURL(
+    storageRef
+  );
+}
+
+
+// ======================================================
+// CONVERT OLD BASE64 IMAGE TO FILE
+// ======================================================
+
+async function dataURLToFile(
+  dataURL,
+  fileName = "question-image.jpg"
+) {
+
+  if (
+    !dataURL ||
+    typeof dataURL !== "string" ||
+    !dataURL.startsWith("data:")
+  ) {
+    return null;
+  }
+
+  const response =
+    await fetch(dataURL);
+
+  const blob =
+    await response.blob();
+
+  return new File(
+    [blob],
+    fileName,
+    {
+      type:
+        blob.type ||
+        "image/jpeg"
     }
   );
 }
+
+
+// ======================================================
+// RESOLVE QUESTION IMAGE
+// ======================================================
+//
+// الأولوية:
+//
+// 1- صورة جديدة من input
+// 2- رابط Storage موجود بالفعل
+// 3- Base64 قديم -> يتحول تلقائيًا إلى Storage
+//
+// ======================================================
+
+async function resolveQuestionImage(
+  card,
+  examId,
+  questionId,
+  index
+) {
+
+  const input =
+    card.querySelector(
+      ".q-image-file"
+    );
+
+  const hidden =
+    card.querySelector(
+      ".q-image"
+    );
+
+  // ----------------------------------------------------
+  // صورة جديدة اختارها المستخدم
+  // ----------------------------------------------------
+
+  const newFile =
+    input?.files?.[0];
+
+  if (newFile) {
+
+    return await uploadQuestionImage(
+      newFile,
+      examId,
+      questionId,
+      index
+    );
+
+  }
+
+  // ----------------------------------------------------
+  // قيمة الصورة القديمة
+  // ----------------------------------------------------
+
+  const existingImage =
+    hidden?.value || "";
+
+  if (!existingImage)
+    return "";
+
+  // ----------------------------------------------------
+  // لو رابط Storage / URL عادي
+  // ----------------------------------------------------
+
+  if (
+    existingImage.startsWith("http://") ||
+    existingImage.startsWith("https://")
+  ) {
+
+    return existingImage;
+
+  }
+
+  // ----------------------------------------------------
+  // لو Base64 قديم
+  // نحوله إلى Storage
+  // ----------------------------------------------------
+
+  if (
+    existingImage.startsWith("data:")
+  ) {
+
+    const oldFile =
+      await dataURLToFile(
+        existingImage,
+        `question-${index + 1}.jpg`
+      );
+
+    if (!oldFile)
+      return "";
+
+    return await uploadQuestionImage(
+      oldFile,
+      examId,
+      questionId,
+      index
+    );
+
+  }
+
+  return "";
+}
+
 
 // ======================================================
 // EVENTS
@@ -146,6 +391,7 @@ export function createExamEvents() {
 
   eventsAttached = true;
 
+
   // ====================================================
   // CHANGE
   // ====================================================
@@ -154,20 +400,29 @@ export function createExamEvents() {
     "change",
     async e => {
 
+      // =================================================
       // QUESTION TYPE
+      // =================================================
+
       if (
         e.target.matches(".q-type-select")
       ) {
 
         const card =
-          e.target.closest(".question-card");
+          e.target.closest(
+            ".question-card"
+          );
 
         updateQuestionType(card);
 
         return;
       }
 
+
+      // =================================================
       // QUESTION IMAGE
+      // =================================================
+
       if (
         e.target.matches(".q-image-file")
       ) {
@@ -182,65 +437,48 @@ export function createExamEvents() {
           return;
 
         const card =
-          input.closest(".question-card");
+          input.closest(
+            ".question-card"
+          );
 
         if (!card)
           return;
 
         try {
 
-          const result =
-            await readFileAsDataURL(file);
+          // ------------------------------------------------
+          // لا نحفظ Base64 في hidden input.
+          // نستخدم Object URL للمعاينة فقط.
+          // ------------------------------------------------
+
+          const previewURL =
+            URL.createObjectURL(
+              file
+            );
 
           const hidden =
-            card.querySelector(".q-image");
-
-          if (hidden)
-            hidden.value = result;
-
-          let box =
             card.querySelector(
-              ".question-image-box"
+              ".q-image"
             );
 
-          if (!box) {
+          if (hidden) {
 
-            box =
-              document.createElement("div");
-
-            box.className =
-              "question-image-box";
-
-            input.insertAdjacentElement(
-              "afterend",
-              box
-            );
+            // مهم:
+            // نخلي القيمة القديمة كما هي لو موجودة.
+            // الملف الجديد سيتم رفعه وقت الحفظ.
 
           }
 
-          box.innerHTML = `
-
-            <button
-              type="button"
-              class="removeQuestionImage"
-              title="إلغاء الصورة"
-            >
-              ×
-            </button>
-
-            <img
-              class="question-image-preview"
-              src="${result}"
-              alt="صورة السؤال"
-            >
-
-          `;
+          previewImage(
+            card,
+            previewURL
+          );
 
         }
         catch (error) {
 
           console.error(
-            "QUESTION IMAGE ERROR:",
+            "QUESTION IMAGE PREVIEW ERROR:",
             error
           );
 
@@ -254,6 +492,7 @@ export function createExamEvents() {
 
     }
   );
+
 
   // ====================================================
   // CLICK
@@ -278,16 +517,22 @@ export function createExamEvents() {
         e.stopPropagation();
 
         const card =
-          removeImage.closest(".question-card");
+          removeImage.closest(
+            ".question-card"
+          );
 
         if (!card)
           return;
 
         const input =
-          card.querySelector(".q-image-file");
+          card.querySelector(
+            ".q-image-file"
+          );
 
         const hidden =
-          card.querySelector(".q-image");
+          card.querySelector(
+            ".q-image"
+          );
 
         const box =
           card.querySelector(
@@ -306,12 +551,15 @@ export function createExamEvents() {
         return;
       }
 
+
       // =================================================
       // ADD QUESTION
       // =================================================
 
       const addButton =
-        e.target.closest("#btnAddQuestion");
+        e.target.closest(
+          "#btnAddQuestion"
+        );
 
       if (addButton) {
 
@@ -327,7 +575,9 @@ export function createExamEvents() {
           return;
 
         const empty =
-          list.querySelector(".eb-empty");
+          list.querySelector(
+            ".eb-empty"
+          );
 
         if (empty)
           empty.remove();
@@ -365,6 +615,7 @@ export function createExamEvents() {
 
         return;
       }
+
 
       // =================================================
       // DELETE QUESTION
@@ -417,6 +668,7 @@ export function createExamEvents() {
         return;
       }
 
+
       // =================================================
       // DUPLICATE QUESTION
       // =================================================
@@ -458,6 +710,11 @@ export function createExamEvents() {
         if (fileInput)
           fileInput.value = "";
 
+        // ------------------------------------------------
+        // الصورة المكررة لا نعتبرها ملفًا جديدًا.
+        // نحتفظ بالرابط الموجود فقط.
+        // ------------------------------------------------
+
         card.insertAdjacentElement(
           "afterend",
           clone
@@ -473,6 +730,7 @@ export function createExamEvents() {
         return;
       }
 
+
       // =================================================
       // SAVE
       // =================================================
@@ -487,10 +745,13 @@ export function createExamEvents() {
         e.preventDefault();
         e.stopPropagation();
 
-        await saveExam(saveButton);
+        await saveExam(
+          saveButton
+        );
 
         return;
       }
+
 
       // =================================================
       // BACK
@@ -509,7 +770,9 @@ export function createExamEvents() {
         clearEditingExam();
 
         const app =
-          document.querySelector("#app");
+          document.querySelector(
+            "#app"
+          );
 
         if (app) {
 
@@ -527,35 +790,46 @@ export function createExamEvents() {
   );
 }
 
+
 // ======================================================
 // SAVE EXAM
 // ======================================================
 
-async function saveExam(saveButton) {
+async function saveExam(
+  saveButton
+) {
 
   const title =
     document
-      .querySelector("#examTitle")
+      .querySelector(
+        "#examTitle"
+      )
       ?.value
       ?.trim();
 
   if (!title) {
 
-    alert("اكتب عنوان الامتحان");
+    alert(
+      "اكتب عنوان الامتحان"
+    );
 
     return;
   }
 
+
   const subject =
     document.querySelector(
       "#examSubject"
-    )?.value || "physics";
+    )?.value ||
+    "physics";
+
 
   const className =
     document.querySelector(
       "#examClass"
     )?.value ||
     "الصف الأول الثانوي";
+
 
   const duration =
     Number(
@@ -564,6 +838,7 @@ async function saveExam(saveButton) {
       )?.value
     ) || 60;
 
+
   const passingScore =
     Number(
       document.querySelector(
@@ -571,15 +846,20 @@ async function saveExam(saveButton) {
       )?.value
     ) || 50;
 
+
   const startDate =
     document.querySelector(
       "#examStartDate"
-    )?.value || "";
+    )?.value ||
+    "";
+
 
   const endDate =
     document.querySelector(
       "#examEndDate"
-    )?.value || "";
+    )?.value ||
+    "";
+
 
   const cards =
     Array.from(
@@ -587,6 +867,7 @@ async function saveExam(saveButton) {
         ".question-card"
       )
     );
+
 
   if (!cards.length) {
 
@@ -597,26 +878,83 @@ async function saveExam(saveButton) {
     return;
   }
 
-  const questions =
-    cards.map((card, index) => {
+
+  const currentExam =
+    getEditingExam();
+
+  const isEdit =
+    !!currentExam;
+
+
+  // ====================================================
+  // EXAM ID
+  // ====================================================
+
+  const existingExamId =
+    currentExam?.firestoreId ||
+    currentExam?.id ||
+    "";
+
+
+  // ====================================================
+  // DISABLE SAVE
+  // ====================================================
+
+  try {
+
+    saveButton.disabled =
+      true;
+
+    saveButton.textContent =
+      "⏳ جاري تجهيز الأسئلة...";
+
+
+    // ==================================================
+    // BUILD QUESTIONS
+    // ==================================================
+
+    const questions =
+      [];
+
+
+    for (
+      let index = 0;
+      index < cards.length;
+      index++
+    ) {
+
+      const card =
+        cards[index];
+
 
       const text =
         card
-          .querySelector(".q-text")
+          .querySelector(
+            ".q-text"
+          )
           ?.value
-          ?.trim() || "";
+          ?.trim() ||
+        "";
+
 
       const type =
         card
-          .querySelector(".q-type-select")
-          ?.value || "mcq";
+          .querySelector(
+            ".q-type-select"
+          )
+          ?.value ||
+        "mcq";
+
 
       const score =
         Number(
           card
-            .querySelector(".q-score")
+            .querySelector(
+              ".q-score"
+            )
             ?.value
         ) || 1;
+
 
       const options =
         Array.from(
@@ -624,10 +962,13 @@ async function saveExam(saveButton) {
             ".opt-text"
           )
         )
-        .map(
-          input =>
-            input.value?.trim() || ""
-        );
+          .map(
+            input =>
+              input.value
+                ?.trim() ||
+              ""
+          );
+
 
       const normalizedOptions = [
         options[0] || "",
@@ -636,18 +977,24 @@ async function saveExam(saveButton) {
         options[3] || ""
       ];
 
+
       const checked =
         card.querySelector(
           ".q-correct-radio:checked"
         );
 
+
       let correctIndex =
         Number(
-          checked?.value ?? 0
+          checked?.value ??
+          0
         );
 
+
       if (
-        !Number.isInteger(correctIndex) ||
+        !Number.isInteger(
+          correctIndex
+        ) ||
         correctIndex < 0 ||
         correctIndex > 3
       ) {
@@ -656,60 +1003,109 @@ async function saveExam(saveButton) {
 
       }
 
-      const image =
-        card
-          .querySelector(".q-image")
-          ?.value || "";
 
       const existingId =
-        card.dataset.questionId || "";
+        card.dataset.questionId ||
+        `${Date.now()}-${index}`;
 
-      if (type === "essay") {
 
-        return {
+      // ==================================================
+      // IMAGE
+      // ==================================================
+
+      saveButton.textContent =
+        `⏳ رفع صورة السؤال ${index + 1}...`;
+
+
+      const image =
+        await resolveQuestionImage(
+          card,
+          existingExamId ||
+            `new-${Date.now()}`,
+          existingId,
+          index
+        );
+
+
+      // ==================================================
+      // ESSAY
+      // ==================================================
+
+      if (
+        type === "essay"
+      ) {
+
+        questions.push({
 
           id:
-            existingId ||
-            `${Date.now()}-${index}`,
+            existingId,
 
-          question: text,
+          question:
+            text,
+
           text,
-          title: text,
 
-          type: "essay",
+          title:
+            text,
+
+          type:
+            "essay",
 
           score,
-          points: score,
-          maxScore: score,
 
-          options: [],
+          points:
+            score,
 
-          correctIndex: -1,
-          correctAnswerIndex: -1,
+          maxScore:
+            score,
 
-          answer: "",
+          options:
+            [],
+
+          correctIndex:
+            -1,
+
+          correctAnswerIndex:
+            -1,
+
+          answer:
+            "",
 
           image
 
-        };
+        });
 
+        continue;
       }
 
-      return {
+
+      // ==================================================
+      // MCQ
+      // ==================================================
+
+      questions.push({
 
         id:
-          existingId ||
-          `${Date.now()}-${index}`,
+          existingId,
 
-        question: text,
+        question:
+          text,
+
         text,
-        title: text,
 
-        type: "mcq",
+        title:
+          text,
+
+        type:
+          "mcq",
 
         score,
-        points: score,
-        maxScore: score,
+
+        points:
+          score,
+
+        maxScore:
+          score,
 
         options:
           normalizedOptions,
@@ -738,65 +1134,71 @@ async function saveExam(saveButton) {
 
         image
 
-      };
+      });
 
-    });
+    }
 
-  const currentExam =
-    getEditingExam();
 
-  const isEdit =
-    !!currentExam;
+    // ====================================================
+    // EXAM DATA
+    // ====================================================
 
-  const examData = {
+    const examData = {
 
-    title,
+      title,
 
-    subject,
+      subject,
 
-    className,
-
-    grade:
       className,
 
-    duration,
+      grade:
+        className,
 
-    examTime:
       duration,
 
-    passingScore,
+      examTime:
+        duration,
 
-    startDate,
+      passingScore,
 
-    endDate,
+      startDate,
 
-    isOpen: true,
+      endDate,
 
-    isPublished: true,
+      isOpen:
+        true,
 
-    published: true,
+      isPublished:
+        true,
 
-    questions,
+      published:
+        true,
 
-    questionsCount:
-      questions.length
+      questions,
 
-  };
+      questionsCount:
+        questions.length
 
-  try {
+    };
 
-    saveButton.disabled = true;
 
     saveButton.textContent =
-      "⏳ جاري الحفظ...";
+      "⏳ جاري حفظ الامتحان...";
 
-    let recalcInfo = null;
+
+    let recalcInfo =
+      null;
+
+
+    // ====================================================
+    // EDIT
+    // ====================================================
 
     if (isEdit) {
 
       const examId =
-        currentExam.firestoreId ||
-        currentExam.id;
+        existingExamId;
+
 
       if (!examId) {
 
@@ -806,14 +1208,15 @@ async function saveExam(saveButton) {
 
       }
 
+
       await updateExam(
         examId,
         examData
       );
 
+
       // ================================================
-      // إعادة تصحيح نتائج الطلاب اللي امتحنوا فعلاً
-      // بناءً على التعديل الجديد
+      // إعادة تصحيح نتائج الطلاب
       // ================================================
 
       try {
@@ -821,12 +1224,15 @@ async function saveExam(saveButton) {
         recalcInfo =
           await recalculateResultsForExam(
             examId,
-            currentExam.title || title,
+            currentExam.title ||
+              title,
             questions
           );
 
       }
-      catch (recalcError) {
+      catch (
+        recalcError
+      ) {
 
         console.error(
           "RECALCULATE RESULTS ERROR:",
@@ -836,6 +1242,12 @@ async function saveExam(saveButton) {
       }
 
     }
+
+
+    // ====================================================
+    // NEW EXAM
+    // ====================================================
+
     else {
 
       await addExam(
@@ -844,6 +1256,11 @@ async function saveExam(saveButton) {
 
     }
 
+
+    // ====================================================
+    // MESSAGE
+    // ====================================================
+
     const recalcMessage =
       isEdit &&
       recalcInfo &&
@@ -851,18 +1268,25 @@ async function saveExam(saveButton) {
         ? `\n\n🔄 تم تحديث نتائج ${recalcInfo.updated} طالب/طلاب بناءً على التعديل.`
         : "";
 
+
     alert(
       (
         isEdit
           ? "✅ تم حفظ تعديلات الامتحان"
           : "✅ تم حفظ الامتحان بنجاح"
-      ) + recalcMessage
+      ) +
+      recalcMessage
     );
+
 
     clearEditingExam();
 
+
     const app =
-      document.querySelector("#app");
+      document.querySelector(
+        "#app"
+      );
+
 
     if (app) {
 
@@ -874,12 +1298,15 @@ async function saveExam(saveButton) {
     }
 
   }
-  catch (error) {
+  catch (
+    error
+  ) {
 
     console.error(
       "SAVE EXAM ERROR:",
       error
     );
+
 
     alert(
       "❌ حدث خطأ أثناء حفظ الامتحان\n\n" +
@@ -889,7 +1316,10 @@ async function saveExam(saveButton) {
       )
     );
 
-    saveButton.disabled = false;
+
+    saveButton.disabled =
+      false;
+
 
     saveButton.textContent =
       isEdit
