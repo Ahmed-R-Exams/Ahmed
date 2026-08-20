@@ -31,20 +31,108 @@ import { auth } from "./firebase.js";
 import { loadExamsList } from "./pages/examsList.js";
 import { resultsPage } from "./pages/results.js";
 
+import { getResultById } from "./services/resultService.js";
+import { reviewResultPage } from "./pages/reviewResult.js";
+
 const app = document.querySelector("#app");
+
+
+// ================= SHARED RESULT LINK =================
+// لو اللينك فيه #result=ID (لينك نتيجة طالب اتبعت له)،
+// نعرض نتيجته مباشرة بدل الصفحة الرئيسية.
+
+function getSharedResultId() {
+  const hash = window.location.hash || "";
+  const match = hash.match(/result=([^&]+)/);
+
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+const sharedResultId = getSharedResultId();
 
 
 // ================= START =================
 
 // اعرض الصفحة فورًا كأول خطوة (بدل ما تفضل فاضية لو Firebase اتأخر أو اتحظر)
-app.innerHTML = homePage();
+
+if (sharedResultId) {
+
+  app.innerHTML = `
+    <div style="
+      padding:60px 20px;
+      text-align:center;
+      color:#64748b;
+      font-family:'Tajawal',Arial,sans-serif;
+      direction:rtl;
+    ">
+      جاري تحميل النتيجة...
+    </div>
+  `;
+
+  (async () => {
+
+    try {
+
+      const result = await getResultById(sharedResultId);
+
+      if (result) {
+
+        app.innerHTML = reviewResultPage(result);
+
+      } else {
+
+        app.innerHTML = `
+          <div style="
+            padding:60px 20px;
+            text-align:center;
+            color:#dc2626;
+            font-family:'Tajawal',Arial,sans-serif;
+            direction:rtl;
+          ">
+            تعذر العثور على النتيجة المطلوبة.
+            <br>
+            <span style="color:#94a3b8;font-size:13px;">
+              الرابط غير صحيح أو تم حذف النتيجة.
+            </span>
+          </div>
+        `;
+
+      }
+
+    } catch (error) {
+
+      console.error("LOAD SHARED RESULT ERROR:", error);
+
+      app.innerHTML = `
+        <div style="
+          padding:60px 20px;
+          text-align:center;
+          color:#dc2626;
+          font-family:'Tajawal',Arial,sans-serif;
+          direction:rtl;
+        ">
+          حدث خطأ أثناء تحميل النتيجة.
+        </div>
+      `;
+
+    }
+
+  })();
+
+} else {
+
+  app.innerHTML = homePage();
+
+}
 
 // Firebase Auth بيحافظ على جلسة المعلم بنفسه (حتى بعد refresh)، فمجرد ما
 // يتأكد إن فيه مستخدم مسجّل دخول فعليًا هيعرض لوحة التحكم تلقائيًا.
+// لكن لو الرابط ده رابط نتيجة مشاركة لطالب، منسيبوش الأوث يستبدلها.
+
 onAuthStateChanged(
   auth,
   (user) => {
-    if (user) {
+    if (user && !sharedResultId) {
       app.innerHTML = adminPage();
     }
   },
