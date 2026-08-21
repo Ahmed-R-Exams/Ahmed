@@ -6,6 +6,10 @@ import {
   updateResult
 } from "../services/resultService.js";
 
+import {
+  getExamById
+} from "../services/examService.js";
+
 
 // ======================================================
 // HELPERS
@@ -19,6 +23,7 @@ function escapeHTML(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+
 }
 
 
@@ -32,20 +37,30 @@ function getQuestionOptions(q) {
     return [];
   }
 
+
   if (Array.isArray(q.options)) {
+
     return q.options;
+
   }
+
 
   if (Array.isArray(q.choices)) {
+
     return q.choices;
+
   }
 
+
   const letterOptions = [
+
     q.A,
     q.B,
     q.C,
     q.D
+
   ];
+
 
   if (
     letterOptions.some(
@@ -62,14 +77,19 @@ function getQuestionOptions(q) {
         value !== null &&
         String(value).trim() !== ""
     );
+
   }
 
+
   const namedOptions = [
+
     q.optionA,
     q.optionB,
     q.optionC,
     q.optionD
+
   ];
+
 
   if (
     namedOptions.some(
@@ -86,9 +106,12 @@ function getQuestionOptions(q) {
         value !== null &&
         String(value).trim() !== ""
     );
+
   }
 
+
   return [];
+
 }
 
 
@@ -99,52 +122,74 @@ function getQuestionOptions(q) {
 function getRawCorrectAnswer(q) {
 
   if (!q || typeof q !== "object") {
+
     return undefined;
+
   }
+
 
   if (
     q.correctAnswerIndex !== undefined &&
     q.correctAnswerIndex !== null
   ) {
+
     return q.correctAnswerIndex;
+
   }
+
 
   if (
     q.correctIndex !== undefined &&
     q.correctIndex !== null
   ) {
+
     return q.correctIndex;
+
   }
+
 
   if (
     q.rightIndex !== undefined &&
     q.rightIndex !== null
   ) {
+
     return q.rightIndex;
+
   }
+
 
   if (
     q.correctAnswer !== undefined &&
     q.correctAnswer !== null
   ) {
+
     return q.correctAnswer;
+
   }
+
 
   if (
     q.answer !== undefined &&
     q.answer !== null
   ) {
+
     return q.answer;
+
   }
+
 
   if (
     q.correct !== undefined &&
     q.correct !== null
   ) {
+
     return q.correct;
+
   }
 
+
   return undefined;
+
 }
 
 
@@ -162,8 +207,11 @@ function normalizeCorrectAnswer(
     value === null ||
     value === ""
   ) {
+
     return -1;
+
   }
+
 
   if (
     typeof value === "number" &&
@@ -171,20 +219,27 @@ function normalizeCorrectAnswer(
   ) {
 
     return Math.trunc(value);
+
   }
+
 
   const raw =
     String(value).trim();
 
+
   const upper =
     raw.toUpperCase();
 
+
   const letters = {
+
     A: 0,
     B: 1,
     C: 2,
     D: 3
+
   };
+
 
   if (
     Object.prototype.hasOwnProperty.call(
@@ -194,6 +249,7 @@ function normalizeCorrectAnswer(
   ) {
 
     return letters[upper];
+
   }
 
 
@@ -205,6 +261,7 @@ function normalizeCorrectAnswer(
   if (/^[1-4]$/.test(raw)) {
 
     return Number(raw) - 1;
+
   }
 
 
@@ -221,7 +278,9 @@ function normalizeCorrectAnswer(
     ) {
 
       return number;
+
     }
+
   }
 
 
@@ -233,11 +292,16 @@ function normalizeCorrectAnswer(
         String(option).trim() === raw
     );
 
+
   if (textIndex !== -1) {
+
     return textIndex;
+
   }
 
+
   return -1;
+
 }
 
 
@@ -250,10 +314,12 @@ function getQuestionCorrectAnswer(q) {
   const options =
     getQuestionOptions(q);
 
+
   return normalizeCorrectAnswer(
     getRawCorrectAnswer(q),
     options
   );
+
 }
 
 
@@ -266,9 +332,13 @@ function isEssayQuestion(q) {
   const options =
     getQuestionOptions(q);
 
+
   if (options.length > 0) {
+
     return false;
+
   }
+
 
   const type =
     String(
@@ -277,6 +347,7 @@ function isEssayQuestion(q) {
       .toLowerCase()
       .trim();
 
+
   return (
     type.includes("essay") ||
     type.includes("مقال") ||
@@ -284,6 +355,7 @@ function isEssayQuestion(q) {
     type.includes("text") ||
     !type
   );
+
 }
 
 
@@ -293,17 +365,22 @@ function isEssayQuestion(q) {
 
 function getQuestionScore(q) {
 
-  const score = Number(
-    q?.score ??
-    q?.maxScore ??
-    q?.points ??
-    q?.grade ??
-    1
-  );
+  const score =
+    Number(
+      q?.score ??
+      q?.maxScore ??
+      q?.points ??
+      q?.grade ??
+      1
+    );
+
 
   return Number.isFinite(score) && score > 0
+
     ? score
+
     : 1;
+
 }
 
 
@@ -311,16 +388,23 @@ function getQuestionScore(q) {
 // GET STUDENT ANSWER
 // ======================================================
 
-function getStudentAnswer(result, index) {
+function getStudentAnswer(
+  result,
+  index
+) {
 
   if (
     !result ||
     !Array.isArray(result.answers)
   ) {
+
     return undefined;
+
   }
 
+
   return result.answers[index];
+
 }
 
 
@@ -334,29 +418,45 @@ function calculateMCQScore(
 ) {
 
   if (!Array.isArray(questions)) {
+
     return 0;
+
   }
+
 
   let total = 0;
 
+
   questions.forEach(
-    (question, index) => {
+    (
+      question,
+      index
+    ) => {
 
       if (
         isEssayQuestion(question)
       ) {
+
         return;
+
       }
+
 
       const student =
         Array.isArray(answers)
-          ? Number(answers[index])
+
+          ? Number(
+              answers[index]
+            )
+
           : NaN;
+
 
       const correct =
         getQuestionCorrectAnswer(
           question
         );
+
 
       if (
         Number.isFinite(student) &&
@@ -368,12 +468,15 @@ function calculateMCQScore(
           getQuestionScore(
             question
           );
+
       }
 
     }
   );
 
+
   return total;
+
 }
 
 
@@ -389,8 +492,11 @@ function calculateEssayScore(
     !essayGrades ||
     typeof essayGrades !== "object"
   ) {
+
     return 0;
+
   }
+
 
   return Object.values(
     essayGrades
@@ -399,12 +505,103 @@ function calculateEssayScore(
       total,
       value
     ) =>
+
       total +
       (
         Number(value) || 0
       ),
+
     0
+
   );
+
+}
+
+
+// ======================================================
+// GET EXAM ID FROM RESULT
+// ======================================================
+
+function getResultExamId(result) {
+
+  if (!result || typeof result !== "object") {
+
+    return null;
+
+  }
+
+
+  const possibleIds = [
+
+    result.examId,
+    result.examFirestoreId,
+    result.examID,
+    result.exam_id,
+    result.firestoreExamId,
+    result.exam?.firestoreId,
+    result.exam?.id
+
+  ];
+
+
+  for (
+    const id
+    of possibleIds
+  ) {
+
+    if (
+      id !== undefined &&
+      id !== null &&
+      String(id).trim() !== ""
+    ) {
+
+      return String(id);
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+// ======================================================
+// GET CANONICAL QUESTION
+// ======================================================
+//
+// هذه أهم نقطة في الإصلاح.
+//
+// result.questions = النسخة القديمة التي أداها الطالب.
+//
+// canonicalQuestions = النسخة الحالية الموجودة في Firestore.
+//
+// نص الإجابة الصحيحة المعروض للطالب يؤخذ من
+// canonicalQuestions.
+//
+// أما الدرجة فتظل معتمدة على result.answers.
+//
+// ======================================================
+
+function getCanonicalQuestion(
+  canonicalQuestions,
+  index,
+  fallbackQuestion
+) {
+
+  if (
+    Array.isArray(canonicalQuestions) &&
+    canonicalQuestions[index]
+  ) {
+
+    return canonicalQuestions[index];
+
+  }
+
+
+  return fallbackQuestion;
+
 }
 
 
@@ -415,7 +612,8 @@ function calculateEssayScore(
 export function reviewResultPage(
   result,
   resultId = null,
-  publicView = false
+  publicView = false,
+  canonicalQuestions = null
 ) {
 
   const app =
@@ -454,6 +652,7 @@ export function reviewResultPage(
           publicView
             ? ""
             : `
+
               <button
                 id="backToResults"
                 style="
@@ -467,34 +666,22 @@ export function reviewResultPage(
               >
                 العودة
               </button>
+
             `
         }
 
       </div>
 
     `;
+
   }
 
 
   // ====================================================
-  // IMPORTANT
-  // ====================================================
-  //
-  // هنا نعتمد فقط على result.
-  //
-  // ممنوع استخدام:
-  //
-  // currentActiveExam
-  // localStorage للامتحان الحالي
-  // أي امتحان آخر
-  //
-  // لأن النتيجة يجب أن تعرض النسخة المحفوظة
-  // داخل نفس نتيجة الطالب.
-  //
+  // QUESTIONS FROM RESULT
   // ====================================================
 
-
-  const questions =
+  const resultQuestions =
     Array.isArray(result.questions)
       ? result.questions
       : [];
@@ -510,7 +697,7 @@ export function reviewResultPage(
   // NO QUESTIONS
   // ====================================================
 
-  if (!questions.length) {
+  if (!resultQuestions.length) {
 
     return `
 
@@ -544,6 +731,7 @@ export function reviewResultPage(
           publicView
             ? ""
             : `
+
               <button
                 id="backToResults"
                 style="
@@ -557,12 +745,14 @@ export function reviewResultPage(
               >
                 ⬅ العودة للنتائج
               </button>
+
             `
         }
 
       </div>
 
     `;
+
   }
 
 
@@ -576,6 +766,7 @@ export function reviewResultPage(
   ) {
 
     result.essayGrades = {};
+
   }
 
 
@@ -585,7 +776,8 @@ export function reviewResultPage(
 
   let calculatedTotal = 0;
 
-  questions.forEach(
+
+  resultQuestions.forEach(
     q => {
 
       calculatedTotal +=
@@ -606,30 +798,29 @@ export function reviewResultPage(
 
     safeTotal =
       calculatedTotal;
+
   }
 
 
   if (!safeTotal) {
+
     safeTotal = 1;
+
   }
 
 
   // ====================================================
   // SCORE
   // ====================================================
-  //
-  // مهم:
-  // النتيجة المعروضة أولًا هي النتيجة المحفوظة.
-  //
-  // لا نعيد حسابها من امتحان آخر.
-  //
-  // ====================================================
 
   let score =
     Number(result.score);
 
+
   if (!Number.isFinite(score)) {
+
     score = 0;
+
   }
 
 
@@ -641,6 +832,84 @@ export function reviewResultPage(
 
   const passed =
     percent >= 50;
+
+
+  // ====================================================
+  // ASYNC LOAD CANONICAL EXAM
+  // ====================================================
+  //
+  // لا نغير توقيع الصفحة إلى async حتى لا نكسر
+  // بقية المشروع.
+  //
+  // أول عرض يستخدم نسخة النتيجة.
+  //
+  // ثم نجلب الامتحان الحالي مرة واحدة ونستبدل
+  // النصوص المعروضة بالنسخة القياسية.
+  //
+  // ====================================================
+
+  if (
+    !Array.isArray(canonicalQuestions)
+  ) {
+
+    const examId =
+      getResultExamId(result);
+
+
+    if (examId) {
+
+      setTimeout(
+        async () => {
+
+          try {
+
+            const currentExam =
+              await getExamById(
+                examId
+              );
+
+
+            const currentQuestions =
+              currentExam &&
+              Array.isArray(
+                currentExam.questions
+              )
+                ? currentExam.questions
+                : [];
+
+
+            if (
+              currentQuestions.length &&
+              app
+            ) {
+
+              app.innerHTML =
+                reviewResultPage(
+                  result,
+                  resultId,
+                  publicView,
+                  currentQuestions
+                );
+
+            }
+
+          }
+          catch (error) {
+
+            console.warn(
+              "⚠️ CANONICAL EXAM QUESTIONS LOAD FAILED:",
+              error
+            );
+
+          }
+
+        },
+        0
+      );
+
+    }
+
+  }
 
 
   // ====================================================
@@ -662,13 +931,17 @@ export function reviewResultPage(
           async () => {
 
             if (!app) {
+
               return;
+
             }
+
 
             app.innerHTML =
               await resultsPage();
 
           };
+
       }
 
 
@@ -677,7 +950,9 @@ export function reviewResultPage(
       // ==================================================
 
       if (publicView) {
+
         return;
+
       }
 
 
@@ -710,12 +985,14 @@ export function reviewResultPage(
 
 
                   if (!input) {
+
                     return;
+
                   }
 
 
                   const q =
-                    questions[qIndex];
+                    resultQuestions[qIndex];
 
 
                   const max =
@@ -753,7 +1030,7 @@ export function reviewResultPage(
 
                   const mcqScore =
                     calculateMCQScore(
-                      questions,
+                      resultQuestions,
                       answers
                     );
 
@@ -792,6 +1069,7 @@ export function reviewResultPage(
                     throw new Error(
                       "Result ID غير موجود"
                     );
+
                   }
 
 
@@ -823,7 +1101,8 @@ export function reviewResultPage(
                       reviewResultPage(
                         result,
                         id,
-                        false
+                        false,
+                        canonicalQuestions
                       );
 
                   }
@@ -835,6 +1114,7 @@ export function reviewResultPage(
                     "SAVE ESSAY GRADE ERROR:",
                     error
                   );
+
 
                   alert(
                     "حدث خطأ أثناء حفظ الدرجة."
@@ -857,17 +1137,35 @@ export function reviewResultPage(
   // ====================================================
 
   const questionsHTML =
-    questions
+    resultQuestions
       .map(
         (
-          q,
+          resultQuestion,
           index
         ) => {
 
+          // ==================================================
+          // سؤال الطالب
+          // ==================================================
+
+          const studentQuestion =
+            resultQuestion;
+
 
           // ==================================================
-          // مهم جدًا
-          // الإجابة تؤخذ من نفس result فقط
+          // السؤال القياسي الحالي
+          // ==================================================
+
+          const canonicalQuestion =
+            getCanonicalQuestion(
+              canonicalQuestions,
+              index,
+              resultQuestion
+            );
+
+
+          // ==================================================
+          // إجابة الطالب
           // ==================================================
 
           const studentAns =
@@ -882,28 +1180,36 @@ export function reviewResultPage(
           // ============================================
 
           if (
-            isEssayQuestion(q)
+            isEssayQuestion(
+              studentQuestion
+            )
           ) {
 
             const studentEssayText =
               studentAns !== undefined &&
               studentAns !== null &&
               String(studentAns).trim() !== ""
+
                 ? String(studentAns)
+
                 : "لم يتم تقديم إجابة";
 
 
             const currentEssayGrade =
               result.essayGrades &&
               result.essayGrades[index] !== undefined
+
                 ? Number(
                     result.essayGrades[index]
                   ) || 0
+
                 : 0;
 
 
             const maxQGrade =
-              getQuestionScore(q);
+              getQuestionScore(
+                studentQuestion
+              );
 
 
             return `
@@ -927,14 +1233,15 @@ export function reviewResultPage(
 
 
                 ${
-                  q.image ||
-                  q.questionImage
+                  studentQuestion.image ||
+                  studentQuestion.questionImage
+
                     ? `
 
                       <img
                         src="${escapeHTML(
-                          q.image ||
-                          q.questionImage
+                          studentQuestion.image ||
+                          studentQuestion.questionImage
                         )}"
                         style="
                           max-width:100%;
@@ -945,6 +1252,7 @@ export function reviewResultPage(
                       >
 
                     `
+
                     : ""
                 }
 
@@ -954,8 +1262,8 @@ export function reviewResultPage(
                 ">
 
                   ${escapeHTML(
-                    q.text ||
-                    q.question ||
+                    studentQuestion.text ||
+                    studentQuestion.question ||
                     ""
                   )}
 
@@ -987,9 +1295,7 @@ export function reviewResultPage(
                   <b>
 
                     ${currentEssayGrade}
-
                     /
-
                     ${maxQGrade}
 
                   </b>
@@ -999,7 +1305,9 @@ export function reviewResultPage(
 
                 ${
                   publicView
+
                     ? ""
+
                     : `
 
                       <div style="
@@ -1047,6 +1355,7 @@ export function reviewResultPage(
                       </div>
 
                     `
+
                 }
 
               </div>
@@ -1060,35 +1369,128 @@ export function reviewResultPage(
           // MCQ
           // ============================================
 
+
+          // ==================================================
+          // إجابة الطالب = من النتيجة المحفوظة
+          // ==================================================
+
           const studentAnsIndex =
             Number.isFinite(
               Number(studentAns)
             )
+
               ? Number(studentAns)
+
               : -1;
 
 
+          // ==================================================
+          // اختيارات الطالب
+          // ==================================================
+
+          const studentOptions =
+            getQuestionOptions(
+              studentQuestion
+            );
+
+
+          // ==================================================
+          // الاختيارات القياسية الحالية
+          // ==================================================
+
+          const canonicalOptions =
+            getQuestionOptions(
+              canonicalQuestion
+            );
+
+
+          // ==================================================
+          // نستخدم الاختيارات الحالية إذا كانت موجودة
+          // ==================================================
+
           const options =
-            getQuestionOptions(q);
+            canonicalOptions.length > 0
+
+              ? canonicalOptions
+
+              : studentOptions;
 
 
-          const correctIndex =
-            getQuestionCorrectAnswer(q);
+          // ==================================================
+          // رقم الإجابة الصحيحة
+          // ==================================================
+          //
+          // الأولوية:
+          //
+          // 1) السؤال الحالي في Firestore
+          // 2) سؤال النتيجة القديمة
+          //
+          // ==================================================
 
+          let correctIndex =
+            getQuestionCorrectAnswer(
+              canonicalQuestion
+            );
+
+
+          if (
+            correctIndex < 0
+          ) {
+
+            correctIndex =
+              getQuestionCorrectAnswer(
+                studentQuestion
+              );
+
+          }
+
+
+          // ==================================================
+          // نص إجابة الطالب
+          // ==================================================
+          //
+          // مهم:
+          // إجابة الطالب نعرضها من النسخة التي أدى بها
+          // الامتحان، حتى لا تتغير إجابته القديمة بعد تعديل
+          // الامتحان.
+          //
+          // ==================================================
 
           const studentText =
             studentAnsIndex >= 0 &&
-            studentAnsIndex < options.length
-              ? options[studentAnsIndex]
+            studentAnsIndex < studentOptions.length
+
+              ? studentOptions[
+                  studentAnsIndex
+                ]
+
               : "لم يتم الإجابة";
 
+
+          // ==================================================
+          // نص الإجابة الصحيحة
+          // ==================================================
+          //
+          // هنا الإصلاح الحقيقي.
+          //
+          // نأخذ النص من الاختيارات الحالية في Firestore.
+          //
+          // ==================================================
 
           const correctText =
             correctIndex >= 0 &&
             correctIndex < options.length
-              ? options[correctIndex]
+
+              ? options[
+                  correctIndex
+                ]
+
               : "غير محدد";
 
+
+          // ==================================================
+          // CHECK
+          // ==================================================
 
           const isCorrect =
             studentAnsIndex ===
@@ -1096,7 +1498,9 @@ export function reviewResultPage(
 
 
           const qScore =
-            getQuestionScore(q);
+            getQuestionScore(
+              studentQuestion
+            );
 
 
           const earned =
@@ -1125,14 +1529,15 @@ export function reviewResultPage(
 
 
               ${
-                q.image ||
-                q.questionImage
+                studentQuestion.image ||
+                studentQuestion.questionImage
+
                   ? `
 
                     <img
                       src="${escapeHTML(
-                        q.image ||
-                        q.questionImage
+                        studentQuestion.image ||
+                        studentQuestion.questionImage
                       )}"
                       style="
                         max-width:100%;
@@ -1143,7 +1548,9 @@ export function reviewResultPage(
                     >
 
                   `
+
                   : ""
+
               }
 
 
@@ -1152,8 +1559,8 @@ export function reviewResultPage(
               ">
 
                 ${escapeHTML(
-                  q.text ||
-                  q.question ||
+                  studentQuestion.text ||
+                  studentQuestion.question ||
                   ""
                 )}
 
@@ -1223,6 +1630,7 @@ export function reviewResultPage(
 
               ${
                 options.length
+
                   ? `
 
                     <div style="
@@ -1266,6 +1674,7 @@ export function reviewResultPage(
 
                                 border =
                                   "#16a34a";
+
                               }
 
 
@@ -1279,6 +1688,7 @@ export function reviewResultPage(
 
                                 border =
                                   "#dc2626";
+
                               }
 
 
@@ -1315,12 +1725,15 @@ export function reviewResultPage(
                             }
                           )
                           .join("")
+
                       }
 
                     </div>
 
                   `
+
                   : ""
+
               }
 
             </div>
@@ -1494,9 +1907,11 @@ export function reviewResultPage(
             </button>
 
           `
+
       }
 
     </div>
 
   `;
+
 }
