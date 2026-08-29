@@ -570,19 +570,6 @@ function getResultExamId(result) {
 // ======================================================
 // GET CANONICAL QUESTION
 // ======================================================
-//
-// هذه أهم نقطة في الإصلاح.
-//
-// result.questions = النسخة القديمة التي أداها الطالب.
-//
-// canonicalQuestions = النسخة الحالية الموجودة في Firestore.
-//
-// نص الإجابة الصحيحة المعروض للطالب يؤخذ من
-// canonicalQuestions.
-//
-// أما الدرجة فتظل معتمدة على result.answers.
-//
-// ======================================================
 
 function getCanonicalQuestion(
   canonicalQuestions,
@@ -606,15 +593,67 @@ function getCanonicalQuestion(
 
 
 // ======================================================
+// CHECK IF ESSAY IS ALREADY GRADED
+// ======================================================
+
+function isEssayAlreadyGraded(
+  result,
+  index
+) {
+
+  if (
+    !result ||
+    !result.essayGrades ||
+    typeof result.essayGrades !== "object"
+  ) {
+
+    return false;
+
+  }
+
+
+  const value =
+    result.essayGrades[index];
+
+
+  return (
+    value !== undefined &&
+    value !== null &&
+    String(value).trim() !== "" &&
+    Number.isFinite(Number(value))
+  );
+
+}
+
+
+// ======================================================
 // REVIEW RESULT PAGE
+// ======================================================
+//
+// ⚠️ تغيير أمني مهم:
+//
+// الباراميتر الثالث كان publicView = false (أي المعلم هو
+// الوضع الافتراضي، والطالب لازم حد "يفعّل" له publicView).
+// المشكلة إن أي مكان في الكود نسي يمرر true، الطالب كان
+// بياخد صلاحيات المعلم بالكامل (يقدر يعدل درجة المقالي).
+//
+// الحل: قلبنا الافتراضي ليبقى "آمن أولاً":
+// canGrade = false افتراضيًا (يعني مفيش صلاحية تعديل إلا
+// لو صفحة المعلم مررت canGrade = true صراحةً).
+//
 // ======================================================
 
 export function reviewResultPage(
   result,
   resultId = null,
-  publicView = false,
+  canGrade = false,          // ✅ الافتراضي الآن: بدون صلاحية تعديل
   canonicalQuestions = null
 ) {
+
+  // publicView تبقى true في كل الحالات إلا لو المعلم
+  // صراحةً مرر canGrade = true من صفحة الإدارة الداخلية.
+  const publicView = !canGrade;
+
 
   const app =
     document.querySelector("#app");
@@ -837,16 +876,6 @@ export function reviewResultPage(
   // ====================================================
   // ASYNC LOAD CANONICAL EXAM
   // ====================================================
-  //
-  // لا نغير توقيع الصفحة إلى async حتى لا نكسر
-  // بقية المشروع.
-  //
-  // أول عرض يستخدم نسخة النتيجة.
-  //
-  // ثم نجلب الامتحان الحالي مرة واحدة ونستبدل
-  // النصوص المعروضة بالنسخة القياسية.
-  //
-  // ====================================================
 
   if (
     !Array.isArray(canonicalQuestions)
@@ -887,7 +916,7 @@ export function reviewResultPage(
                 reviewResultPage(
                   result,
                   resultId,
-                  publicView,
+                  canGrade,
                   currentQuestions
                 );
 
@@ -946,7 +975,14 @@ export function reviewResultPage(
 
 
       // ==================================================
-      // PUBLIC VIEW
+      // PUBLIC VIEW / NO GRADING PERMISSION
+      // ==================================================
+      //
+      // أي حد مالوش canGrade = true (يعني الطالب أو أي
+      // رابط عام) مش بيتضاف له event listeners على أزرار
+      // الحفظ خالص — الأزرار دي أصلاً مش موجودة في الـ HTML
+      // في وضع publicView (شوف questionsHTML تحت).
+      //
       // ==================================================
 
       if (publicView) {
@@ -957,7 +993,7 @@ export function reviewResultPage(
 
 
       // ==================================================
-      // ESSAY SAVE
+      // ESSAY SAVE (معلم فقط)
       // ==================================================
 
       document
@@ -969,6 +1005,15 @@ export function reviewResultPage(
 
             button.onclick =
               async () => {
+
+                if (
+                  button.disabled
+                ) {
+
+                  return;
+
+                }
+
 
                 try {
 
@@ -985,6 +1030,21 @@ export function reviewResultPage(
 
 
                   if (!input) {
+
+                    return;
+
+                  }
+
+
+                  if (
+                    isEssayAlreadyGraded(
+                      result,
+                      qIndex
+                    )
+                  ) {
+
+                    input.disabled = true;
+                    button.disabled = true;
 
                     return;
 
@@ -1024,9 +1084,21 @@ export function reviewResultPage(
                   ] = grade;
 
 
-                  // --------------------------------------
-                  // RECALCULATE MCQ
-                  // --------------------------------------
+                  input.disabled = true;
+                  button.disabled = true;
+
+                  button.innerHTML =
+                    "✓ تم تقييم السؤال";
+
+                  button.style.background =
+                    "#16a34a";
+
+                  button.style.cursor =
+                    "not-allowed";
+
+                  input.style.opacity =
+                    "0.6";
+
 
                   const mcqScore =
                     calculateMCQScore(
@@ -1035,28 +1107,16 @@ export function reviewResultPage(
                     );
 
 
-                  // --------------------------------------
-                  // ESSAY SCORE
-                  // --------------------------------------
-
                   const essayScore =
                     calculateEssayScore(
                       result.essayGrades
                     );
 
 
-                  // --------------------------------------
-                  // FINAL SCORE
-                  // --------------------------------------
-
                   result.score =
                     mcqScore +
                     essayScore;
 
-
-                  // --------------------------------------
-                  // SAVE
-                  // --------------------------------------
 
                   const id =
                     resultId ||
@@ -1091,7 +1151,7 @@ export function reviewResultPage(
 
 
                   alert(
-                    "تم تحديث وحفظ الدرجة بنجاح"
+                    "تم تقييم السؤال وحفظ الدرجة بنجاح"
                   );
 
 
@@ -1101,7 +1161,7 @@ export function reviewResultPage(
                       reviewResultPage(
                         result,
                         id,
-                        false,
+                        canGrade,
                         canonicalQuestions
                       );
 
@@ -1144,17 +1204,9 @@ export function reviewResultPage(
           index
         ) => {
 
-          // ==================================================
-          // سؤال الطالب
-          // ==================================================
-
           const studentQuestion =
             resultQuestion;
 
-
-          // ==================================================
-          // السؤال القياسي الحالي
-          // ==================================================
 
           const canonicalQuestion =
             getCanonicalQuestion(
@@ -1163,10 +1215,6 @@ export function reviewResultPage(
               resultQuestion
             );
 
-
-          // ==================================================
-          // إجابة الطالب
-          // ==================================================
 
           const studentAns =
             getStudentAnswer(
@@ -1209,6 +1257,13 @@ export function reviewResultPage(
             const maxQGrade =
               getQuestionScore(
                 studentQuestion
+              );
+
+
+            const alreadyGraded =
+              isEssayAlreadyGraded(
+                result,
+                index
               );
 
 
@@ -1304,57 +1359,117 @@ export function reviewResultPage(
 
 
                 ${
+                  // ============================================
+                  // قاعدة العرض:
+                  // - publicView (الطالب) => دايمًا عرض فقط،
+                  //   حتى لو الدرجة لسه صفر ومحدش قيّمها.
+                  // - المعلم و alreadyGraded => عرض "تم التقييم"
+                  //   بدون أي عناصر تحكم قابلة للتعديل.
+                  // - المعلم و !alreadyGraded => يظهر الفورم.
+                  // ============================================
+
                   publicView
 
-                    ? ""
-
-                    : `
+                    ? `
 
                       <div style="
-                        display:flex;
-                        gap:10px;
-                        align-items:center;
-                        flex-wrap:wrap;
+                        margin-top:15px;
+                        padding:12px 15px;
+                        background:#0f172a;
+                        border:1px solid #334155;
+                        border-radius:10px;
+                        color:#94a3b8;
+                        text-align:center;
                       ">
 
-                        <input
-                          type="number"
-                          id="essay_grade_${index}"
-                          value="${currentEssayGrade}"
-                          min="0"
-                          max="${maxQGrade}"
-                          step="0.5"
-                          style="
-                            width:90px;
-                            padding:9px;
-                            border-radius:8px;
-                            border:1px solid #475569;
-                            background:#0f172a;
-                            color:white;
-                          "
-                        >
+                        ${
+                          alreadyGraded
 
-                        <button
-                          class="save-essay-grade"
-                          data-qindex="${index}"
-                          style="
-                            background:#2563eb;
-                            color:white;
-                            border:none;
-                            padding:9px 16px;
-                            border-radius:8px;
-                            cursor:pointer;
-                            font-weight:bold;
-                          "
-                        >
+                            ? "تم تقييم هذا السؤال من المعلم"
 
-                          حفظ الدرجة
+                            : "بانتظار تقييم المعلم"
 
-                        </button>
+                        }
 
                       </div>
 
                     `
+
+                    : alreadyGraded
+
+                      ? `
+
+                        <div style="
+                          margin-top:15px;
+                          padding:12px 15px;
+                          background:#052e16;
+                          border:1px solid #16a34a;
+                          border-radius:10px;
+                          color:#4ade80;
+                          font-weight:bold;
+                          text-align:center;
+                        ">
+
+                          ✓ تم تقييم السؤال
+
+                          <br>
+
+                          الدرجة النهائية:
+                          ${currentEssayGrade}
+                          /
+                          ${maxQGrade}
+
+                        </div>
+
+                      `
+
+                      : `
+
+                        <div style="
+                          display:flex;
+                          gap:10px;
+                          align-items:center;
+                          flex-wrap:wrap;
+                        ">
+
+                          <input
+                            type="number"
+                            id="essay_grade_${index}"
+                            value="${currentEssayGrade}"
+                            min="0"
+                            max="${maxQGrade}"
+                            step="0.5"
+                            style="
+                              width:90px;
+                              padding:9px;
+                              border-radius:8px;
+                              border:1px solid #475569;
+                              background:#0f172a;
+                              color:white;
+                            "
+                          >
+
+                          <button
+                            class="save-essay-grade"
+                            data-qindex="${index}"
+                            style="
+                              background:#2563eb;
+                              color:white;
+                              border:none;
+                              padding:9px 16px;
+                              border-radius:8px;
+                              cursor:pointer;
+                              font-weight:bold;
+                            "
+                          >
+
+                            حفظ الدرجة
+
+                          </button>
+
+                        </div>
+
+                      `
 
                 }
 
@@ -1369,11 +1484,6 @@ export function reviewResultPage(
           // MCQ
           // ============================================
 
-
-          // ==================================================
-          // إجابة الطالب = من النتيجة المحفوظة
-          // ==================================================
-
           const studentAnsIndex =
             Number.isFinite(
               Number(studentAns)
@@ -1384,29 +1494,17 @@ export function reviewResultPage(
               : -1;
 
 
-          // ==================================================
-          // اختيارات الطالب
-          // ==================================================
-
           const studentOptions =
             getQuestionOptions(
               studentQuestion
             );
 
 
-          // ==================================================
-          // الاختيارات القياسية الحالية
-          // ==================================================
-
           const canonicalOptions =
             getQuestionOptions(
               canonicalQuestion
             );
 
-
-          // ==================================================
-          // نستخدم الاختيارات الحالية إذا كانت موجودة
-          // ==================================================
 
           const options =
             canonicalOptions.length > 0
@@ -1415,17 +1513,6 @@ export function reviewResultPage(
 
               : studentOptions;
 
-
-          // ==================================================
-          // رقم الإجابة الصحيحة
-          // ==================================================
-          //
-          // الأولوية:
-          //
-          // 1) السؤال الحالي في Firestore
-          // 2) سؤال النتيجة القديمة
-          //
-          // ==================================================
 
           let correctIndex =
             getQuestionCorrectAnswer(
@@ -1445,17 +1532,6 @@ export function reviewResultPage(
           }
 
 
-          // ==================================================
-          // نص إجابة الطالب
-          // ==================================================
-          //
-          // مهم:
-          // إجابة الطالب نعرضها من النسخة التي أدى بها
-          // الامتحان، حتى لا تتغير إجابته القديمة بعد تعديل
-          // الامتحان.
-          //
-          // ==================================================
-
           const studentText =
             studentAnsIndex >= 0 &&
             studentAnsIndex < studentOptions.length
@@ -1467,16 +1543,6 @@ export function reviewResultPage(
               : "لم يتم الإجابة";
 
 
-          // ==================================================
-          // نص الإجابة الصحيحة
-          // ==================================================
-          //
-          // هنا الإصلاح الحقيقي.
-          //
-          // نأخذ النص من الاختيارات الحالية في Firestore.
-          //
-          // ==================================================
-
           const correctText =
             correctIndex >= 0 &&
             correctIndex < options.length
@@ -1487,10 +1553,6 @@ export function reviewResultPage(
 
               : "غير محدد";
 
-
-          // ==================================================
-          // CHECK
-          // ==================================================
 
           const isCorrect =
             studentAnsIndex ===
