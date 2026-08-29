@@ -15,6 +15,9 @@ import {
   adminPage
 } from "./admin.js";
 
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
+
 
 // ======================================================
 // STATE
@@ -104,6 +107,209 @@ function findExamById(id) {
     ) ||
     null
   );
+
+}
+
+
+// ======================================================
+// GET CORRECT ANSWER
+// ======================================================
+
+function getCorrectAnswer(question) {
+
+  if (!question) return null;
+
+  const candidates = [
+
+    question.correctAnswer,
+
+    question.correctOption,
+
+    question.answer,
+
+    question.correct,
+
+    question.rightAnswer,
+
+    question.correctChoice,
+
+    question.solution,
+
+    question.modelAnswer
+
+  ];
+
+
+  for (const value of candidates) {
+
+    if (
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ""
+    ) {
+
+      return value;
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+// ======================================================
+// NORMALIZE CORRECT ANSWER
+// ======================================================
+
+function normalizeAnswer(value, options = []) {
+
+  if (
+    value === undefined ||
+    value === null
+  ) {
+
+    return -1;
+
+  }
+
+
+  const raw =
+    String(value)
+      .trim()
+      .toLowerCase();
+
+
+  if (!raw) return -1;
+
+
+  // A / B / C / D
+
+  const letters = {
+    "a": 0,
+    "b": 1,
+    "c": 2,
+    "d": 3,
+
+    "أ": 0,
+    "ب": 1,
+    "ج": 2,
+    "د": 3,
+
+    "1": 0,
+    "2": 1,
+    "3": 2,
+    "4": 3
+  };
+
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      letters,
+      raw
+    )
+  ) {
+
+    return letters[raw];
+
+  }
+
+
+  // نص الاختيار نفسه
+
+  const index =
+    options.findIndex(
+      option =>
+        String(option ?? "")
+          .trim()
+          .toLowerCase() === raw
+    );
+
+
+  if (index !== -1) {
+
+    return index;
+
+  }
+
+
+  // لو القيمة رقمية بالفعل
+
+  const numeric =
+    Number(raw);
+
+
+  if (
+    Number.isInteger(numeric)
+  ) {
+
+    if (
+      numeric >= 0 &&
+      numeric < options.length
+    ) {
+
+      return numeric;
+
+    }
+
+
+    if (
+      numeric >= 1 &&
+      numeric <= options.length
+    ) {
+
+      return numeric - 1;
+
+    }
+
+  }
+
+
+  return -1;
+
+}
+
+
+// ======================================================
+// GET QUESTION OPTIONS
+// ======================================================
+
+function getQuestionOptions(question) {
+
+  if (!question) return [];
+
+  if (
+    Array.isArray(
+      question.options
+    )
+  ) {
+
+    return question.options;
+
+  }
+
+
+  return [
+
+    question.A ??
+      question.optionA ??
+      "",
+
+    question.B ??
+      question.optionB ??
+      "",
+
+    question.C ??
+      question.optionC ??
+      "",
+
+    question.D ??
+      question.optionD ??
+      ""
+
+  ];
 
 }
 
@@ -295,10 +501,13 @@ function renderError(
 
 
 // ======================================================
-// PRINT EXAM AS PDF
+// CREATE PDF DIRECTLY
 // ======================================================
 
-function printExamAsPDF(exam) {
+async function downloadExamPDF(
+  exam,
+  answered = false
+) {
 
   if (!exam) {
 
@@ -329,573 +538,1129 @@ function printExamAsPDF(exam) {
 
 
   const examTitle =
-    escapeHtml(
-      exam.title ||
-      "امتحان"
-    );
+    exam.title ||
+    "امتحان";
 
 
   const className =
-    escapeHtml(
-      exam.className ||
-      exam.grade ||
-      "عام"
-    );
+    exam.className ||
+    exam.grade ||
+    "عام";
 
 
   const subject =
-    escapeHtml(
-      exam.subject ||
-      "Physics"
-    );
+    exam.subject ||
+    "Physics";
 
 
   const duration =
-    escapeHtml(
-      exam.duration ||
-      exam.examTime ||
-      0
-    );
+    exam.duration ||
+    exam.examTime ||
+    0;
 
 
-  const questionsHTML =
-    questions
-      .map(
-        (
-          question,
-          index
-        ) => {
+  // ====================================================
+  // CREATE TEMPORARY HTML
+  // ====================================================
 
-          const text =
-            question.question ??
-            question.text ??
-            question.title ??
-            "";
+  const pdfContainer =
+    document.createElement("div");
 
 
-          const image =
-            question.image ??
-            question.imageUrl ??
-            "";
+  pdfContainer.style.position =
+    "fixed";
+
+  pdfContainer.style.left =
+    "-100000px";
+
+  pdfContainer.style.top =
+    "0";
+
+  pdfContainer.style.width =
+    "794px";
+
+  pdfContainer.style.background =
+    "#ffffff";
+
+  pdfContainer.style.color =
+    "#111827";
+
+  pdfContainer.style.direction =
+    "rtl";
+
+  pdfContainer.style.fontFamily =
+    "Tahoma, Arial, sans-serif";
+
+  pdfContainer.style.padding =
+    "42px";
+
+  pdfContainer.style.boxSizing =
+    "border-box";
 
 
-          const options =
-            Array.isArray(
-              question.options
-            )
-              ? question.options
-              : [
-                  question.A ??
-                    question.optionA ??
-                    "",
+  // ====================================================
+  // HEADER
+  // ====================================================
 
-                  question.B ??
-                    question.optionB ??
-                    "",
+  let html = `
 
-                  question.C ??
-                    question.optionC ??
-                    "",
+    <div style="
+      text-align:center;
+      padding:22px 20px;
+      border-radius:18px;
+      background:
+        linear-gradient(
+          135deg,
+          #111827,
+          #312e81
+        );
+      color:white;
+      margin-bottom:25px;
+    ">
 
-                  question.D ??
-                    question.optionD ??
-                    ""
-                ];
+      <div style="
+        font-size:28px;
+        font-weight:900;
+        letter-spacing:.3px;
+        margin-bottom:8px;
+      ">
+        ${escapeHtml(examTitle)}
+      </div>
+
+      <div style="
+        font-size:12px;
+        opacity:.85;
+        margin-bottom:15px;
+      ">
+        Ahmed.R Exams
+      </div>
+
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        gap:10px;
+        font-size:13px;
+        font-weight:700;
+      ">
+
+        <span>
+          الصف: ${escapeHtml(className)}
+        </span>
+
+        <span>
+          المادة: ${escapeHtml(subject)}
+        </span>
+
+        <span>
+          الزمن: ${escapeHtml(duration)} دقيقة
+        </span>
+
+      </div>
+
+    </div>
 
 
-          const letters = [
-            "أ",
-            "ب",
-            "ج",
-            "د"
-          ];
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+      margin-bottom:25px;
+    ">
+
+      <div style="
+        border-bottom:2px solid #94a3b8;
+        padding:7px 4px;
+        font-size:14px;
+        color:#374151;
+      ">
+        اسم الطالب:
+      </div>
+
+      <div style="
+        border-bottom:2px solid #94a3b8;
+        padding:7px 4px;
+        font-size:14px;
+        color:#374151;
+      ">
+        الفصل:
+      </div>
+
+    </div>
+
+  `;
 
 
-          const optionsHTML =
-            options
-              .map(
-                (
-                  option,
-                  optionIndex
-                ) => {
+  // ====================================================
+  // QUESTIONS
+  // ====================================================
 
-                  if (
-                    option === null ||
-                    option === undefined ||
-                    String(option).trim() === ""
-                  ) {
+  questions.forEach(
+    (
+      question,
+      index
+    ) => {
 
-                    return "";
+      const text =
+        question.question ??
+        question.text ??
+        question.title ??
+        "";
 
+
+      const image =
+        question.image ??
+        question.imageUrl ??
+        "";
+
+
+      const options =
+        getQuestionOptions(
+          question
+        );
+
+
+      const correctValue =
+        getCorrectAnswer(
+          question
+        );
+
+
+      const correctIndex =
+        normalizeAnswer(
+          correctValue,
+          options
+        );
+
+
+      const type =
+        question.type ||
+        "mcq";
+
+
+      html += `
+
+        <div style="
+          margin-bottom:24px;
+          padding:18px;
+          border:1px solid #e5e7eb;
+          border-radius:15px;
+          background:#ffffff;
+          page-break-inside:avoid;
+        ">
+
+          <div style="
+            font-size:16px;
+            font-weight:900;
+            color:#312e81;
+            margin-bottom:9px;
+          ">
+            السؤال ${index + 1}
+          </div>
+
+          <div style="
+            font-size:16px;
+            font-weight:600;
+            color:#111827;
+            line-height:1.9;
+            margin-bottom:12px;
+            white-space:pre-wrap;
+          ">
+            ${escapeHtml(text)}
+          </div>
+
+      `;
+
+
+      // ==================================================
+      // IMAGE
+      // ==================================================
+
+      if (image) {
+
+        html += `
+
+          <div style="
+            text-align:center;
+            margin:15px 0;
+          ">
+
+            <img
+              src="${escapeHtml(image)}"
+              style="
+                max-width:100%;
+                max-height:300px;
+                object-fit:contain;
+                border-radius:10px;
+              "
+            >
+
+          </div>
+
+        `;
+
+      }
+
+
+      // ==================================================
+      // ESSAY
+      // ==================================================
+
+      if (type === "essay") {
+
+        html += `
+
+          <div style="
+            min-height:130px;
+            border:2px dashed #9ca3af;
+            border-radius:12px;
+            margin-top:15px;
+            padding:12px;
+            color:#6b7280;
+            font-size:13px;
+          ">
+            مساحة إجابة الطالب
+          </div>
+
+        `;
+
+      }
+
+      else {
+
+        html += `
+
+          <div style="
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:10px 14px;
+            margin-top:12px;
+          ">
+        `;
+
+
+        const letters = [
+          "أ",
+          "ب",
+          "ج",
+          "د"
+        ];
+
+
+        options.forEach(
+          (
+            option,
+            optionIndex
+          ) => {
+
+            if (
+              option === null ||
+              option === undefined ||
+              String(option).trim() === ""
+            ) {
+
+              return;
+
+            }
+
+
+            const isCorrect =
+              answered &&
+              correctIndex === optionIndex;
+
+
+            html += `
+
+              <div style="
+                display:flex;
+                align-items:center;
+                gap:9px;
+                min-height:42px;
+                padding:8px 10px;
+                border-radius:10px;
+
+                ${
+                  isCorrect
+                    ? `
+                      background:#dcfce7;
+                      border:2px solid #22c55e;
+                      color:#166534;
+                      font-weight:800;
+                    `
+                    : `
+                      background:#f8fafc;
+                      border:1px solid #d1d5db;
+                      color:#111827;
+                    `
+                }
+
+                box-sizing:border-box;
+              ">
+
+                <span style="
+                  width:25px;
+                  height:25px;
+                  min-width:25px;
+                  border-radius:50%;
+                  display:inline-flex;
+                  align-items:center;
+                  justify-content:center;
+
+                  ${
+                    isCorrect
+                      ? `
+                        background:#22c55e;
+                        color:white;
+                        border:2px solid #15803d;
+                      `
+                      : `
+                        background:white;
+                        color:#374151;
+                        border:1px solid #6b7280;
+                      `
                   }
 
+                  font-size:13px;
+                  font-weight:900;
+                ">
+                  ${
+                    isCorrect
+                      ? "✓"
+                      : letters[optionIndex]
+                  }
+                </span>
 
-                  return `
+                <span style="
+                  font-size:14px;
+                  line-height:1.7;
+                ">
+                  ${escapeHtml(option)}
+                </span>
 
-                    <div class="option">
-
-                      <span class="optionLetter">
-
-                        ${
-                          letters[
-                            optionIndex
-                          ] || ""
-                        }
-
-                      </span>
-
-                      <span>
-                        ${escapeHtml(option)}
-                      </span>
-
-                    </div>
-
-                  `;
-
-                }
-              )
-              .join("");
-
-
-          const imageHTML =
-            image
-              ? `
-
-                <div class="questionImage">
-
-                  <img
-                    src="${escapeHtml(image)}"
-                    alt="صورة السؤال"
-                  >
-
-                </div>
-
-              `
-              : "";
-
-
-          const type =
-            question.type ||
-            "mcq";
-
-
-          return `
-
-            <div class="question">
-
-              <div class="questionNumber">
-                السؤال ${index + 1}
               </div>
 
-              <div class="questionText">
-                ${escapeHtml(text)}
-              </div>
+            `;
 
-              ${imageHTML}
+          }
+        );
 
-              ${
-                type === "essay"
-                  ? `
-                    <div class="essayAnswer">
-                      مساحة إجابة الطالب:
-                    </div>
-                  `
-                  : `
-                    <div class="options">
-                      ${optionsHTML}
-                    </div>
-                  `
+
+        html += `
+
+          </div>
+
+        `;
+
+      }
+
+
+      html += `
+
+        </div>
+
+      `;
+
+    }
+  );
+
+
+  // ====================================================
+  // FOOTER
+  // ====================================================
+
+  html += `
+
+    <div style="
+      margin-top:25px;
+      padding-top:14px;
+      border-top:2px solid #e5e7eb;
+      text-align:center;
+      font-size:11px;
+      color:#6b7280;
+    ">
+
+      Ahmed.R Exams
+      <span style="
+        margin:0 8px;
+        color:#9ca3af;
+      ">
+        •
+      </span>
+      ${
+        answered
+          ? "مجاب"
+          : "غير مجاب"
+      }
+
+    </div>
+
+  `;
+
+
+  pdfContainer.innerHTML =
+    html;
+
+
+  document.body.appendChild(
+    pdfContainer
+  );
+
+
+  try {
+
+    // ==================================================
+    // WAIT FOR IMAGES
+    // ==================================================
+
+    const images =
+      Array.from(
+        pdfContainer.querySelectorAll(
+          "img"
+        )
+      );
+
+
+    await Promise.all(
+      images.map(
+        img =>
+          new Promise(
+            resolve => {
+
+              if (img.complete) {
+
+                resolve();
+
+                return;
+
               }
 
-            </div>
 
-          `;
+              img.onload =
+                resolve;
 
-        }
+              img.onerror =
+                resolve;
+
+            }
+          )
       )
-      .join("");
-
-
-  const printWindow =
-    window.open(
-      "",
-      "_blank",
-      "width=900,height=1100"
     );
 
 
-  if (!printWindow) {
+    await yieldToBrowser();
+
+
+    // ==================================================
+    // HTML -> CANVAS
+    // ==================================================
+
+    const canvas =
+      await html2canvas(
+        pdfContainer,
+        {
+          scale:2,
+
+          useCORS:true,
+
+          allowTaint:false,
+
+          backgroundColor:"#ffffff",
+
+          logging:false,
+
+          imageTimeout:15000
+        }
+      );
+
+
+    // ==================================================
+    // CREATE PDF
+    // ==================================================
+
+    const pdf =
+      new jsPDF(
+        "p",
+        "mm",
+        "a4"
+      );
+
+
+    const pageWidth =
+      pdf.internal.pageSize.getWidth();
+
+
+    const pageHeight =
+      pdf.internal.pageSize.getHeight();
+
+
+    const margin =
+      8;
+
+
+    const usableWidth =
+      pageWidth -
+      margin * 2;
+
+
+    const imageWidth =
+      usableWidth;
+
+
+    const imageHeight =
+      canvas.height *
+      imageWidth /
+      canvas.width;
+
+
+    const pageImageHeight =
+      pageHeight -
+      margin * 2;
+
+
+    let renderedHeight = 0;
+
+    let pageNumber = 0;
+
+
+    while (
+      renderedHeight <
+      imageHeight
+    ) {
+
+      if (pageNumber > 0) {
+
+        pdf.addPage();
+
+      }
+
+
+      const sourceY =
+        renderedHeight *
+        canvas.width /
+        imageWidth;
+
+
+      const sourceHeight =
+        Math.min(
+          pageImageHeight *
+            canvas.width /
+            imageWidth,
+          canvas.height -
+            sourceY
+        );
+
+
+      const tempCanvas =
+        document.createElement(
+          "canvas"
+        );
+
+
+      tempCanvas.width =
+        canvas.width;
+
+
+      tempCanvas.height =
+        Math.ceil(
+          sourceHeight
+        );
+
+
+      const tempContext =
+        tempCanvas.getContext(
+          "2d"
+        );
+
+
+      tempContext.drawImage(
+        canvas,
+
+        0,
+        sourceY,
+
+        canvas.width,
+        sourceHeight,
+
+        0,
+        0,
+
+        canvas.width,
+        sourceHeight
+      );
+
+
+      const pageData =
+        tempCanvas.toDataURL(
+          "image/jpeg",
+          0.95
+        );
+
+
+      const actualHeight =
+        sourceHeight *
+        imageWidth /
+        canvas.width;
+
+
+      pdf.addImage(
+        pageData,
+        "JPEG",
+        margin,
+        margin,
+        imageWidth,
+        actualHeight,
+        undefined,
+        "FAST"
+      );
+
+
+      renderedHeight +=
+        pageImageHeight;
+
+
+      pageNumber++;
+
+    }
+
+
+    // ==================================================
+    // SAVE DIRECTLY
+    // ==================================================
+
+    const safeTitle =
+      String(examTitle)
+        .replace(
+          /[\\/:*?"<>|]/g,
+          "_"
+        )
+        .trim() ||
+      "exam";
+
+
+    const fileName =
+      `${safeTitle}_${answered ? "مجاب" : "غير_مجاب"}.pdf`;
+
+
+    pdf.save(
+      fileName
+    );
+
+
+  }
+  catch (error) {
+
+    console.error(
+      "PDF GENERATION ERROR:",
+      error
+    );
+
 
     alert(
-      "❌ المتصفح منع نافذة الطباعة.\n\n" +
-      "اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى."
-    );
-
-    return;
-
-  }
-
-
-  printWindow.document.open();
-
-  printWindow.document.write(`
-
-<!DOCTYPE html>
-
-<html
-  lang="ar"
-  dir="rtl"
->
-
-<head>
-
-<meta charset="UTF-8">
-
-<title>
-${examTitle}
-</title>
-
-<style>
-
-@page {
-
-  size:A4;
-
-  margin:15mm;
-
-}
-
-* {
-
-  box-sizing:border-box;
-
-}
-
-html,
-body {
-
-  margin:0;
-  padding:0;
-
-}
-
-body {
-
-  font-family:
-    Tahoma,
-    Arial,
-    sans-serif;
-
-  direction:rtl;
-
-  background:white;
-
-  color:#111;
-
-  font-size:14px;
-
-  line-height:1.8;
-
-}
-
-.examHeader {
-
-  text-align:center;
-
-  border-bottom:2px solid #111;
-
-  padding-bottom:15px;
-
-  margin-bottom:20px;
-
-}
-
-.examTitle {
-
-  font-size:25px;
-
-  font-weight:800;
-
-  margin-bottom:8px;
-
-}
-
-.examMeta {
-
-  display:flex;
-
-  justify-content:space-between;
-
-  gap:15px;
-
-  font-size:13px;
-
-  font-weight:600;
-
-  margin-top:12px;
-
-}
-
-.studentInfo {
-
-  display:grid;
-
-  grid-template-columns:1fr 1fr;
-
-  gap:18px;
-
-  margin-bottom:25px;
-
-}
-
-.studentField {
-
-  border-bottom:1px solid #555;
-
-  padding:5px;
-
-  min-height:32px;
-
-}
-
-.question {
-
-  page-break-inside:avoid;
-
-  break-inside:avoid;
-
-  margin-bottom:22px;
-
-  border-bottom:1px solid #ddd;
-
-  padding-bottom:16px;
-
-}
-
-.questionNumber {
-
-  font-weight:800;
-
-  font-size:16px;
-
-  margin-bottom:6px;
-
-}
-
-.questionText {
-
-  font-size:16px;
-
-  font-weight:600;
-
-  margin-bottom:10px;
-
-  white-space:pre-wrap;
-
-}
-
-.questionImage {
-
-  text-align:center;
-
-  margin:12px 0;
-
-}
-
-.questionImage img {
-
-  max-width:100%;
-
-  max-height:260px;
-
-  object-fit:contain;
-
-}
-
-.options {
-
-  display:grid;
-
-  grid-template-columns:1fr 1fr;
-
-  gap:8px 25px;
-
-  margin-top:10px;
-
-}
-
-.option {
-
-  display:flex;
-
-  align-items:flex-start;
-
-  gap:8px;
-
-  font-size:15px;
-
-  min-height:30px;
-
-}
-
-.optionLetter {
-
-  min-width:25px;
-
-  height:25px;
-
-  border:1px solid #222;
-
-  border-radius:50%;
-
-  display:inline-flex;
-
-  align-items:center;
-
-  justify-content:center;
-
-  font-weight:700;
-
-}
-
-.essayAnswer {
-
-  margin-top:20px;
-
-  border:1px solid #aaa;
-
-  min-height:130px;
-
-  padding:10px;
-
-  color:#555;
-
-}
-
-.footer {
-
-  margin-top:30px;
-
-  padding-top:10px;
-
-  border-top:1px solid #999;
-
-  text-align:center;
-
-  font-size:11px;
-
-  color:#555;
-
-}
-
-@media print {
-
-  body {
-
-    -webkit-print-color-adjust:exact;
-
-    print-color-adjust:exact;
-
-  }
-
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="examHeader">
-
-  <div class="examTitle">
-    ${examTitle}
-  </div>
-
-  <div class="examMeta">
-
-    <span>
-      الصف: ${className}
-    </span>
-
-    <span>
-      المادة: ${subject}
-    </span>
-
-    <span>
-      الزمن: ${duration} دقيقة
-    </span>
-
-  </div>
-
-</div>
-
-
-<div class="studentInfo">
-
-  <div class="studentField">
-    اسم الطالب:
-  </div>
-
-  <div class="studentField">
-    الفصل:
-  </div>
-
-</div>
-
-
-${questionsHTML}
-
-
-<div class="footer">
-  Ahmed.R Exams
-</div>
-
-
-<script>
-
-window.addEventListener(
-  "load",
-  function() {
-
-    setTimeout(
-      function() {
-
-        window.print();
-
-      },
-      500
+      "❌ حدث خطأ أثناء إنشاء PDF\n\n" +
+      (
+        error?.message ||
+        "خطأ غير معروف"
+      )
     );
 
   }
-);
+  finally {
 
+    if (
+      pdfContainer &&
+      pdfContainer.parentNode
+    ) {
 
-window.addEventListener(
-  "afterprint",
-  function() {
+      pdfContainer.parentNode.removeChild(
+        pdfContainer
+      );
 
-    setTimeout(
-      function() {
-
-        window.close();
-
-      },
-      300
-    );
+    }
 
   }
-);
 
-</script>
+}
 
-</body>
 
-</html>
+// ======================================================
+// PDF MENU
+// ======================================================
 
-  `);
+function showPdfMenu(
+  button,
+  exam
+) {
 
-  printWindow.document.close();
+  // حذف أي قائمة قديمة
+
+  document
+    .querySelectorAll(
+      ".examPdfMenu"
+    )
+    .forEach(
+      menu =>
+        menu.remove()
+    );
+
+
+  const menu =
+    document.createElement(
+      "div"
+    );
+
+
+  menu.className =
+    "examPdfMenu";
+
+
+  menu.style.position =
+    "fixed";
+
+  menu.style.zIndex =
+    "999999";
+
+  menu.style.minWidth =
+    "190px";
+
+  menu.style.padding =
+    "8px";
+
+  menu.style.borderRadius =
+    "16px";
+
+  menu.style.background =
+    "rgba(15,23,42,.98)";
+
+  menu.style.border =
+    "1px solid rgba(255,255,255,.12)";
+
+  menu.style.boxShadow =
+    "0 20px 50px rgba(0,0,0,.45)";
+
+  menu.style.backdropFilter =
+    "blur(12px)";
+
+  menu.style.direction =
+    "rtl";
+
+
+  menu.innerHTML = `
+
+    <div style="
+      color:#94a3b8;
+      font-size:11px;
+      padding:6px 10px 8px;
+      font-weight:700;
+    ">
+      اختر نوع PDF
+    </div>
+
+
+    <button
+      type="button"
+      class="pdfChoiceAnswered"
+      style="
+        width:100%;
+        border:none;
+        cursor:pointer;
+        padding:11px 12px;
+        border-radius:11px;
+        background:transparent;
+        color:#e2e8f0;
+        font-family:inherit;
+        font-size:14px;
+        font-weight:800;
+        text-align:right;
+      "
+    >
+      <span style="
+        display:inline-flex;
+        width:28px;
+        height:28px;
+        border-radius:8px;
+        align-items:center;
+        justify-content:center;
+        background:#166534;
+        margin-left:7px;
+      ">
+        ✓
+      </span>
+
+      مجاب
+
+    </button>
+
+
+    <button
+      type="button"
+      class="pdfChoiceBlank"
+      style="
+        width:100%;
+        border:none;
+        cursor:pointer;
+        padding:11px 12px;
+        border-radius:11px;
+        background:transparent;
+        color:#e2e8f0;
+        font-family:inherit;
+        font-size:14px;
+        font-weight:800;
+        text-align:right;
+      "
+    >
+      <span style="
+        display:inline-flex;
+        width:28px;
+        height:28px;
+        border-radius:8px;
+        align-items:center;
+        justify-content:center;
+        background:#334155;
+        margin-left:7px;
+      ">
+        □
+      </span>
+
+      غير مجاب
+
+    </button>
+
+  `;
+
+
+  document.body.appendChild(
+    menu
+  );
+
+
+  const rect =
+    button.getBoundingClientRect();
+
+
+  let top =
+    rect.bottom + 8;
+
+
+  let left =
+    rect.right -
+    190;
+
+
+  if (
+    left < 10
+  ) {
+
+    left = 10;
+
+  }
+
+
+  if (
+    top + 130 >
+    window.innerHeight
+  ) {
+
+    top =
+      rect.top -
+      138;
+
+  }
+
+
+  menu.style.top =
+    `${Math.max(10, top)}px`;
+
+  menu.style.left =
+    `${Math.max(10, left)}px`;
+
+
+  const answeredButton =
+    menu.querySelector(
+      ".pdfChoiceAnswered"
+    );
+
+
+  const blankButton =
+    menu.querySelector(
+      ".pdfChoiceBlank"
+    );
+
+
+  const closeMenu =
+    () => {
+
+      if (
+        menu &&
+        menu.parentNode
+      ) {
+
+        menu.parentNode.removeChild(
+          menu
+        );
+
+      }
+
+    };
+
+
+  answeredButton.addEventListener(
+    "mouseenter",
+    () => {
+
+      answeredButton.style.background =
+        "rgba(34,197,94,.15)";
+
+    }
+  );
+
+
+  answeredButton.addEventListener(
+    "mouseleave",
+    () => {
+
+      answeredButton.style.background =
+        "transparent";
+
+    }
+  );
+
+
+  blankButton.addEventListener(
+    "mouseenter",
+    () => {
+
+      blankButton.style.background =
+        "rgba(99,102,241,.15)";
+
+    }
+  );
+
+
+  blankButton.addEventListener(
+    "mouseleave",
+    () => {
+
+      blankButton.style.background =
+        "transparent";
+
+    }
+  );
+
+
+  answeredButton.addEventListener(
+    "click",
+    async event => {
+
+      event.preventDefault();
+      event.stopPropagation();
+
+
+      closeMenu();
+
+
+      button.disabled =
+        true;
+
+      button.innerHTML =
+        "⏳ جاري إنشاء PDF...";
+
+
+      try {
+
+        await downloadExamPDF(
+          exam,
+          true
+        );
+
+      }
+      finally {
+
+        button.disabled =
+          false;
+
+        button.innerHTML =
+          "📄 PDF";
+
+      }
+
+    }
+  );
+
+
+  blankButton.addEventListener(
+    "click",
+    async event => {
+
+      event.preventDefault();
+      event.stopPropagation();
+
+
+      closeMenu();
+
+
+      button.disabled =
+        true;
+
+      button.innerHTML =
+        "⏳ جاري إنشاء PDF...";
+
+
+      try {
+
+        await downloadExamPDF(
+          exam,
+          false
+        );
+
+      }
+      finally {
+
+        button.disabled =
+          false;
+
+        button.innerHTML =
+          "📄 PDF";
+
+      }
+
+    }
+  );
+
+
+  setTimeout(
+    () => {
+
+      const outsideClick =
+        event => {
+
+          if (
+            !menu.contains(
+              event.target
+            ) &&
+            event.target !== button
+          ) {
+
+            closeMenu();
+
+            document.removeEventListener(
+              "click",
+              outsideClick,
+              true
+            );
+
+          }
+
+        };
+
+
+      document.addEventListener(
+        "click",
+        outsideClick,
+        true
+      );
+
+    },
+    0
+  );
 
 }
 
@@ -1174,14 +1939,23 @@ function renderExams(
   class="pdfExam"
   data-id="${escapeHtml(examId)}"
   style="
-    background:#b45309;
+    background:
+      linear-gradient(
+        135deg,
+        #f59e0b,
+        #b45309
+      );
+
     color:white;
     border:none;
-    padding:8px 14px;
+    padding:8px 16px;
     border-radius:10px;
     cursor:pointer;
     font-family:inherit;
-    font-weight:700;
+    font-weight:800;
+    box-shadow:
+      0 5px 15px
+      rgba(245,158,11,.18);
   "
 >
 
@@ -1232,13 +2006,6 @@ function renderExams(
 // ======================================================
 
 export function examsListPage() {
-
-  /*
-   * مهم:
-   * عند استدعاء الصفحة يتم جدولة التحميل تلقائيًا.
-   * وبالتالي لا نعتمد فقط على أن admin.js يستدعي
-   * loadExamsList() بعد رسم الصفحة.
-   */
 
   scheduleAutoLoad();
 
@@ -1434,11 +2201,6 @@ export async function loadExamsList() {
       "⚠️ EXAMS LIST CONTAINER NOT FOUND"
     );
 
-    /*
-     * لا نرمي error هنا.
-     * الصفحة ربما لم تُرسم بعد.
-     */
-
     return;
 
   }
@@ -1451,12 +2213,6 @@ export async function loadExamsList() {
   }
 
 
-  /*
-   * لو هناك تحميل حالي:
-   * ننتظر نفس العملية بدل تشغيل طلب Firestore
-   * ثاني في نفس الوقت.
-   */
-
   if (loadingExamsPromise) {
 
     try {
@@ -1466,7 +2222,7 @@ export async function loadExamsList() {
     }
     catch {
 
-      // الخطأ تم التعامل معه داخل العملية الأصلية
+      // handled
 
     }
 
@@ -1533,10 +2289,6 @@ async function loadExamsListInternal(
     );
 
 
-    /*
-     * هنا المصدر الأساسي هو Firestore.
-     */
-
     const firebaseExams =
       await getExams();
 
@@ -1548,11 +2300,6 @@ async function loadExamsListInternal(
         : 0
     );
 
-
-    /*
-     * localStorage موجود فقط كاحتياط
-     * للامتحانات القديمة المحلية.
-     */
 
     let localExams = [];
 
@@ -1597,10 +2344,6 @@ async function loadExamsListInternal(
     }
 
 
-    /*
-     * Firestore أولًا.
-     */
-
     const firestoreList =
       Array.isArray(firebaseExams)
         ? firebaseExams.map(
@@ -1611,11 +2354,6 @@ async function loadExamsListInternal(
           )
         : [];
 
-
-    /*
-     * localStorage فقط للامتحانات التي
-     * لا يوجد لها نفس ID في Firestore.
-     */
 
     const firestoreIds =
       new Set(
@@ -1803,59 +2541,31 @@ function attachEvents() {
         }
 
 
-        pdf.dataset.busy =
-          "true";
+        const id =
+          pdf.dataset.id;
 
 
-        try {
-
-          const id =
-            pdf.dataset.id;
-
-
-          const exam =
-            findExamById(
-              id
-            );
-
-
-          if (!exam) {
-
-            throw new Error(
-              "لم يتم العثور على الامتحان."
-            );
-
-          }
-
-
-          printExamAsPDF(
-            exam
+        const exam =
+          findExamById(
+            id
           );
 
-        }
-        catch (error) {
 
-          console.error(
-            "PDF EXAM ERROR:",
-            error
-          );
-
+        if (!exam) {
 
           alert(
-            "❌ حدث خطأ أثناء تجهيز PDF\n\n" +
-            (
-              error?.message ||
-              ""
-            )
+            "❌ لم يتم العثور على الامتحان."
           );
 
-        }
-        finally {
-
-          pdf.dataset.busy =
-            "false";
+          return;
 
         }
+
+
+        showPdfMenu(
+          pdf,
+          exam
+        );
 
 
         return;
@@ -2009,10 +2719,6 @@ function attachEvents() {
 
           }
 
-
-          /*
-           * تحديث الكاش فورًا.
-           */
 
           const cachedExam =
             findExamById(
@@ -2307,10 +3013,6 @@ function attachEvents() {
           }
 
 
-          /*
-           * إزالة الامتحان من الكاش فورًا.
-           */
-
           examsCache =
             examsCache.filter(
               exam =>
@@ -2362,7 +3064,7 @@ function attachEvents() {
 
 
 // ======================================================
-// ATTACH EVENTS IMMEDIATELY
+// ATTACH EVENTS
 // ======================================================
 
 attachEvents();
