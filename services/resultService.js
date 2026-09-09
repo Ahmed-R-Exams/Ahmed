@@ -475,10 +475,20 @@ function getQuestionOptions(
 
 
 // ======================================================
-// NORMALIZE CORRECT ANSWER
+// NORMALIZE ANSWER INDEX
+// ======================================================
+//
+// النظام الأساسي:
+// index يبدأ من 0.
+//
+// 0 = A
+// 1 = B
+// 2 = C
+// 3 = D
+//
 // ======================================================
 
-function normalizeCorrectIndex(
+function normalizeAnswerIndex(
   value,
   options = []
 ) {
@@ -493,9 +503,9 @@ function normalizeCorrectIndex(
   }
 
 
-  // -----------------------------------------------
+  // --------------------------------------------------
   // NUMBER
-  // -----------------------------------------------
+  // --------------------------------------------------
 
   if (
     typeof value === "number" &&
@@ -506,23 +516,14 @@ function normalizeCorrectIndex(
       Math.trunc(value);
 
 
-    // المشروع يستخدم 0-based
+    // النظام الحالي 0-based
+
     if (
       n >= 0 &&
       n < options.length
     ) {
 
       return n;
-    }
-
-
-    // دعم البيانات القديمة 1-based
-    if (
-      n >= 1 &&
-      n <= options.length
-    ) {
-
-      return n - 1;
     }
 
 
@@ -534,9 +535,14 @@ function normalizeCorrectIndex(
     String(value).trim();
 
 
-  // -----------------------------------------------
+  if (!raw) {
+    return -1;
+  }
+
+
+  // --------------------------------------------------
   // LETTER
-  // -----------------------------------------------
+  // --------------------------------------------------
 
   const letters = {
     A: 0,
@@ -557,57 +563,44 @@ function normalizeCorrectIndex(
     )
   ) {
 
-    return letters[upper];
+    const index =
+      letters[upper];
+
+
+    return (
+      index >= 0 &&
+      index < options.length
+    )
+      ? index
+      : -1;
   }
 
 
-  // -----------------------------------------------
+  // --------------------------------------------------
   // 1 - 4
-  // -----------------------------------------------
+  // --------------------------------------------------
 
   if (
     /^[1-4]$/.test(raw)
   ) {
 
-    const n =
+    const index =
       Number(raw) - 1;
 
 
     if (
-      n >= 0 &&
-      n < options.length
+      index >= 0 &&
+      index < options.length
     ) {
 
-      return n;
+      return index;
     }
   }
 
 
-  // -----------------------------------------------
-  // 0 - 3
-  // -----------------------------------------------
-
-  if (
-    /^\d+$/.test(raw)
-  ) {
-
-    const n =
-      Number(raw);
-
-
-    if (
-      n >= 0 &&
-      n < options.length
-    ) {
-
-      return n;
-    }
-  }
-
-
-  // -----------------------------------------------
-  // ANSWER TEXT
-  // -----------------------------------------------
+  // --------------------------------------------------
+  // TEXT
+  // --------------------------------------------------
 
   const textIndex =
     options.findIndex(
@@ -626,6 +619,85 @@ function normalizeCorrectIndex(
 
 
   return -1;
+}
+
+
+// ======================================================
+// GET CORRECT ANSWER
+// ======================================================
+
+function getCorrectAnswerValue(
+  q = {}
+) {
+
+  // --------------------------------------------------
+  // IMPORTANT
+  //
+  // correctAnswerIndex / correctIndex هما المصدر
+  // الأساسي الحالي في المشروع.
+  // --------------------------------------------------
+
+  if (
+    q.correctAnswerIndex !== undefined &&
+    q.correctAnswerIndex !== null &&
+    q.correctAnswerIndex !== ""
+  ) {
+
+    return q.correctAnswerIndex;
+  }
+
+
+  if (
+    q.correctIndex !== undefined &&
+    q.correctIndex !== null &&
+    q.correctIndex !== ""
+  ) {
+
+    return q.correctIndex;
+  }
+
+
+  if (
+    q.rightIndex !== undefined &&
+    q.rightIndex !== null &&
+    q.rightIndex !== ""
+  ) {
+
+    return q.rightIndex;
+  }
+
+
+  if (
+    q.correctAnswer !== undefined &&
+    q.correctAnswer !== null &&
+    q.correctAnswer !== ""
+  ) {
+
+    return q.correctAnswer;
+  }
+
+
+  if (
+    q.answer !== undefined &&
+    q.answer !== null &&
+    q.answer !== ""
+  ) {
+
+    return q.answer;
+  }
+
+
+  if (
+    q.correct !== undefined &&
+    q.correct !== null &&
+    q.correct !== ""
+  ) {
+
+    return q.correct;
+  }
+
+
+  return null;
 }
 
 
@@ -698,16 +770,16 @@ function getOldAnswerForQuestion(
   newIndex
 ) {
 
-  // --------------------------------------------------
-  // أولاً: البحث بالـ ID
-  // --------------------------------------------------
-
   const newId =
     getQuestionId(
       newQuestion,
       newIndex
     );
 
+
+  // --------------------------------------------------
+  // SEARCH BY ID
+  // --------------------------------------------------
 
   if (
     Array.isArray(oldQuestions) &&
@@ -735,8 +807,7 @@ function getOldAnswerForQuestion(
 
 
   // --------------------------------------------------
-  // FALLBACK
-  // للنتائج القديمة التي لا تحتوي IDs
+  // FALLBACK BY INDEX
   // --------------------------------------------------
 
   if (
@@ -754,19 +825,6 @@ function getOldAnswerForQuestion(
 
 // ======================================================
 // REBUILD ANSWERS
-// ======================================================
-//
-// مهم جدًا:
-//
-// عند تعديل الامتحان:
-//
-// السؤال الحالي رقم 3 قد يكون كان رقم 4.
-//
-// لذلك لا نعتمد على index فقط.
-// نبحث أولاً عن ID السؤال.
-//
-// ثم نحافظ على إجابة الطالب نفسها.
-//
 // ======================================================
 
 function rebuildAnswers(
@@ -811,7 +869,110 @@ function rebuildAnswers(
 
 
 // ======================================================
+// GET QUESTION SCORE
+// ======================================================
+
+function getQuestionScore(
+  q = {}
+) {
+
+  const values = [
+    q.score,
+    q.points,
+    q.maxScore,
+    q.grade
+  ];
+
+
+  for (
+    const value
+    of values
+  ) {
+
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== ""
+    ) {
+
+      const number =
+        Number(value);
+
+
+      if (
+        Number.isFinite(number) &&
+        number >= 0
+      ) {
+
+        return number;
+      }
+    }
+  }
+
+
+  return 1;
+}
+
+
+// ======================================================
+// GET ESSAY GRADE
+// ======================================================
+
+function getEssayGrade(
+  essayGrades,
+  index,
+  questionId
+) {
+
+  if (
+    !essayGrades ||
+    typeof essayGrades !== "object"
+  ) {
+
+    return 0;
+  }
+
+
+  if (
+    essayGrades[index] !== undefined
+  ) {
+
+    return (
+      Number(
+        essayGrades[index]
+      ) || 0
+    );
+  }
+
+
+  if (
+    questionId &&
+    essayGrades[questionId] !== undefined
+  ) {
+
+    return (
+      Number(
+        essayGrades[questionId]
+      ) || 0
+    );
+  }
+
+
+  return 0;
+}
+
+
+// ======================================================
 // CALCULATE RESULT
+// ======================================================
+//
+// الحساب بالكامل من examQuestions الحالية.
+//
+// لا نستخدم:
+// score القديم
+// total القديم
+// percent القديم
+//
 // ======================================================
 
 function calculateResult(
@@ -819,10 +980,16 @@ function calculateResult(
   examQuestions
 ) {
 
+  const questions =
+    Array.isArray(examQuestions)
+      ? examQuestions
+      : [];
+
+
   const answers =
     rebuildAnswers(
       result,
-      examQuestions
+      questions
     );
 
 
@@ -837,10 +1004,15 @@ function calculateResult(
 
 
   let score = 0;
+
   let total = 0;
 
 
-  examQuestions.forEach(
+  // --------------------------------------------------
+  // CALCULATE
+  // --------------------------------------------------
+
+  questions.forEach(
     (q, index) => {
 
       if (
@@ -853,30 +1025,32 @@ function calculateResult(
 
 
       const maxScore =
-        Number(
-          q.score ??
-          q.points ??
-          q.maxScore ??
-          q.grade ??
-          1
-        ) || 1;
+        getQuestionScore(q);
 
 
       total += maxScore;
 
 
-      // ==========================================
+      // ==============================================
       // ESSAY
-      // ==========================================
+      // ==============================================
 
       if (
         isEssayQuestion(q)
       ) {
 
+        const questionId =
+          getQuestionId(
+            q,
+            index
+          );
+
+
         const oldGrade =
-          Number(
-            oldEssayGrades[index] ??
-            0
+          getEssayGrade(
+            oldEssayGrades,
+            index,
+            questionId
           );
 
 
@@ -901,61 +1075,52 @@ function calculateResult(
       }
 
 
-      // ==========================================
+      // ==============================================
       // MCQ
-      // ==========================================
+      // ==============================================
 
       const options =
         getQuestionOptions(q);
 
 
+      const correctValue =
+        getCorrectAnswerValue(q);
+
+
       const correctIndex =
-        normalizeCorrectIndex(
-          q.correctAnswerIndex ??
-          q.correctIndex ??
-          q.rightIndex ??
-          q.correctAnswer ??
-          q.answer ??
-          q.correct,
+        normalizeAnswerIndex(
+          correctValue,
           options
         );
 
 
-      const studentRaw =
+      const studentValue =
         answers[index];
 
 
-      let studentIndex =
-        -1;
+      const studentIndex =
+        normalizeAnswerIndex(
+          studentValue,
+          options
+        );
+
+
+      console.log(
+        `📝 Q${index + 1}`,
+        {
+          correctValue,
+          correctIndex,
+          studentValue,
+          studentIndex,
+          maxScore
+        }
+      );
 
 
       if (
-        typeof studentRaw === "number" &&
-        Number.isFinite(studentRaw)
-      ) {
-
-        studentIndex =
-          Math.trunc(
-            studentRaw
-          );
-      }
-      else if (
-        studentRaw !== undefined &&
-        studentRaw !== null &&
-        String(studentRaw).trim() !== ""
-      ) {
-
-        studentIndex =
-          normalizeCorrectIndex(
-            studentRaw,
-            options
-          );
-      }
-
-
-      if (
-        studentIndex >= 0 &&
-        studentIndex === correctIndex
+        correctIndex !== -1 &&
+        studentIndex !== -1 &&
+        correctIndex === studentIndex
       ) {
 
         score += maxScore;
@@ -964,6 +1129,10 @@ function calculateResult(
     }
   );
 
+
+  // --------------------------------------------------
+  // PERCENT
+  // --------------------------------------------------
 
   const percent =
     total > 0
@@ -977,8 +1146,7 @@ function calculateResult(
 
     answers,
 
-    questions:
-      examQuestions,
+    questions,
 
     essayGrades:
       newEssayGrades,
@@ -1007,7 +1175,7 @@ async function getResultsForExam(
 
 
   // --------------------------------------------------
-  // BY EXAM ID
+  // BY ID
   // --------------------------------------------------
 
   if (examId) {
@@ -1034,7 +1202,7 @@ async function getResultsForExam(
 
 
   // --------------------------------------------------
-  // FALLBACK BY TITLE
+  // BY TITLE
   // --------------------------------------------------
 
   if (
@@ -1070,14 +1238,6 @@ async function getResultsForExam(
 
 // ======================================================
 // REGRADE RESULTS FOR EXAM
-// ======================================================
-//
-// هذه هي الدالة التي يستدعيها:
-//
-// pages/editExamEvents.js
-//
-// بعد حفظ تعديل الامتحان.
-//
 // ======================================================
 
 export async function regradeResultsForExam(
@@ -1127,10 +1287,9 @@ export async function regradeResultsForExam(
     !examQuestions.length
   ) {
 
-    return {
-      updated: 0,
-      matched: 0
-    };
+    throw new Error(
+      "لا توجد أسئلة صالحة لإعادة التصحيح."
+    );
   }
 
 
@@ -1225,7 +1384,6 @@ export async function regradeResultsForExam(
       error
     );
 
-
     throw error;
   }
 
@@ -1250,7 +1408,7 @@ export async function regradeResultsForExam(
 
   let updated = 0;
 
-  let matched =
+  const matched =
     allDocs.length;
 
 
@@ -1273,7 +1431,8 @@ export async function regradeResultsForExam(
 
 
       // ----------------------------------------------
-      // CALCULATE AGAINST CURRENT EXAM
+      // IMPORTANT:
+      // الحساب من الأسئلة الحالية فقط
       // ----------------------------------------------
 
       const recalculated =
@@ -1283,21 +1442,21 @@ export async function regradeResultsForExam(
         );
 
 
-      // ----------------------------------------------
-      // UPDATE RESULT
-      // ----------------------------------------------
+      const now =
+        Date.now();
+
 
       const updateData = {
 
-        // الأسئلة الجديدة
+        // الأسئلة الحالية
         questions:
           recalculated.questions,
 
-        // إجابات الطالب بنفس ترتيب الأسئلة الجديدة
+        // إجابات الطالب بعد إعادة الترتيب
         answers:
           recalculated.answers,
 
-        // الدرجات المقالية
+        // درجات المقال
         essayGrades:
           recalculated.essayGrades,
 
@@ -1313,7 +1472,11 @@ export async function regradeResultsForExam(
         percent:
           recalculated.percent,
 
-        // تحديث اسم الامتحان أيضًا
+        // توافق مع أي صفحة تستخدم percentage
+        percentage:
+          recalculated.percent,
+
+        // اسم الامتحان
         ...(examTitle
           ? {
               examTitle:
@@ -1321,10 +1484,12 @@ export async function regradeResultsForExam(
             }
           : {}),
 
-        // وقت آخر إعادة تصحيح
+        // أوقات التحديث
         regradedAt:
-          Date.now()
+          now,
 
+        recalculatedAt:
+          now
       };
 
 
@@ -1344,6 +1509,9 @@ export async function regradeResultsForExam(
       console.log(
         `✅ Result regraded: ${item.id}`,
         {
+          student:
+            result.studentName,
+
           score:
             recalculated.score,
 
@@ -1376,11 +1544,6 @@ export async function regradeResultsForExam(
 
 // ======================================================
 // RECALCULATE RESULTS FOR EXAM
-// ======================================================
-//
-// احتفظنا بالدالة القديمة أيضًا
-// حتى لا تتكسر أي ملفات أخرى تستخدمها.
-//
 // ======================================================
 
 export async function recalculateResultsForExam(

@@ -21,6 +21,10 @@ import { exportResultsExcel } from "../utils/exportResults.js";
 
 export async function resultsPage() {
 
+  // ====================================================
+  // LOAD RESULTS
+  // ====================================================
+
   const resultsData =
     await getResults();
 
@@ -29,6 +33,10 @@ export async function resultsPage() {
       ? resultsData
       : [];
 
+
+  // ====================================================
+  // LOAD CURRENT EXAMS
+  // ====================================================
 
   const examsData =
     await getExams();
@@ -40,38 +48,105 @@ export async function resultsPage() {
 
 
   // ====================================================
-  // NORMALIZE RESULT IDS
+  // NORMALIZE + RECALCULATE
+  //
+  // مهم جداً:
+  //
+  // لا نعتمد على result.score القديم.
+  //
+  // يتم حساب الدرجة من:
+  //
+  // الامتحان الحالي
+  // +
+  // إجابات الطالب
+  //
+  // لذلك لو تم تغيير إجابة صحيحة من A إلى B
+  // ستتغير الدرجة الظاهرة على الكارت فوراً.
   // ====================================================
 
-  const normalizedResults =
-    results.map((r, index) => {
+  const normalizedResults = [];
 
-      return {
-        ...r,
 
-        // مهم جداً:
-        // نستخدم id الحقيقي فقط.
-        // لا نستخدم index كـ id.
+  for (
+    const rawResult of results
+  ) {
 
-        id:
-          r?.id !== undefined &&
-          r?.id !== null
-            ? String(r.id)
-            : (
-                r?.firestoreId !== undefined &&
-                r?.firestoreId !== null
-                  ? String(r.firestoreId)
-                  : ""
-              ),
+    const result = {
 
-        studentName:
-          r?.studentName || "طالب",
+      ...rawResult,
 
-        examTitle:
-          r?.examTitle || "امتحان"
-      };
+      id:
+        rawResult?.id !== undefined &&
+        rawResult?.id !== null
+          ? String(rawResult.id)
+          : (
+              rawResult?.firestoreId !== undefined &&
+              rawResult?.firestoreId !== null
+                ? String(
+                    rawResult.firestoreId
+                  )
+                : ""
+            ),
 
-    });
+      studentName:
+        rawResult?.studentName ||
+        "طالب",
+
+      examTitle:
+        rawResult?.examTitle ||
+        "امتحان"
+
+    };
+
+
+    // ==================================================
+    // FIND CURRENT EXAM
+    // ==================================================
+
+    const currentExam =
+      findResultExam(
+        result,
+        exams
+      );
+
+
+    // ==================================================
+    // CALCULATE CURRENT SCORE
+    // ==================================================
+
+    const calculated =
+      calculateResultFromCurrentExam(
+        result,
+        currentExam
+      );
+
+
+    // ==================================================
+    // USE RECALCULATED VALUES
+    // ==================================================
+
+    if (calculated) {
+
+      result.score =
+        calculated.score;
+
+      result.total =
+        calculated.total;
+
+      result.percent =
+        calculated.percent;
+
+      result.percentage =
+        calculated.percent;
+
+    }
+
+
+    normalizedResults.push(
+      result
+    );
+
+  }
 
 
   // ====================================================
@@ -79,11 +154,16 @@ export async function resultsPage() {
   // ====================================================
 
   const students = [
+
     ...new Set(
+
       normalizedResults.map(
-        r => r.studentName
+        r =>
+          r.studentName
       )
+
     )
+
   ];
 
 
@@ -96,20 +176,25 @@ export async function resultsPage() {
 
 
   const passedCount =
-    normalizedResults.filter(r => {
+    normalizedResults.filter(
+      r => {
 
-      const total =
-        Number(r.total) || 100;
+        const total =
+          Number(r.total) || 0;
 
-      const score =
-        Number(r.score) || 0;
+        const score =
+          Number(r.score) || 0;
 
-      return (
-        total > 0 &&
-        (score / total) * 100 >= 50
-      );
+        return (
+          total > 0 &&
+          (
+            score /
+            total
+          ) * 100 >= 50
+        );
 
-    }).length;
+      }
+    ).length;
 
 
   const successRate =
@@ -130,7 +215,9 @@ export async function resultsPage() {
   setTimeout(() => {
 
     const app =
-      document.querySelector("#app");
+      document.querySelector(
+        "#app"
+      );
 
 
     // ==================================================
@@ -148,8 +235,10 @@ export async function resultsPage() {
       back.onclick = () => {
 
         if (app) {
+
           app.innerHTML =
             adminPage();
+
         }
 
       };
@@ -172,7 +261,8 @@ export async function resultsPage() {
       refresh.onclick =
         async () => {
 
-          refresh.disabled = true;
+          refresh.disabled =
+            true;
 
           try {
 
@@ -183,9 +273,21 @@ export async function resultsPage() {
 
             }
 
+          } catch (error) {
+
+            console.error(
+              "Refresh results error:",
+              error
+            );
+
+            alert(
+              "حدث خطأ أثناء تحديث النتائج"
+            );
+
           } finally {
 
-            refresh.disabled = false;
+            refresh.disabled =
+              false;
 
           }
 
@@ -259,7 +361,9 @@ export async function resultsPage() {
               "حذف كل النتائج؟"
             )
           ) {
+
             return;
+
           }
 
 
@@ -309,9 +413,11 @@ export async function resultsPage() {
         () => {
 
           const visibleCards = [
+
             ...document.querySelectorAll(
               "#resultsTable .rp-card"
             )
+
           ].filter(
             card =>
               card.style.display !==
@@ -321,22 +427,28 @@ export async function resultsPage() {
 
           const selectedResults =
             visibleCards
-              .map(card => {
 
-                const cardId =
-                  String(
-                    card.dataset.resultId ||
-                    ""
+              .map(
+                card => {
+
+                  const cardId =
+                    String(
+                      card.dataset.resultId ||
+                      ""
+                    );
+
+
+                  return normalizedResults.find(
+                    r =>
+                      normalizeId(
+                        r.id
+                      ) ===
+                      cardId
                   );
 
+                }
+              )
 
-                return normalizedResults.find(
-                  r =>
-                    String(r.id) ===
-                    cardId
-                );
-
-              })
               .filter(Boolean);
 
 
@@ -371,120 +483,121 @@ export async function resultsPage() {
       .querySelectorAll(
         ".shareResult"
       )
-      .forEach(button => {
+      .forEach(
+        button => {
 
-        button.onclick =
-          e => {
+          button.onclick =
+            e => {
 
-            e.stopPropagation();
-
-
-            const resultId =
-              normalizeId(
-                button.dataset.result
-              );
+              e.stopPropagation();
 
 
-            if (!resultId) {
-
-              alert(
-                "خطأ: لا يوجد رقم للنتيجة"
-              );
-
-              return;
-
-            }
+              const resultId =
+                normalizeId(
+                  button.dataset.result
+                );
 
 
-            // ==========================================
-            // FIND EXACT RESULT
-            // ==========================================
+              if (!resultId) {
 
-            const result =
-              normalizedResults.find(
-                r =>
-                  normalizeId(r.id) ===
+                alert(
+                  "خطأ: لا يوجد رقم للنتيجة"
+                );
+
+                return;
+
+              }
+
+
+              const result =
+                normalizedResults.find(
+                  r =>
+                    normalizeId(
+                      r.id
+                    ) ===
+                    resultId
+                );
+
+
+              if (!result) {
+
+                alert(
+                  "تعذر العثور على النتيجة"
+                );
+
+                return;
+
+              }
+
+
+              const shareUrl =
+                buildResultShareUrl(
                   resultId
+                );
+
+
+              const student =
+                result.studentName ||
+                "الطالب";
+
+
+              const exam =
+                result.examTitle ||
+                "الامتحان";
+
+
+              // ==================================================
+              // IMPORTANT:
+              // نستخدم الدرجة المعاد حسابها
+              // ==================================================
+
+              const score =
+                Number(
+                  result.score
+                ) || 0;
+
+
+              const total =
+                Number(
+                  result.total
+                ) || 0;
+
+
+              const percent =
+                total > 0
+                  ? Math.round(
+                      (
+                        score /
+                        total
+                      ) * 100
+                    )
+                  : 0;
+
+
+              const message =
+                `📊 نتيجة الطالب ${student}\n\n` +
+                `📚 الامتحان: ${exam}\n\n` +
+                `📈 الدرجة: ${score}/${total}\n` +
+                `📊 النسبة: ${percent}%\n\n` +
+                `🔗 مشاهدة النتيجة كاملة:\n` +
+                `${shareUrl}`;
+
+
+              const whatsappUrl =
+                `https://wa.me/?text=${encodeURIComponent(
+                  message
+                )}`;
+
+
+              window.open(
+                whatsappUrl,
+                "_blank"
               );
 
+            };
 
-            if (!result) {
-
-              alert(
-                "تعذر العثور على النتيجة"
-              );
-
-              return;
-
-            }
-
-
-            // ==========================================
-            // BUILD EXACT SHARE URL
-            // ==========================================
-
-            const shareUrl =
-              buildResultShareUrl(
-                resultId
-              );
-
-
-            const student =
-              result.studentName ||
-              "الطالب";
-
-
-            const exam =
-              result.examTitle ||
-              "الامتحان";
-
-
-            const score =
-              Number(
-                result.score
-              ) || 0;
-
-
-            const total =
-              Number(
-                result.total
-              ) || 0;
-
-
-            const percent =
-              total > 0
-                ? Math.round(
-                    (
-                      score /
-                      total
-                    ) * 100
-                  )
-                : 0;
-
-
-            const message =
-              `📊 نتيجة الطالب ${student}\n\n` +
-              `📚 الامتحان: ${exam}\n\n` +
-              `📈 الدرجة: ${score}/${total}\n` +
-              `📊 النسبة: ${percent}%\n\n` +
-              `🔗 مشاهدة النتيجة كاملة:\n` +
-              `${shareUrl}`;
-
-
-            const whatsappUrl =
-              `https://wa.me/?text=${encodeURIComponent(
-                message
-              )}`;
-
-
-            window.open(
-              whatsappUrl,
-              "_blank"
-            );
-
-          };
-
-      });
+        }
+      );
 
 
     // ==================================================
@@ -495,95 +608,98 @@ export async function resultsPage() {
       .querySelectorAll(
         ".copyResultLink"
       )
-      .forEach(button => {
+      .forEach(
+        button => {
 
-        button.onclick =
-          async e => {
+          button.onclick =
+            async e => {
 
-            e.stopPropagation();
-
-
-            const resultId =
-              normalizeId(
-                button.dataset.result
-              );
+              e.stopPropagation();
 
 
-            if (!resultId) {
-
-              alert(
-                "خطأ: لا يوجد رقم للنتيجة"
-              );
-
-              return;
-
-            }
+              const resultId =
+                normalizeId(
+                  button.dataset.result
+                );
 
 
-            // ==========================================
-            // MAKE SURE RESULT REALLY EXISTS
-            // ==========================================
+              if (!resultId) {
 
-            const result =
-              normalizedResults.find(
-                r =>
-                  normalizeId(r.id) ===
+                alert(
+                  "خطأ: لا يوجد رقم للنتيجة"
+                );
+
+                return;
+
+              }
+
+
+              const result =
+                normalizedResults.find(
+                  r =>
+                    normalizeId(
+                      r.id
+                    ) ===
+                    resultId
+                );
+
+
+              if (!result) {
+
+                alert(
+                  "تعذر العثور على النتيجة"
+                );
+
+                return;
+
+              }
+
+
+              const shareUrl =
+                buildResultShareUrl(
                   resultId
-              );
+                );
 
 
-            if (!result) {
+              try {
 
-              alert(
-                "تعذر العثور على النتيجة"
-              );
-
-              return;
-
-            }
+                await navigator.clipboard.writeText(
+                  shareUrl
+                );
 
 
-            const shareUrl =
-              buildResultShareUrl(
-                resultId
-              );
+                const oldText =
+                  button.textContent;
 
-
-            try {
-
-              await navigator.clipboard.writeText(
-                shareUrl
-              );
-
-
-              const oldText =
-                button.textContent;
-
-
-              button.textContent =
-                "✅ تم نسخ الرابط";
-
-
-              setTimeout(() => {
 
                 button.textContent =
-                  oldText;
-
-              }, 1800);
+                  "✅ تم نسخ الرابط";
 
 
-            } catch {
+                setTimeout(
+                  () => {
 
-              prompt(
-                "انسخ رابط النتيجة:",
-                shareUrl
-              );
+                    button.textContent =
+                      oldText;
 
-            }
+                  },
+                  1800
+                );
 
-          };
 
-      });
+              } catch {
+
+                prompt(
+                  "انسخ رابط النتيجة:",
+                  shareUrl
+                );
+
+              }
+
+            };
+
+        }
+      );
 
 
     // ==================================================
@@ -632,17 +748,27 @@ export async function resultsPage() {
       );
 
 
-    function getResultPercent(r) {
+    // ==================================================
+    // RESULT PERCENT
+    // ==================================================
+
+    function getResultPercent(
+      r
+    ) {
 
       const score =
-        Number(r.score) || 0;
+        Number(
+          r.score
+        ) || 0;
 
 
       const total =
-        Number(r.total) || 100;
+        Number(
+          r.total
+        ) || 0;
 
 
-      return total
+      return total > 0
         ? (
             score /
             total
@@ -665,7 +791,9 @@ export async function resultsPage() {
 
 
       if (!grid) {
+
         return;
+
       }
 
 
@@ -675,32 +803,40 @@ export async function resultsPage() {
 
 
       const cards = [
+
         ...grid.querySelectorAll(
           ".rp-card"
         )
+
       ];
 
 
       const withData =
         cards
-          .map(card => {
 
-            const result =
-              normalizedResults.find(
-                r =>
-                  normalizeId(r.id) ===
-                  normalizeId(
-                    card.dataset.resultId
-                  )
-              );
+          .map(
+            card => {
+
+              const result =
+                normalizedResults.find(
+                  r =>
+                    normalizeId(
+                      r.id
+                    ) ===
+                    normalizeId(
+                      card.dataset.resultId
+                    )
+                );
 
 
-            return {
-              card,
-              result
-            };
+              return {
+                card,
+                result
+              };
 
-          })
+            }
+          )
+
           .filter(
             item =>
               item.result
@@ -710,7 +846,9 @@ export async function resultsPage() {
       withData.sort(
         (a, b) => {
 
-          switch (sortValue) {
+          switch (
+            sortValue
+          ) {
 
             case "scoreDesc":
 
@@ -779,6 +917,7 @@ export async function resultsPage() {
 
 
             case "recent":
+
             default:
 
               return (
@@ -839,58 +978,62 @@ export async function resultsPage() {
 
 
       const cards = [
+
         ...document.querySelectorAll(
           "#resultsTable .rp-card"
         )
+
       ];
 
 
-      cards.forEach(card => {
+      cards.forEach(
+        card => {
 
-        const studentName =
-          (
-            card.dataset.student ||
-            ""
-          ).toLowerCase();
-
-
-        const examName =
-          (
-            card.dataset.exam ||
-            ""
-          ).toLowerCase();
+          const studentName =
+            (
+              card.dataset.student ||
+              ""
+            ).toLowerCase();
 
 
-        const okSearch =
-          !text ||
-          studentName.includes(
-            text
-          ) ||
-          examName.includes(
-            text
-          );
+          const examName =
+            (
+              card.dataset.exam ||
+              ""
+            ).toLowerCase();
 
 
-        const okStudent =
-          !student ||
-          card.dataset.student ===
-            student;
+          const okSearch =
+            !text ||
+            studentName.includes(
+              text
+            ) ||
+            examName.includes(
+              text
+            );
 
 
-        const okExam =
-          !exam ||
-          card.dataset.exam ===
-            exam;
+          const okStudent =
+            !student ||
+            card.dataset.student ===
+              student;
 
 
-        card.style.display =
-          okSearch &&
-          okStudent &&
-          okExam
-            ? "block"
-            : "none";
+          const okExam =
+            !exam ||
+            card.dataset.exam ===
+              exam;
 
-      });
+
+          card.style.display =
+            okSearch &&
+            okStudent &&
+            okExam
+              ? "block"
+              : "none";
+
+        }
+      );
 
 
       const visibleCards =
@@ -1020,7 +1163,6 @@ export async function resultsPage() {
       table.onclick =
         async e => {
 
-
           // ============================================
           // DELETE
           // ============================================
@@ -1146,7 +1288,9 @@ export async function resultsPage() {
 
 
           if (!card) {
+
             return;
+
           }
 
 
@@ -1174,7 +1318,9 @@ export async function resultsPage() {
           const result =
             normalizedResults.find(
               r =>
-                normalizeId(r.id) ===
+                normalizeId(
+                  r.id
+                ) ===
                 resultId
             );
 
@@ -1199,8 +1345,10 @@ export async function resultsPage() {
           // COPY RESULT
           // ============================================
 
-          let reviewResult = {
+          const reviewResult = {
+
             ...result
+
           };
 
 
@@ -1209,72 +1357,33 @@ export async function resultsPage() {
           // ============================================
 
           const currentExam =
-            exams.find(exam => {
-
-              const currentExamId =
-                exam.firestoreId ||
-                exam.id;
-
-
-              if (
-                result.examId &&
-                currentExamId
-              ) {
-
-                return (
-                  normalizeId(
-                    currentExamId
-                  ) ===
-                  normalizeId(
-                    result.examId
-                  )
-                );
-
-              }
+            findResultExam(
+              reviewResult,
+              exams
+            );
 
 
-              return (
-                String(
-                  exam.title || ""
-                ).trim() ===
-                String(
-                  result.examTitle ||
-                  ""
-                ).trim()
-              );
+          // ==================================================
+          // FALLBACK QUESTIONS
+          // ==================================================
 
-            });
+          if (
+            (
+              !Array.isArray(
+                reviewResult.questions
+              ) ||
+              reviewResult.questions.length === 0
+            ) &&
+            currentExam &&
+            Array.isArray(
+              currentExam.questions
+            )
+          ) {
 
+            reviewResult.questions =
+              currentExam.questions;
 
-          // ================================================
-// IMPORTANT:
-// استخدم نسخة الأسئلة المحفوظة داخل النتيجة أولاً.
-// لا تستبدلها بالامتحان الحالي.
-//
-// السبب:
-// الطالب قد يكون حل الامتحان قبل تعديل السؤال.
-// لذلك يجب أن تتم المراجعة بنفس نسخة السؤال
-// التي كانت موجودة وقت أداء الامتحان.
-//
-// currentExam.questions = FALLBACK فقط
-// ================================================
-
-if (
-  !Array.isArray(reviewResult.questions) ||
-  reviewResult.questions.length === 0
-) {
-
-  if (
-    currentExam &&
-    Array.isArray(currentExam.questions)
-  ) {
-
-    reviewResult.questions =
-      currentExam.questions;
-
-  }
-
-}
+          }
 
 
           // ============================================
@@ -1282,14 +1391,6 @@ if (
           // ============================================
 
           if (app) {
-
-            // ✅ فتح المراجعة من لوحة تحكم المعلم:
-            // لازم نمرر canGrade = true صراحةً عشان يقدر
-            // يقيّم أسئلة المقالي ويشتغل بكامل صلاحياته.
-            // من غير الباراميتر ده، الافتراضي الجديد
-            // الآمن في reviewResultPage هيمنعه من التعديل
-            // (لأنه بقى بيفترض إن الداخل طالب لحد ما
-            // يتقال له العكس صراحةً).
 
             app.innerHTML =
               reviewResultPage(
@@ -1303,6 +1404,13 @@ if (
         };
 
     }
+
+
+    // ==================================================
+    // INITIAL FILTER
+    // ==================================================
+
+    updateFilter();
 
   }, 50);
 
@@ -1358,7 +1466,6 @@ if (
       .rp-hero{
 
         position:relative;
-
         overflow:hidden;
 
         background:
@@ -2311,175 +2418,174 @@ if (
           ?
 
           normalizedResults
-            .map(r => {
+            .map(
+              r => {
 
-              const score =
-                Number(r.score) || 0;
+                // ==========================================
+                // IMPORTANT:
+                // هنا r.score بالفعل الدرجة الجديدة
+                // التي تم حسابها من الامتحان الحالي.
+                // ==========================================
 
-
-              const total =
-                Number(r.total) || 100;
-
-
-              const percent =
-                total > 0
-                  ? Math.round(
-                      (
-                        score /
-                        total
-                      ) * 100
-                    )
-                  : 0;
+                const score =
+                  Number(
+                    r.score
+                  ) || 0;
 
 
-              const tier =
-                percent >= 70
-                  ? "good"
-                  : percent >= 50
-                  ? "pass"
-                  : "fail";
+                const total =
+                  Number(
+                    r.total
+                  ) || 0;
 
 
-              const stampLabel =
-                percent >= 50
-                  ? "ناجح"
-                  : "راسب";
+                const percent =
+                  total > 0
+                    ? Math.round(
+                        (
+                          score /
+                          total
+                        ) * 100
+                      )
+                    : 0;
 
 
-              // =========================================
-              // VERY IMPORTANT
-              // =========================================
-              // هذا هو الـ ID الحقيقي للنتيجة.
-              // كل شيء يستخدمه:
-              //
-              // data-result-id
-              // data-result
-              // share URL
-              //
-              // نفس القيمة بالضبط.
-              // =========================================
-
-              const resultId =
-                normalizeId(
-                  r.id
-                );
+                const tier =
+                  percent >= 70
+                    ? "good"
+                    : percent >= 50
+                    ? "pass"
+                    : "fail";
 
 
-              return `
-
-                <div
-                  class="menu-card rp-card"
-
-                  data-tier="${tier}"
-
-                  data-result-id="${escapeHTML(
-                    resultId
-                  )}"
-
-                  data-student="${escapeHTML(
-                    r.studentName
-                  )}"
-
-                  data-exam="${escapeHTML(
-                    r.examTitle
-                  )}"
-                >
+                const stampLabel =
+                  percent >= 50
+                    ? "ناجح"
+                    : "راسب";
 
 
-                  <div class="rp-stamp">
-
-                    <b>
-                      ${percent}%
-                    </b>
-
-                    <span>
-                      ${stampLabel}
-                    </span>
-
-                  </div>
+                const resultId =
+                  normalizeId(
+                    r.id
+                  );
 
 
-                  <h3>
+                return `
 
-                    👨‍🎓
+                  <div
+                    class="menu-card rp-card"
 
-                    ${escapeHTML(
-                      r.studentName
-                    )}
+                    data-tier="${tier}"
 
-                  </h3>
-
-
-                  <p class="rp-exam">
-
-                    📚
-
-                    ${escapeHTML(
-                      r.examTitle
-                    )}
-
-                  </p>
-
-
-                  <div class="rp-score">
-
-                    ${score}
-                    /
-                    ${total}
-
-                  </div>
-
-
-                  <div class="rp-actions">
-
-
-                    <button
-                      type="button"
-
-                      class="rp-action shareResult"
-
-                      data-result="${escapeHTML(
-                        resultId
-                      )}"
-                    >
-                      📤 إرسال للطالب
-                    </button>
-
-
-                    <button
-                      type="button"
-
-                      class="rp-action copyResultLink"
-
-                      data-result="${escapeHTML(
-                        resultId
-                      )}"
-                    >
-                      🔗 نسخ الرابط
-                    </button>
-
-
-                  </div>
-
-
-                  <button
-                    type="button"
-
-                    class="deleteResult rp-delete"
-
-                    data-result="${escapeHTML(
+                    data-result-id="${escapeHTML(
                       resultId
                     )}"
+
+                    data-student="${escapeHTML(
+                      r.studentName
+                    )}"
+
+                    data-exam="${escapeHTML(
+                      r.examTitle
+                    )}"
                   >
-                    حذف
-                  </button>
 
 
-                </div>
+                    <div class="rp-stamp">
 
-              `;
+                      <b>
+                        ${percent}%
+                      </b>
 
-            })
+                      <span>
+                        ${stampLabel}
+                      </span>
+
+                    </div>
+
+
+                    <h3>
+
+                      👨‍🎓
+
+                      ${escapeHTML(
+                        r.studentName
+                      )}
+
+                    </h3>
+
+
+                    <p class="rp-exam">
+
+                      📚
+
+                      ${escapeHTML(
+                        r.examTitle
+                      )}
+
+                    </p>
+
+
+                    <div class="rp-score">
+
+                      ${score}
+                      /
+                      ${total}
+
+                    </div>
+
+
+                    <div class="rp-actions">
+
+
+                      <button
+                        type="button"
+
+                        class="rp-action shareResult"
+
+                        data-result="${escapeHTML(
+                          resultId
+                        )}"
+                      >
+                        📤 إرسال للطالب
+                      </button>
+
+
+                      <button
+                        type="button"
+
+                        class="rp-action copyResultLink"
+
+                        data-result="${escapeHTML(
+                          resultId
+                        )}"
+                      >
+                        🔗 نسخ الرابط
+                      </button>
+
+
+                    </div>
+
+
+                    <button
+                      type="button"
+
+                      class="deleteResult rp-delete"
+
+                      data-result="${escapeHTML(
+                        resultId
+                      )}"
+                    >
+                      حذف
+                    </button>
+
+
+                  </div>
+
+                `;
+
+              }
+            )
             .join("")
 
 
@@ -2512,10 +2618,1088 @@ if (
 
 
 // ======================================================
+// FIND EXAM FOR RESULT
+// ======================================================
+
+function findResultExam(
+  result,
+  exams
+) {
+
+  if (
+    !result ||
+    !Array.isArray(exams)
+  ) {
+
+    return null;
+
+  }
+
+
+  // ====================================================
+  // FIRST: EXAM ID
+  // ====================================================
+
+  if (result.examId) {
+
+    const wantedId =
+      normalizeId(
+        result.examId
+      );
+
+
+    const byId =
+      exams.find(
+        exam => {
+
+          const examId =
+            exam?.firestoreId ??
+            exam?.id ??
+            "";
+
+
+          return (
+            normalizeId(
+              examId
+            ) ===
+            wantedId
+          );
+
+        }
+      );
+
+
+    if (byId) {
+
+      return byId;
+
+    }
+
+  }
+
+
+  // ====================================================
+  // SECOND: TITLE
+  // ====================================================
+
+  const wantedTitle =
+    String(
+      result.examTitle ||
+      ""
+    ).trim();
+
+
+  if (wantedTitle) {
+
+    const byTitle =
+      exams.find(
+        exam =>
+          String(
+            exam?.title ||
+            ""
+          ).trim() ===
+          wantedTitle
+      );
+
+
+    if (byTitle) {
+
+      return byTitle;
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+// ======================================================
+// CALCULATE RESULT FROM CURRENT EXAM
+// ======================================================
+
+function calculateResultFromCurrentExam(
+  result,
+  currentExam
+) {
+
+  if (
+    !result ||
+    !currentExam ||
+    !Array.isArray(
+      currentExam.questions
+    )
+  ) {
+
+    return null;
+
+  }
+
+
+  const questions =
+    currentExam.questions;
+
+
+  const answers =
+    Array.isArray(
+      result.answers
+    )
+      ? result.answers
+      : [];
+
+
+  const essayGrades =
+    result.essayGrades || {};
+
+
+  let score = 0;
+
+  let total = 0;
+
+
+  // ====================================================
+  // BUILD OLD QUESTION MAP
+  //
+  // This lets us find the student's answer by question ID
+  // even if the question order changed.
+  // ====================================================
+
+  const oldQuestions =
+    Array.isArray(
+      result.questions
+    )
+      ? result.questions
+      : [];
+
+
+  const oldQuestionMap =
+    new Map();
+
+
+  oldQuestions.forEach(
+    (question, index) => {
+
+      const id =
+        getQuestionId(
+          question,
+          index
+        );
+
+
+      if (id) {
+
+        oldQuestionMap.set(
+          id,
+          index
+        );
+
+      }
+
+    }
+  );
+
+
+  // ====================================================
+  // CALCULATE EVERY QUESTION
+  // ====================================================
+
+  questions.forEach(
+    (question, questionIndex) => {
+
+      const questionScore =
+        getQuestionScore(
+          question
+        );
+
+
+      total +=
+        questionScore;
+
+
+      // ================================================
+      // ESSAY
+      // ================================================
+
+      if (
+        isEssayQuestion(
+          question
+        )
+      ) {
+
+        const questionId =
+          getQuestionId(
+            question,
+            questionIndex
+          );
+
+
+        const oldIndex =
+          questionId &&
+          oldQuestionMap.has(
+            questionId
+          )
+            ? oldQuestionMap.get(
+                questionId
+              )
+            : questionIndex;
+
+
+        const grade =
+          getEssayGrade(
+            essayGrades,
+            questionId,
+            oldIndex,
+            questionIndex
+          );
+
+
+        score +=
+          Math.min(
+            Math.max(
+              Number(
+                grade
+              ) || 0,
+              0
+            ),
+            questionScore
+          );
+
+
+        return;
+
+      }
+
+
+      // ================================================
+      // MCQ
+      // ================================================
+
+      const questionId =
+        getQuestionId(
+          question,
+          questionIndex
+        );
+
+
+      const oldIndex =
+        questionId &&
+        oldQuestionMap.has(
+          questionId
+        )
+          ? oldQuestionMap.get(
+              questionId
+            )
+          : questionIndex;
+
+
+      const studentAnswer =
+        getAnswerValue(
+          answers,
+          oldIndex,
+          questionIndex
+        );
+
+
+      const studentIndex =
+        normalizeAnswerIndex(
+          studentAnswer,
+          question
+        );
+
+
+      const correctIndex =
+        normalizeCorrectAnswer(
+          question
+        );
+
+
+      if (
+        studentIndex !== -1 &&
+        correctIndex !== -1 &&
+        studentIndex === correctIndex
+      ) {
+
+        score +=
+          questionScore;
+
+      }
+
+    }
+  );
+
+
+  const percent =
+    total > 0
+      ? Math.round(
+          (
+            score /
+            total
+          ) * 100
+        )
+      : 0;
+
+
+  return {
+
+    score,
+
+    total,
+
+    percent
+
+  };
+
+}
+
+
+// ======================================================
+// GET ANSWER VALUE
+// ======================================================
+
+function getAnswerValue(
+  answers,
+  oldIndex,
+  currentIndex
+) {
+
+  if (
+    !Array.isArray(
+      answers
+    )
+  ) {
+
+    return null;
+
+  }
+
+
+  const answer =
+    answers[oldIndex];
+
+
+  if (
+    answer !== undefined &&
+    answer !== null
+  ) {
+
+    return answer;
+
+  }
+
+
+  return (
+    answers[currentIndex] ??
+    null
+  );
+
+}
+
+
+// ======================================================
+// NORMALIZE ANSWER INDEX
+// ======================================================
+
+function normalizeAnswerIndex(
+  value,
+  question
+) {
+
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+
+    return -1;
+
+  }
+
+
+  // ====================================================
+  // OBJECT ANSWER
+  // ====================================================
+
+  if (
+    typeof value === "object"
+  ) {
+
+    if (
+      value.index !== undefined
+    ) {
+
+      return normalizeAnswerIndex(
+        value.index,
+        question
+      );
+
+    }
+
+
+    if (
+      value.answerIndex !== undefined
+    ) {
+
+      return normalizeAnswerIndex(
+        value.answerIndex,
+        question
+      );
+
+    }
+
+
+    if (
+      value.selectedIndex !== undefined
+    ) {
+
+      return normalizeAnswerIndex(
+        value.selectedIndex,
+        question
+      );
+
+    }
+
+
+    if (
+      value.value !== undefined
+    ) {
+
+      return normalizeAnswerIndex(
+        value.value,
+        question
+      );
+
+    }
+
+
+    if (
+      value.answer !== undefined
+    ) {
+
+      return normalizeAnswerIndex(
+        value.answer,
+        question
+      );
+
+    }
+
+  }
+
+
+  // ====================================================
+  // NUMBER
+  // ====================================================
+
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
+
+    const index =
+      Math.trunc(
+        value
+      );
+
+
+    if (
+      index >= 0 &&
+      index < 4
+    ) {
+
+      return index;
+
+    }
+
+
+    return -1;
+
+  }
+
+
+  const text =
+    String(
+      value
+    )
+      .trim();
+
+
+  // ====================================================
+  // LETTER A-D
+  // ====================================================
+
+  const letter =
+    text.toUpperCase();
+
+
+  if (
+    ["A", "B", "C", "D"]
+      .includes(
+        letter
+      )
+  ) {
+
+    return (
+      letter.charCodeAt(0) -
+      65
+    );
+
+  }
+
+
+  // ====================================================
+  // STRING NUMBER
+  //
+  // Old/current platform:
+  // student numeric indexes are 0-based.
+  //
+  // ====================================================
+
+  if (
+    /^-?\d+$/.test(
+      text
+    )
+  ) {
+
+    const n =
+      Number(
+        text
+      );
+
+
+    if (
+      n >= 0 &&
+      n < 4
+    ) {
+
+      return n;
+
+    }
+
+
+    // Support old 1-based string values
+    if (
+      n >= 1 &&
+      n <= 4
+    ) {
+
+      return n - 1;
+
+    }
+
+  }
+
+
+  // ====================================================
+  // MATCH ANSWER TEXT
+  // ====================================================
+
+  const options =
+    getQuestionOptions(
+      question
+    );
+
+
+  const found =
+    options.findIndex(
+      option =>
+        normalizeText(
+          option
+        ) ===
+        normalizeText(
+          text
+        )
+    );
+
+
+  return found;
+
+}
+
+
+// ======================================================
+// NORMALIZE CORRECT ANSWER
+// ======================================================
+
+function normalizeCorrectAnswer(
+  question
+) {
+
+  if (!question) {
+
+    return -1;
+
+  }
+
+
+  let value;
+
+
+  if (
+    question.correctIndex !==
+    undefined &&
+    question.correctIndex !==
+    null
+  ) {
+
+    value =
+      question.correctIndex;
+
+  } else if (
+    question.correctAnswerIndex !==
+    undefined &&
+    question.correctAnswerIndex !==
+    null
+  ) {
+
+    value =
+      question.correctAnswerIndex;
+
+  } else if (
+    question.correctAnswer !==
+    undefined &&
+    question.correctAnswer !==
+    null
+  ) {
+
+    value =
+      question.correctAnswer;
+
+  } else if (
+    question.answer !==
+    undefined &&
+    question.answer !==
+    null
+  ) {
+
+    value =
+      question.answer;
+
+  } else {
+
+    return -1;
+
+  }
+
+
+  // ====================================================
+  // CURRENT EDITOR STORES NUMERIC CORRECT INDEX
+  // AS 0-BASED
+  // ====================================================
+
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
+
+    const index =
+      Math.trunc(
+        value
+      );
+
+
+    return (
+      index >= 0 &&
+      index < 4
+    )
+      ? index
+      : -1;
+
+  }
+
+
+  const text =
+    String(
+      value
+    )
+      .trim();
+
+
+  // A-D
+
+  const upper =
+    text.toUpperCase();
+
+
+  if (
+    ["A", "B", "C", "D"]
+      .includes(
+        upper
+      )
+  ) {
+
+    return (
+      upper.charCodeAt(0) -
+      65
+    );
+
+  }
+
+
+  // String numeric
+
+  if (
+    /^\d+$/.test(
+      text
+    )
+  ) {
+
+    const n =
+      Number(
+        text
+      );
+
+
+    if (
+      n >= 0 &&
+      n < 4
+    ) {
+
+      return n;
+
+    }
+
+
+    if (
+      n >= 1 &&
+      n <= 4
+    ) {
+
+      return n - 1;
+
+    }
+
+  }
+
+
+  // Answer text
+
+  const options =
+    getQuestionOptions(
+      question
+    );
+
+
+  const index =
+    options.findIndex(
+      option =>
+        normalizeText(
+          option
+        ) ===
+        normalizeText(
+          text
+        )
+    );
+
+
+  return index;
+
+}
+
+
+// ======================================================
+// QUESTION OPTIONS
+// ======================================================
+
+function getQuestionOptions(
+  question
+) {
+
+  if (!question) {
+
+    return [];
+
+  }
+
+
+  if (
+    Array.isArray(
+      question.options
+    )
+  ) {
+
+    return question.options;
+
+  }
+
+
+  if (
+    Array.isArray(
+      question.choices
+    )
+  ) {
+
+    return question.choices;
+
+  }
+
+
+  return [
+
+    question.optionA,
+    question.optionB,
+    question.optionC,
+    question.optionD
+
+  ].filter(
+    value =>
+      value !== undefined &&
+      value !== null &&
+      value !== ""
+  );
+
+}
+
+
+// ======================================================
+// QUESTION ID
+// ======================================================
+
+function getQuestionId(
+  question,
+  index
+) {
+
+  if (!question) {
+
+    return "";
+
+  }
+
+
+  const id =
+    question.id ??
+    question.firestoreId ??
+    question.questionId;
+
+
+  if (
+    id !== undefined &&
+    id !== null &&
+    String(id).trim()
+  ) {
+
+    return String(
+      id
+    ).trim();
+
+  }
+
+
+  return `index-${index}`;
+
+}
+
+
+// ======================================================
+// QUESTION TYPE
+// ======================================================
+
+function isEssayQuestion(
+  question
+) {
+
+  if (!question) {
+
+    return false;
+
+  }
+
+
+  const type =
+    String(
+      question.type ||
+      question.questionType ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  if (
+    type === "essay" ||
+    type === "text" ||
+    type === "written" ||
+    type === "مقالي"
+  ) {
+
+    return true;
+
+  }
+
+
+  const options =
+    getQuestionOptions(
+      question
+    );
+
+
+  return (
+    options.length === 0
+  );
+
+}
+
+
+// ======================================================
+// QUESTION SCORE
+// ======================================================
+
+function getQuestionScore(
+  question
+) {
+
+  if (!question) {
+
+    return 1;
+
+  }
+
+
+  const possible =
+    question.score ??
+    question.points ??
+    question.mark ??
+    question.grade;
+
+
+  const number =
+    Number(
+      possible
+    );
+
+
+  if (
+    Number.isFinite(
+      number
+    ) &&
+    number > 0
+  ) {
+
+    return number;
+
+  }
+
+
+  return 1;
+
+}
+
+
+// ======================================================
+// ESSAY GRADE
+// ======================================================
+
+function getEssayGrade(
+  essayGrades,
+  questionId,
+  oldIndex,
+  currentIndex
+) {
+
+  if (
+    !essayGrades
+  ) {
+
+    return 0;
+
+  }
+
+
+  if (
+    typeof essayGrades !== "object"
+  ) {
+
+    return 0;
+
+  }
+
+
+  // By question ID
+
+  if (
+    questionId &&
+    essayGrades[
+      questionId
+    ] !== undefined
+  ) {
+
+    return Number(
+      essayGrades[
+        questionId
+      ]
+    ) || 0;
+
+  }
+
+
+  // By old index
+
+  if (
+    essayGrades[
+      oldIndex
+    ] !== undefined
+  ) {
+
+    return Number(
+      essayGrades[
+        oldIndex
+      ]
+    ) || 0;
+
+  }
+
+
+  // By current index
+
+  if (
+    essayGrades[
+      currentIndex
+    ] !== undefined
+  ) {
+
+    return Number(
+      essayGrades[
+        currentIndex
+      ]
+    ) || 0;
+
+  }
+
+
+  return 0;
+
+}
+
+
+// ======================================================
+// NORMALIZE TEXT
+// ======================================================
+
+function normalizeText(
+  value
+) {
+
+  return String(
+    value ?? ""
+  )
+    .trim()
+    .replace(
+      /\s+/g,
+      " "
+    )
+    .toLowerCase();
+
+}
+
+
+// ======================================================
 // NORMALIZE ID
 // ======================================================
 
-function normalizeId(value) {
+function normalizeId(
+  value
+) {
 
   if (
     value === undefined ||
@@ -2527,7 +3711,9 @@ function normalizeId(value) {
   }
 
 
-  return String(value).trim();
+  return String(
+    value
+  ).trim();
 
 }
 
@@ -2553,27 +3739,11 @@ function buildResultShareUrl(
   }
 
 
-  /*
-   * مهم جداً:
-   *
-   * الرابط يحتوي على الـ ID الحقيقي
-   * للنتيجة الموجودة في Firestore.
-   *
-   * مثال:
-   *
-   * https://site.com/?result=ABC123
-   *
-   */
-
-
   const url =
     new URL(
       window.location.href
     );
 
-
-  // إزالة أي parameters قديمة
-  // حتى لا يحصل تعارض.
 
   url.search = "";
 
@@ -2593,7 +3763,9 @@ function buildResultShareUrl(
 // ESCAPE HTML
 // ======================================================
 
-function escapeHTML(value) {
+function escapeHTML(
+  value
+) {
 
   return String(
     value ?? ""
@@ -2657,12 +3829,15 @@ function printStudentReport(
 
   const total =
     studentResults.reduce(
-      (a, r) =>
+      (
+        a,
+        r
+      ) =>
         a +
         (
           Number(
             r.total
-          ) || 100
+          ) || 0
         ),
       0
     );
@@ -2670,7 +3845,10 @@ function printStudentReport(
 
   const score =
     studentResults.reduce(
-      (a, r) =>
+      (
+        a,
+        r
+      ) =>
         a +
         (
           Number(
@@ -2702,13 +3880,11 @@ function printStudentReport(
         ${escapeHTML(title)}
       </title>
 
-
       <style>
 
         @import url(
           'https://fonts.googleapis.com/css2?family=Cairo:wght@700;800&family=Tajawal:wght@400;500&display=swap'
         );
-
 
         body{
 
@@ -2725,7 +3901,6 @@ function printStudentReport(
 
         }
 
-
         h2{
 
           font-family:
@@ -2736,7 +3911,6 @@ function printStudentReport(
 
         }
 
-
         .sub{
 
           text-align:center;
@@ -2744,7 +3918,6 @@ function printStudentReport(
           color:#6b7280;
 
         }
-
 
         table{
 
@@ -2756,7 +3929,6 @@ function printStudentReport(
           margin-top:25px;
 
         }
-
 
         th,
         td{
@@ -2771,7 +3943,6 @@ function printStudentReport(
 
         }
 
-
         th{
 
           background:#111827;
@@ -2779,7 +3950,6 @@ function printStudentReport(
           color:#fff;
 
         }
-
 
         tr:nth-child(even)
         td{
@@ -2832,75 +4002,70 @@ function printStudentReport(
 
 
         ${studentResults
-          .map(r => {
+          .map(
+            r => {
 
-            const rTotal =
-              Number(
-                r.total
-              ) || 100;
-
-
-            const rScore =
-              Number(
-                r.score
-              ) || 0;
+              const rTotal =
+                Number(
+                  r.total
+                ) || 0;
 
 
-            const percent =
-              rTotal > 0
-                ? Math.round(
-                    (
-                      rScore /
-                      rTotal
-                    ) * 100
-                  )
-                : 0;
+              const rScore =
+                Number(
+                  r.score
+                ) || 0;
 
 
-            return `
-
-              <tr>
-
-                <td>
-
-                  ${escapeHTML(
-                    r.studentName ||
-                    ""
-                  )}
-
-                </td>
+              const percent =
+                rTotal > 0
+                  ? Math.round(
+                      (
+                        rScore /
+                        rTotal
+                      ) * 100
+                    )
+                  : 0;
 
 
-                <td>
+              return `
 
-                  ${escapeHTML(
-                    r.examTitle ||
-                    "امتحان"
-                  )}
+                <tr>
 
-                </td>
+                  <td>
+                    ${escapeHTML(
+                      r.studentName ||
+                      ""
+                    )}
+                  </td>
 
+                  <td>
+                    ${escapeHTML(
+                      r.examTitle ||
+                      "امتحان"
+                    )}
+                  </td>
 
-                <td>
+                  <td>
 
-                  ${rScore}
-                  /
-                  ${rTotal}
+                    ${rScore}
+                    /
+                    ${rTotal}
 
-                </td>
+                  </td>
 
+                  <td>
 
-                <td>
+                    ${percent}%
 
-                  ${percent}%
+                  </td>
 
-                </td>
+                </tr>
 
-              </tr>
+              `;
 
-            `;
-
-          })
+            }
+          )
           .join("")}
 
       </table>
@@ -2914,9 +4079,7 @@ function printStudentReport(
 
   win.document.close();
 
-
   win.focus();
-
 
   win.print();
 

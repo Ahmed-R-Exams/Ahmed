@@ -31,7 +31,7 @@ function escapeHTML(value) {
 // OPTIONS
 // ======================================================
 
-function getQuestionOptions(q) {
+function getQuestionOptions(q = {}) {
 
   if (!q || typeof q !== "object") {
     return [];
@@ -119,7 +119,7 @@ function getQuestionOptions(q) {
 // RAW CORRECT ANSWER
 // ======================================================
 
-function getRawCorrectAnswer(q) {
+function getRawCorrectAnswer(q = {}) {
 
   if (!q || typeof q !== "object") {
 
@@ -130,7 +130,8 @@ function getRawCorrectAnswer(q) {
 
   if (
     q.correctAnswerIndex !== undefined &&
-    q.correctAnswerIndex !== null
+    q.correctAnswerIndex !== null &&
+    q.correctAnswerIndex !== ""
   ) {
 
     return q.correctAnswerIndex;
@@ -140,7 +141,8 @@ function getRawCorrectAnswer(q) {
 
   if (
     q.correctIndex !== undefined &&
-    q.correctIndex !== null
+    q.correctIndex !== null &&
+    q.correctIndex !== ""
   ) {
 
     return q.correctIndex;
@@ -150,7 +152,8 @@ function getRawCorrectAnswer(q) {
 
   if (
     q.rightIndex !== undefined &&
-    q.rightIndex !== null
+    q.rightIndex !== null &&
+    q.rightIndex !== ""
   ) {
 
     return q.rightIndex;
@@ -160,7 +163,8 @@ function getRawCorrectAnswer(q) {
 
   if (
     q.correctAnswer !== undefined &&
-    q.correctAnswer !== null
+    q.correctAnswer !== null &&
+    q.correctAnswer !== ""
   ) {
 
     return q.correctAnswer;
@@ -170,7 +174,8 @@ function getRawCorrectAnswer(q) {
 
   if (
     q.answer !== undefined &&
-    q.answer !== null
+    q.answer !== null &&
+    q.answer !== ""
   ) {
 
     return q.answer;
@@ -180,7 +185,8 @@ function getRawCorrectAnswer(q) {
 
   if (
     q.correct !== undefined &&
-    q.correct !== null
+    q.correct !== null &&
+    q.correct !== ""
   ) {
 
     return q.correct;
@@ -194,10 +200,24 @@ function getRawCorrectAnswer(q) {
 
 
 // ======================================================
-// NORMALIZE CORRECT ANSWER
+// NORMALIZE INDEX
+// ======================================================
+//
+// النظام الحالي:
+// 0 = A
+// 1 = B
+// 2 = C
+// 3 = D
+//
+// الأرقام النصية القديمة:
+// "1" = A
+// "2" = B
+// "3" = C
+// "4" = D
+//
 // ======================================================
 
-function normalizeCorrectAnswer(
+function normalizeAnswerIndex(
   value,
   options = []
 ) {
@@ -213,12 +233,30 @@ function normalizeCorrectAnswer(
   }
 
 
+  // --------------------------------------------------
+  // NUMBER
+  // --------------------------------------------------
+
   if (
     typeof value === "number" &&
     Number.isFinite(value)
   ) {
 
-    return Math.trunc(value);
+    const n =
+      Math.trunc(value);
+
+
+    if (
+      n >= 0 &&
+      n < options.length
+    ) {
+
+      return n;
+
+    }
+
+
+    return -1;
 
   }
 
@@ -227,9 +265,16 @@ function normalizeCorrectAnswer(
     String(value).trim();
 
 
-  const upper =
-    raw.toUpperCase();
+  if (!raw) {
 
+    return -1;
+
+  }
+
+
+  // --------------------------------------------------
+  // LETTER
+  // --------------------------------------------------
 
   const letters = {
 
@@ -241,6 +286,10 @@ function normalizeCorrectAnswer(
   };
 
 
+  const upper =
+    raw.toUpperCase();
+
+
   if (
     Object.prototype.hasOwnProperty.call(
       letters,
@@ -248,29 +297,51 @@ function normalizeCorrectAnswer(
     )
   ) {
 
-    return letters[upper];
+    const index =
+      letters[upper];
+
+
+    return (
+      index >= 0 &&
+      index < options.length
+    )
+      ? index
+      : -1;
 
   }
 
 
-  // 1 = A
-  // 2 = B
-  // 3 = C
-  // 4 = D
+  // --------------------------------------------------
+  // 1 - 4
+  // --------------------------------------------------
 
   if (/^[1-4]$/.test(raw)) {
 
-    return Number(raw) - 1;
+    const index =
+      Number(raw) - 1;
+
+
+    if (
+      index >= 0 &&
+      index < options.length
+    ) {
+
+      return index;
+
+    }
 
   }
 
 
-  // 0-based index
+  // --------------------------------------------------
+  // OTHER NUMERIC STRING
+  // --------------------------------------------------
 
   if (/^\d+$/.test(raw)) {
 
     const number =
       Number(raw);
+
 
     if (
       number >= 0 &&
@@ -284,7 +355,9 @@ function normalizeCorrectAnswer(
   }
 
 
-  // correct answer stored as text
+  // --------------------------------------------------
+  // TEXT
+  // --------------------------------------------------
 
   const textIndex =
     options.findIndex(
@@ -309,13 +382,13 @@ function normalizeCorrectAnswer(
 // CORRECT ANSWER
 // ======================================================
 
-function getQuestionCorrectAnswer(q) {
+function getQuestionCorrectAnswer(q = {}) {
 
   const options =
     getQuestionOptions(q);
 
 
-  return normalizeCorrectAnswer(
+  return normalizeAnswerIndex(
     getRawCorrectAnswer(q),
     options
   );
@@ -327,12 +400,13 @@ function getQuestionCorrectAnswer(q) {
 // QUESTION TYPE
 // ======================================================
 
-function isEssayQuestion(q) {
+function isEssayQuestion(q = {}) {
 
   const options =
     getQuestionOptions(q);
 
 
+  // وجود الاختيارات يعني MCQ
   if (options.length > 0) {
 
     return false;
@@ -342,7 +416,7 @@ function isEssayQuestion(q) {
 
   const type =
     String(
-      q?.type || ""
+      q.type || ""
     )
       .toLowerCase()
       .trim();
@@ -363,29 +437,54 @@ function isEssayQuestion(q) {
 // QUESTION SCORE
 // ======================================================
 
-function getQuestionScore(q) {
+function getQuestionScore(q = {}) {
 
-  const score =
-    Number(
-      q?.score ??
-      q?.maxScore ??
-      q?.points ??
-      q?.grade ??
-      1
-    );
+  const values = [
+
+    q.score,
+    q.maxScore,
+    q.points,
+    q.grade
+
+  ];
 
 
-  return Number.isFinite(score) && score > 0
+  for (
+    const value
+    of values
+  ) {
 
-    ? score
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== ""
+    ) {
 
-    : 1;
+      const number =
+        Number(value);
+
+
+      if (
+        Number.isFinite(number) &&
+        number > 0
+      ) {
+
+        return number;
+
+      }
+
+    }
+
+  }
+
+
+  return 1;
 
 }
 
 
 // ======================================================
-// GET STUDENT ANSWER
+// STUDENT ANSWER
 // ======================================================
 
 function getStudentAnswer(
@@ -409,83 +508,13 @@ function getStudentAnswer(
 
 
 // ======================================================
-// CALCULATE MCQ SCORE
+// ESSAY GRADE
 // ======================================================
 
-function calculateMCQScore(
-  questions,
-  answers
-) {
-
-  if (!Array.isArray(questions)) {
-
-    return 0;
-
-  }
-
-
-  let total = 0;
-
-
-  questions.forEach(
-    (
-      question,
-      index
-    ) => {
-
-      if (
-        isEssayQuestion(question)
-      ) {
-
-        return;
-
-      }
-
-
-      const student =
-        Array.isArray(answers)
-
-          ? Number(
-              answers[index]
-            )
-
-          : NaN;
-
-
-      const correct =
-        getQuestionCorrectAnswer(
-          question
-        );
-
-
-      if (
-        Number.isFinite(student) &&
-        Number.isFinite(correct) &&
-        student === correct
-      ) {
-
-        total +=
-          getQuestionScore(
-            question
-          );
-
-      }
-
-    }
-  );
-
-
-  return total;
-
-}
-
-
-// ======================================================
-// CALCULATE ESSAY SCORE
-// ======================================================
-
-function calculateEssayScore(
-  essayGrades
+function getEssayGrade(
+  essayGrades,
+  index,
+  questionId = ""
 ) {
 
   if (
@@ -498,33 +527,256 @@ function calculateEssayScore(
   }
 
 
-  return Object.values(
-    essayGrades
-  ).reduce(
-    (
-      total,
-      value
-    ) =>
+  if (
+    essayGrades[index] !== undefined &&
+    essayGrades[index] !== null
+  ) {
 
-      total +
-      (
-        Number(value) || 0
-      ),
+    return Number(
+      essayGrades[index]
+    ) || 0;
 
-    0
+  }
 
-  );
+
+  if (
+    questionId &&
+    essayGrades[questionId] !== undefined &&
+    essayGrades[questionId] !== null
+  ) {
+
+    return Number(
+      essayGrades[questionId]
+    ) || 0;
+
+  }
+
+
+  return 0;
 
 }
 
 
 // ======================================================
-// GET EXAM ID FROM RESULT
+// QUESTION ID
+// ======================================================
+
+function getQuestionId(
+  q,
+  index
+) {
+
+  if (!q) {
+
+    return `index-${index}`;
+
+  }
+
+
+  const id =
+    q.id ??
+    q.firestoreId ??
+    q.questionId;
+
+
+  if (
+    id !== undefined &&
+    id !== null &&
+    String(id).trim() !== ""
+  ) {
+
+    return String(id);
+
+  }
+
+
+  return `index-${index}`;
+
+}
+
+
+// ======================================================
+// CALCULATE CURRENT RESULT
+// ======================================================
+//
+// ⚠️ مهم جدًا
+//
+// هذه الدالة لا تعتمد على:
+// result.score
+// result.total
+// result.percent
+//
+// وإنما تعيد الحساب من:
+// questions + answers + essayGrades
+//
+// ======================================================
+
+function calculateCurrentResult(
+  questions,
+  answers,
+  essayGrades
+) {
+
+  if (!Array.isArray(questions)) {
+
+    return {
+
+      score: 0,
+      total: 0,
+      percent: 0
+
+    };
+
+  }
+
+
+  let score = 0;
+
+  let total = 0;
+
+
+  questions.forEach(
+    (
+      question,
+      index
+    ) => {
+
+      if (
+        !question ||
+        typeof question !== "object"
+      ) {
+
+        return;
+
+      }
+
+
+      const maxScore =
+        getQuestionScore(
+          question
+        );
+
+
+      total += maxScore;
+
+
+      // ==============================================
+      // ESSAY
+      // ==============================================
+
+      if (
+        isEssayQuestion(
+          question
+        )
+      ) {
+
+        const questionId =
+          getQuestionId(
+            question,
+            index
+          );
+
+
+        const grade =
+          getEssayGrade(
+            essayGrades,
+            index,
+            questionId
+          );
+
+
+        const safeGrade =
+          Math.max(
+            0,
+            Math.min(
+              grade,
+              maxScore
+            )
+          );
+
+
+        score += safeGrade;
+
+
+        return;
+
+      }
+
+
+      // ==============================================
+      // MCQ
+      // ==============================================
+
+      const options =
+        getQuestionOptions(
+          question
+        );
+
+
+      const correctIndex =
+        getQuestionCorrectAnswer(
+          question
+        );
+
+
+      const studentValue =
+        Array.isArray(answers)
+          ? answers[index]
+          : undefined;
+
+
+      const studentIndex =
+        normalizeAnswerIndex(
+          studentValue,
+          options
+        );
+
+
+      if (
+        correctIndex !== -1 &&
+        studentIndex !== -1 &&
+        correctIndex === studentIndex
+      ) {
+
+        score += maxScore;
+
+      }
+
+    }
+  );
+
+
+  const percent =
+    total > 0
+
+      ? Math.round(
+          (score / total) * 100
+        )
+
+      : 0;
+
+
+  return {
+
+    score,
+    total,
+    percent
+
+  };
+
+}
+
+
+// ======================================================
+// GET EXAM ID
 // ======================================================
 
 function getResultExamId(result) {
 
-  if (!result || typeof result !== "object") {
+  if (
+    !result ||
+    typeof result !== "object"
+  ) {
 
     return null;
 
@@ -568,7 +820,7 @@ function getResultExamId(result) {
 
 
 // ======================================================
-// GET CANONICAL QUESTION
+// CANONICAL QUESTION
 // ======================================================
 
 function getCanonicalQuestion(
@@ -593,7 +845,7 @@ function getCanonicalQuestion(
 
 
 // ======================================================
-// CHECK IF ESSAY IS ALREADY GRADED
+// CHECK ESSAY GRADED
 // ======================================================
 
 function isEssayAlreadyGraded(
@@ -620,7 +872,9 @@ function isEssayAlreadyGraded(
     value !== undefined &&
     value !== null &&
     String(value).trim() !== "" &&
-    Number.isFinite(Number(value))
+    Number.isFinite(
+      Number(value)
+    )
   );
 
 }
@@ -629,30 +883,21 @@ function isEssayAlreadyGraded(
 // ======================================================
 // REVIEW RESULT PAGE
 // ======================================================
-//
-// ⚠️ تغيير أمني مهم:
-//
-// الباراميتر الثالث كان publicView = false (أي المعلم هو
-// الوضع الافتراضي، والطالب لازم حد "يفعّل" له publicView).
-// المشكلة إن أي مكان في الكود نسي يمرر true، الطالب كان
-// بياخد صلاحيات المعلم بالكامل (يقدر يعدل درجة المقالي).
-//
-// الحل: قلبنا الافتراضي ليبقى "آمن أولاً":
-// canGrade = false افتراضيًا (يعني مفيش صلاحية تعديل إلا
-// لو صفحة المعلم مررت canGrade = true صراحةً).
-//
-// ======================================================
 
 export function reviewResultPage(
   result,
   resultId = null,
-  canGrade = false,          // ✅ الافتراضي الآن: بدون صلاحية تعديل
+  canGrade = false,
   canonicalQuestions = null
 ) {
 
-  // publicView تبقى true في كل الحالات إلا لو المعلم
-  // صراحةً مرر canGrade = true من صفحة الإدارة الداخلية.
-  const publicView = !canGrade;
+  // ----------------------------------------------------
+  // الطالب = عرض فقط
+  // المعلم = يستطيع تقييم المقالي
+  // ----------------------------------------------------
+
+  const publicView =
+    !canGrade;
 
 
   const app =
@@ -687,28 +932,6 @@ export function reviewResultPage(
           لا توجد بيانات للنتيجة المطلوبة
         </p>
 
-        ${
-          publicView
-            ? ""
-            : `
-
-              <button
-                id="backToResults"
-                style="
-                  background:#2563eb;
-                  color:white;
-                  padding:12px 25px;
-                  border:none;
-                  border-radius:10px;
-                  cursor:pointer;
-                "
-              >
-                العودة
-              </button>
-
-            `
-        }
-
       </div>
 
     `;
@@ -717,7 +940,7 @@ export function reviewResultPage(
 
 
   // ====================================================
-  // QUESTIONS FROM RESULT
+  // RESULT QUESTIONS
   // ====================================================
 
   const resultQuestions =
@@ -782,7 +1005,7 @@ export function reviewResultPage(
                   cursor:pointer;
                 "
               >
-                ⬅ العودة للنتائج
+                ⬅ العودة
               </button>
 
             `
@@ -810,63 +1033,56 @@ export function reviewResultPage(
 
 
   // ====================================================
-  // TOTAL
+  // QUESTIONS USED FOR CALCULATION
+  // ====================================================
+  //
+  // إذا كانت نسخة الامتحان الحالية موجودة نستخدمها.
+  // وإلا نستخدم الأسئلة المحفوظة مع النتيجة.
+  //
   // ====================================================
 
-  let calculatedTotal = 0;
+  const calculationQuestions =
+    Array.isArray(canonicalQuestions) &&
+    canonicalQuestions.length
 
+      ? canonicalQuestions
 
-  resultQuestions.forEach(
-    q => {
-
-      calculatedTotal +=
-        getQuestionScore(q);
-
-    }
-  );
-
-
-  let safeTotal =
-    Number(result.total);
-
-
-  if (
-    !Number.isFinite(safeTotal) ||
-    safeTotal <= 0
-  ) {
-
-    safeTotal =
-      calculatedTotal;
-
-  }
-
-
-  if (!safeTotal) {
-
-    safeTotal = 1;
-
-  }
+      : resultQuestions;
 
 
   // ====================================================
-  // SCORE
+  // CALCULATE FINAL SCORE
   // ====================================================
 
-  let score =
-    Number(result.score);
+  const calculated =
+    calculateCurrentResult(
+      calculationQuestions,
+      answers,
+      result.essayGrades
+    );
 
 
-  if (!Number.isFinite(score)) {
+  // ====================================================
+  // IMPORTANT:
+  //
+  // لا نعتمد على result.score القديم.
+  // الدرجة الظاهرة الآن من الحساب الفعلي.
+  // ====================================================
 
-    score = 0;
+  const score =
+    calculated.score;
 
-  }
+
+  const safeTotal =
+    calculated.total > 0
+
+      ? calculated.total
+
+      : 1;
 
 
   const percent =
-    Math.round(
-      (score / safeTotal) * 100
-    );
+    calculated.percent;
 
 
   const passed =
@@ -874,7 +1090,21 @@ export function reviewResultPage(
 
 
   // ====================================================
-  // ASYNC LOAD CANONICAL EXAM
+  // SYNC LOCAL RESULT
+  // ====================================================
+
+  result.score =
+    score;
+
+  result.total =
+    calculated.total;
+
+  result.percent =
+    percent;
+
+
+  // ====================================================
+  // LOAD CURRENT EXAM
   // ====================================================
 
   if (
@@ -882,7 +1112,9 @@ export function reviewResultPage(
   ) {
 
     const examId =
-      getResultExamId(result);
+      getResultExamId(
+        result
+      );
 
 
     if (examId) {
@@ -903,7 +1135,9 @@ export function reviewResultPage(
               Array.isArray(
                 currentExam.questions
               )
+
                 ? currentExam.questions
+
                 : [];
 
 
@@ -911,6 +1145,38 @@ export function reviewResultPage(
               currentQuestions.length &&
               app
             ) {
+
+              // ----------------------------------------
+              // إعادة الحساب بالامتحان الحالي
+              // ----------------------------------------
+
+              const recalculated =
+                calculateCurrentResult(
+                  currentQuestions,
+                  answers,
+                  result.essayGrades
+                );
+
+
+              // ----------------------------------------
+              // تحديث النتيجة محليًا
+              // ----------------------------------------
+
+              result.score =
+                recalculated.score;
+
+
+              result.total =
+                recalculated.total;
+
+
+              result.percent =
+                recalculated.percent;
+
+
+              // ----------------------------------------
+              // عرض النتيجة الجديدة
+              // ----------------------------------------
 
               app.innerHTML =
                 reviewResultPage(
@@ -974,16 +1240,9 @@ export function reviewResultPage(
       }
 
 
-      // ==================================================
-      // PUBLIC VIEW / NO GRADING PERMISSION
-      // ==================================================
-      //
-      // أي حد مالوش canGrade = true (يعني الطالب أو أي
-      // رابط عام) مش بيتضاف له event listeners على أزرار
-      // الحفظ خالص — الأزرار دي أصلاً مش موجودة في الـ HTML
-      // في وضع publicView (شوف questionsHTML تحت).
-      //
-      // ==================================================
+      // ------------------------------------------------
+      // الطالب لا يستطيع تقييم المقالي
+      // ------------------------------------------------
 
       if (publicView) {
 
@@ -993,7 +1252,7 @@ export function reviewResultPage(
 
 
       // ==================================================
-      // ESSAY SAVE (معلم فقط)
+      // SAVE ESSAY GRADE
       // ==================================================
 
       document
@@ -1043,8 +1302,11 @@ export function reviewResultPage(
                     )
                   ) {
 
-                    input.disabled = true;
-                    button.disabled = true;
+                    input.disabled =
+                      true;
+
+                    button.disabled =
+                      true;
 
                     return;
 
@@ -1052,11 +1314,18 @@ export function reviewResultPage(
 
 
                   const q =
-                    resultQuestions[qIndex];
+                    calculationQuestions[
+                      qIndex
+                    ] ||
+                    resultQuestions[
+                      qIndex
+                    ];
 
 
                   const max =
-                    getQuestionScore(q);
+                    getQuestionScore(
+                      q
+                    );
 
 
                   let grade =
@@ -1084,39 +1353,56 @@ export function reviewResultPage(
                   ] = grade;
 
 
-                  input.disabled = true;
-                  button.disabled = true;
+                  // ------------------------------------
+                  // إعادة حساب النتيجة بالكامل
+                  // ------------------------------------
 
-                  button.innerHTML =
-                    "✓ تم تقييم السؤال";
-
-                  button.style.background =
-                    "#16a34a";
-
-                  button.style.cursor =
-                    "not-allowed";
-
-                  input.style.opacity =
-                    "0.6";
-
-
-                  const mcqScore =
-                    calculateMCQScore(
-                      resultQuestions,
-                      answers
-                    );
-
-
-                  const essayScore =
-                    calculateEssayScore(
+                  const recalculated =
+                    calculateCurrentResult(
+                      calculationQuestions,
+                      answers,
                       result.essayGrades
                     );
 
 
                   result.score =
-                    mcqScore +
-                    essayScore;
+                    recalculated.score;
 
+
+                  result.total =
+                    recalculated.total;
+
+
+                  result.percent =
+                    recalculated.percent;
+
+
+                  input.disabled =
+                    true;
+
+                  button.disabled =
+                    true;
+
+
+                  button.innerHTML =
+                    "✓ تم تقييم السؤال";
+
+
+                  button.style.background =
+                    "#16a34a";
+
+
+                  button.style.cursor =
+                    "not-allowed";
+
+
+                  input.style.opacity =
+                    "0.6";
+
+
+                  // ------------------------------------
+                  // SAVE
+                  // ------------------------------------
 
                   const id =
                     resultId ||
@@ -1144,7 +1430,13 @@ export function reviewResultPage(
                         result.score,
 
                       total:
-                        safeTotal
+                        result.total,
+
+                      percent:
+                        result.percent,
+
+                      percentage:
+                        result.percent
 
                     }
                   );
@@ -1154,6 +1446,10 @@ export function reviewResultPage(
                     "تم تقييم السؤال وحفظ الدرجة بنجاح"
                   );
 
+
+                  // ------------------------------------
+                  // إعادة رسم الصفحة
+                  // ------------------------------------
 
                   if (app) {
 
@@ -1216,6 +1512,11 @@ export function reviewResultPage(
             );
 
 
+          const questionForDisplay =
+            canonicalQuestion ||
+            studentQuestion;
+
+
           const studentAns =
             getStudentAnswer(
               result,
@@ -1229,7 +1530,7 @@ export function reviewResultPage(
 
           if (
             isEssayQuestion(
-              studentQuestion
+              questionForDisplay
             )
           ) {
 
@@ -1243,20 +1544,24 @@ export function reviewResultPage(
                 : "لم يتم تقديم إجابة";
 
 
+            const questionId =
+              getQuestionId(
+                questionForDisplay,
+                index
+              );
+
+
             const currentEssayGrade =
-              result.essayGrades &&
-              result.essayGrades[index] !== undefined
-
-                ? Number(
-                    result.essayGrades[index]
-                  ) || 0
-
-                : 0;
+              getEssayGrade(
+                result.essayGrades,
+                index,
+                questionId
+              );
 
 
             const maxQGrade =
               getQuestionScore(
-                studentQuestion
+                questionForDisplay
               );
 
 
@@ -1288,15 +1593,15 @@ export function reviewResultPage(
 
 
                 ${
-                  studentQuestion.image ||
-                  studentQuestion.questionImage
+                  questionForDisplay.image ||
+                  questionForDisplay.questionImage
 
                     ? `
 
                       <img
                         src="${escapeHTML(
-                          studentQuestion.image ||
-                          studentQuestion.questionImage
+                          questionForDisplay.image ||
+                          questionForDisplay.questionImage
                         )}"
                         style="
                           max-width:100%;
@@ -1317,8 +1622,8 @@ export function reviewResultPage(
                 ">
 
                   ${escapeHTML(
-                    studentQuestion.text ||
-                    studentQuestion.question ||
+                    questionForDisplay.text ||
+                    questionForDisplay.question ||
                     ""
                   )}
 
@@ -1359,15 +1664,6 @@ export function reviewResultPage(
 
 
                 ${
-                  // ============================================
-                  // قاعدة العرض:
-                  // - publicView (الطالب) => دايمًا عرض فقط،
-                  //   حتى لو الدرجة لسه صفر ومحدش قيّمها.
-                  // - المعلم و alreadyGraded => عرض "تم التقييم"
-                  //   بدون أي عناصر تحكم قابلة للتعديل.
-                  // - المعلم و !alreadyGraded => يظهر الفورم.
-                  // ============================================
-
                   publicView
 
                     ? `
@@ -1484,39 +1780,36 @@ export function reviewResultPage(
           // MCQ
           // ============================================
 
-          const studentAnsIndex =
-            Number.isFinite(
-              Number(studentAns)
-            )
-
-              ? Number(studentAns)
-
-              : -1;
-
-
           const studentOptions =
             getQuestionOptions(
               studentQuestion
             );
 
 
-          const canonicalOptions =
+          const displayOptions =
             getQuestionOptions(
-              canonicalQuestion
+              questionForDisplay
             );
 
 
           const options =
-            canonicalOptions.length > 0
+            displayOptions.length > 0
 
-              ? canonicalOptions
+              ? displayOptions
 
               : studentOptions;
 
 
+          const studentAnsIndex =
+            normalizeAnswerIndex(
+              studentAns,
+              studentOptions
+            );
+
+
           let correctIndex =
             getQuestionCorrectAnswer(
-              canonicalQuestion
+              questionForDisplay
             );
 
 
@@ -1561,7 +1854,7 @@ export function reviewResultPage(
 
           const qScore =
             getQuestionScore(
-              studentQuestion
+              questionForDisplay
             );
 
 
@@ -1591,15 +1884,15 @@ export function reviewResultPage(
 
 
               ${
-                studentQuestion.image ||
-                studentQuestion.questionImage
+                questionForDisplay.image ||
+                questionForDisplay.questionImage
 
                   ? `
 
                     <img
                       src="${escapeHTML(
-                        studentQuestion.image ||
-                        studentQuestion.questionImage
+                        questionForDisplay.image ||
+                        questionForDisplay.questionImage
                       )}"
                       style="
                         max-width:100%;
@@ -1621,8 +1914,8 @@ export function reviewResultPage(
               ">
 
                 ${escapeHTML(
-                  studentQuestion.text ||
-                  studentQuestion.question ||
+                  questionForDisplay.text ||
+                  questionForDisplay.question ||
                   ""
                 )}
 
@@ -1878,6 +2171,10 @@ export function reviewResultPage(
 
       </p>
 
+
+      <!-- ==========================================
+           FINAL RESULT
+           ========================================== -->
 
       <div style="
         margin:25px 0;
